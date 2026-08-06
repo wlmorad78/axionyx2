@@ -1,0 +1,140 @@
+{
+  "info": {
+    "name": "Axionyx ERP API",
+    "description": "مجموعة Postman لنظام Axionyx ERP - شركة توزيع",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api" },
+    { "key": "token", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{base_url}}/health-check"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var json = pm.response.json();",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@axionyx.com\",\n  \"password\": \"password\",\n  \"device_name\": \"postman\"\n}"
+            },
+            "url": "{{base_url}}/login"
+          }
+        },
+        {
+          "name": "Me",
+          "request": { "method": "GET", "url": "{{base_url}}/me" }
+        },
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "url": "{{base_url}}/logout" }
+        }
+      ]
+    },
+    {
+      "name": "Distribution",
+      "item": [
+        {
+          "name": "List Dispatch Orders",
+          "request": { "method": "GET", "url": "{{base_url}}/dispatch-orders" }
+        },
+        {
+          "name": "Create Dispatch Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_no\": \"DO-001\",\n  \"warehouse_id\": 1,\n  \"representative_id\": 1,\n  \"order_date\": \"2026-06-05\",\n  \"status\": \"pending\",\n  \"items\": [\n    { \"product_id\": 1, \"quantity\": 50, \"unit_cost\": 10 }\n  ]\n}"
+            },
+            "url": "{{base_url}}/dispatch-orders"
+          }
+        },
+        {
+          "name": "Approve Dispatch Order",
+          "request": { "method": "POST", "url": "{{base_url}}/dispatch-orders/1/approve" }
+        },
+        {
+          "name": "Representative Stocks",
+          "request": { "method": "GET", "url": "{{base_url}}/representative-stocks?representative_id=1" }
+        },
+        {
+          "name": "Create Return Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_no\": \"RR-001\",\n  \"warehouse_id\": 1,\n  \"representative_id\": 1,\n  \"return_date\": \"2026-06-05\",\n  \"status\": \"pending\",\n  \"items\": [\n    { \"product_id\": 1, \"quantity\": 10 }\n  ]\n}"
+            },
+            "url": "{{base_url}}/rep-return-orders"
+          }
+        },
+        {
+          "name": "Approve Return Order",
+          "request": { "method": "POST", "url": "{{base_url}}/rep-return-orders/1/approve" }
+        }
+      ]
+    },
+    {
+      "name": "Sales",
+      "item": [
+        {
+          "name": "Create Invoice",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoice_no\": \"INV-001\",\n  \"customer_id\": 1,\n  \"representative_id\": 1,\n  \"invoice_date\": \"2026-06-05\",\n  \"status\": \"unpaid\",\n  \"subtotal\": 100,\n  \"total\": 100,\n  \"remaining_amount\": 100,\n  \"items\": [\n    { \"product_id\": 1, \"quantity\": 5, \"price\": 20, \"total\": 100 }\n  ]\n}"
+            },
+            "url": "{{base_url}}/invoices"
+          }
+        },
+        {
+          "name": "Confirm Invoice",
+          "request": { "method": "POST", "url": "{{base_url}}/invoices/1/confirm" }
+        }
+      ]
+    },
+    {
+      "name": "Master Data",
+      "item": [
+        { "name": "Products", "request": { "method": "GET", "url": "{{base_url}}/products" } },
+        { "name": "Customers", "request": { "method": "GET", "url": "{{base_url}}/customers" } },
+        { "name": "Warehouses", "request": { "method": "GET", "url": "{{base_url}}/warehouses" } },
+        { "name": "Product Stocks", "request": { "method": "GET", "url": "{{base_url}}/product-stocks" } },
+        { "name": "Representatives", "request": { "method": "GET", "url": "{{base_url}}/representatives" } }
+      ]
+    }
+  ]
+}

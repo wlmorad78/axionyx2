@@ -1,0 +1,70 @@
+id,module_id,key,title,icon,route,api_resource,screen_type,sort_order,created_at,updated_at,is_active
+1,1,dashboard,لوحة التحكم,dashboard,/admin/dashboard,,dashboard,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+2,1,notifications,الإشعارات,notifications,/admin/notifications,notifications,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+3,1,daily-tasks,المهام اليومية,task_alt,/admin/daily-tasks,daily-tasks,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+4,2,users,المستخدمون,people,/admin/users,users,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+5,2,roles,الأدوار والصلاحيات,admin_panel_settings,/admin/roles,roles,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+6,2,user-roles,ربط المستخدمين بالأدوار,link,/admin/user-roles,user-roles,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+7,2,activity-logs,سجل النشاط,history,/admin/activity-logs,activity-logs,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+8,2,settings,إعدادات النظام,settings,/admin/settings,,settings,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+9,3,departments,الإدارات,apartment,/admin/departments,departments,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+10,3,position-levels,المستويات الوظيفية,stacked_line_chart,/admin/position-levels,position-levels,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+11,3,job-positions,الوظائف,work,/admin/job-positions,job-positions,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+12,3,org-structure,الهيكل التنظيمي,account_tree,/admin/org-structure,org-structures,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+13,3,employees,الموظفون,badge,/admin/employees,employees,resource,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+14,3,attendance,الحضور والانصراف,access_time,/admin/attendance,attendance-records,resource,5,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+15,3,leaves,الإجازات,beach_access,/admin/leaves,leave-requests,resource,6,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+16,3,payroll,الرواتب,payments,/admin/payroll,payroll-runs,resource,7,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+17,4,representatives,المندوبون,delivery_dining,/admin/representatives,representatives,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+18,4,sales-territories,مناطق المندوبين,map,/admin/sales-territories,sales-territories,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+19,4,route-plans,خط السير,route,/admin/route-plans,route-plans,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+20,4,visits,زيارات العملاء,handshake,/admin/visits,visits,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+21,4,rep-tracking,تتبع المندوبين,location_on,/admin/rep-tracking,rep-tracking,resource,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+22,4,rep-area-assignments,ربط المندوبين بالمناطق,layers,/admin/rep-area-assignments,rep-area-assignments,resource,5,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+23,5,customers,العملاء,store,/admin/customers,customers,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+24,5,customer-categories,تصنيفات العملاء,category,/admin/customer-categories,customer-categories,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+25,5,price-categories,فئات الأسعار,price_change,/admin/price-categories,price-categories,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+26,5,contacts,جهات الاتصال,contact_phone,/admin/contacts,contacts,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+27,5,customer-debts,مديونيات العملاء,account_balance_wallet,/admin/customer-debts,customer-debts,resource,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+28,6,products,المنتجات,inventory_2,/admin/products,products,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+29,6,categories,مجموعات المنتجات,folder,/admin/categories,categories,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+30,6,sub-categories,التصنيفات الفرعية,category,/admin/sub-categories,sub-categories,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+31,6,units,الوحدات,straighten,/admin/units,units,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+32,6,warehouses,المخازن,warehouse,/admin/warehouses,warehouses,resource,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+33,6,product-stocks,أرصدة المخزون,bar_chart,/admin/product-stocks,product-stocks,resource,5,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+34,6,inventory-movements,حركات المخزون,sync_alt,/admin/inventory-movements,inventory-movements,resource,6,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+35,6,inventory-count,الجرد,fact_check,/admin/inventory-count,inventory-counts,resource,7,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+36,7,price-quotes,عروض الأسعار,request_quote,/admin/price-quotes,price-quotes,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+37,7,sales-orders,أوامر البيع,shopping_cart_checkout,/admin/sales-orders,sales-orders,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+38,7,invoices,فواتير البيع,receipt_long,/admin/invoices,invoices,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+39,7,sales-returns,مرتجعات البيع,assignment_return,/admin/sales-returns,sales-returns,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+40,7,customer-payments,تحصيلات العملاء,payments,/admin/customer-payments,customer-payments,resource,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+41,8,suppliers,الموردون,factory,/admin/suppliers,suppliers,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+42,8,supplier-offers,عروض الموردين,description,/admin/supplier-offers,supplier-offers,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+43,8,purchase-orders,أوامر الشراء,shopping_bag,/admin/purchase-orders,purchase-orders,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+44,8,purchases,فواتير الشراء,receipt,/admin/purchases,purchases,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+45,8,purchase-returns,مرتجعات الشراء,undo,/admin/purchase-returns,purchase-returns,resource,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+46,9,chart-of-accounts,دليل الحسابات,account_tree,/admin/chart-of-accounts,chart-of-accounts,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+47,9,cashboxes,الصندوق,point_of_sale,/admin/cashboxes,cashboxes,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+48,9,banks,البنوك,account_balance,/admin/banks,banks,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+49,9,cash-transactions,حركات الصناديق,payments,/admin/cash-transactions,cash-transactions,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+50,9,bank-transactions,حركات البنوك,currency_exchange,/admin/bank-transactions,bank-transactions,resource,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+51,9,receipt-vouchers,سند قبض,download,/admin/receipt-vouchers,receipt-vouchers,resource,5,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+52,9,payment-vouchers,سند صرف,upload,/admin/payment-vouchers,payment-vouchers,resource,6,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+53,9,journal-entries,القيود اليومية,menu_book,/admin/journal-entries,journal-entries,resource,7,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+54,9,trial-balance,ميزان المراجعة,balance,/admin/trial-balance,trial-balance,resource,8,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+55,10,company-settings,بيانات الشركة,business,/admin/company-settings,company-settings,resource,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+56,10,governorates,المحافظات,public,/admin/governorates,governorates,resource,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+57,10,cities,المدن,location_city,/admin/cities,cities,resource,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+58,10,districts,الأحياء,place,/admin/districts,districts,resource,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+59,10,areas,المناطق,map,/admin/areas,areas,resource,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+60,10,streets,الشوارع,route,/admin/streets,streets,resource,5,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+61,10,tax-types,أنواع الضرائب,percent,/admin/tax-types,tax-types,resource,6,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+62,10,currencies,العملات,currency_exchange,/admin/currencies,currencies,resource,7,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+63,10,fiscal-years,سنوات العمل,calendar_month,/admin/fiscal-years,fiscal-years,resource,8,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+64,11,sales-reports,تقارير المبيعات,trending_up,/admin/sales-reports,,reports,0,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+65,11,purchase-reports,تقارير المشتريات,shopping_bag,/admin/purchase-reports,,reports,1,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+66,11,inventory-reports,تقارير المخزون,inventory,/admin/inventory-reports,,reports,2,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+67,11,customer-reports,تقارير العملاء,people_alt,/admin/customer-reports,,reports,3,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+68,11,rep-reports,تقارير المندوبين,local_shipping,/admin/rep-reports,,reports,4,2026-06-16 05:12:23,2026-06-16 05:12:23,1
+69,11,financial-reports,التقارير المالية,assessment,/admin/financial-reports,,reports,5,2026-06-16 05:12:23,2026-06-16 05:12:23,1

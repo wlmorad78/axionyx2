@@ -1,0 +1,75 @@
+<?php
+
+namespace App\Http\Controllers\Api\Workflows;
+
+use App\Http\Controllers\Controller;
+use App\Models\Workflows\MasterDataType;
+use App\Support\ValidationRules;
+use Illuminate\Http\Request;
+
+class MasterDataTypeController extends Controller
+{
+    public function index(Request $request)
+    {
+        $query = MasterDataType::query();
+
+        if ($request->branch_id) {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        if ($s = $request->input('search')) {
+            $query->where(function ($q) use ($s) {
+                $q->where('code', 'like', "%{$s}%")
+                  ->orWhere('name', 'like', "%{$s}%")
+                  ->orWhere('entity_name', 'like', "%{$s}%");
+            });
+        }
+
+        if ($request->filled('is_active')) $query->where('is_active', $request->is_active);
+
+        $perPage = min((int) $request->input('per_page', 15), 100);
+
+        return $query->orderByDesc('id')->paginate($perPage);
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate(ValidationRules::for('master_data_type', 'create'));
+        $masterDataType = MasterDataType::create($data);
+        return response()->json($masterDataType, 201);
+    }
+
+    public function show($id)
+    {
+        return MasterDataType::findOrFail($id);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $masterDataType = MasterDataType::findOrFail($id);
+        $data = $request->validate(ValidationRules::for('master_data_type', 'update', $masterDataType));
+        $masterDataType->update($data);
+        return $masterDataType;
+    }
+
+    public function destroy($id)
+    {
+        $masterDataType = MasterDataType::findOrFail($id);
+        $masterDataType->delete();
+        return response()->json(['message' => 'Deleted']);
+    }
+
+    public function restore($id)
+    {
+        $masterDataType = MasterDataType::withTrashed()->findOrFail($id);
+        $masterDataType->restore();
+        return $masterDataType;
+    }
+
+    public function forceDelete($id)
+    {
+        $masterDataType = MasterDataType::withTrashed()->findOrFail($id);
+        $masterDataType->forceDelete();
+        return response()->json(['message' => 'Permanently deleted']);
+    }
+}

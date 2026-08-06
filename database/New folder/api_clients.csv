@@ -1,0 +1,2 @@
+id,company_id,client_name,client_id,client_secret,allowed_ips,is_active,created_at,updated_at,deleted_at
+1,1,تطبيق الموبايل - Mobile App,client_001,secret_f058d1271a3150d7c1a89e57a593113e,,1,2026-06-16 05:12:41,2026-06-16 05:12:41,

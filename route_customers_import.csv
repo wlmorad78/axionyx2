@@ -1,0 +1,6 @@
+route_id,customer_id,visit_order,visit_frequency,is_mandatory,start_date,end_date,is_active
+1,101,1,Daily,1,2026-07-01,,1
+1,102,2,Daily,1,2026-07-01,,1
+1,103,3,Weekly,1,2026-07-01,,1
+2,104,1,Daily,1,2026-07-01,,1
+2,105,2,BiWeekly,0,2026-07-01,,1

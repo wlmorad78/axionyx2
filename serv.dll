@@ -1,0 +1,37 @@
+root
+
+اسم الجهاز (Hostname):
+
+axionyx1-1
+
+مسار المشروع:
+
+/var/www/axionyx
+
+قاعدة البيانات:
+
+PostgreSQL
+
+إعدادات قاعدة البيانات:
+
+Host: 63.250.56.72
+Port: 5432
+Database: axionyx
+
+إطار العمل:
+
+Laravel 12
+
+أوامر تستخدمها كثيرًا:
+
+cd /var/www/axionyx
+
+php artisan migrate
+
+php artisan db:seed --class=NewCompanyUsersSeeder
+
+php artisan optimize:clear
+
+GitHub Repository:
+
+https://github.com/wlmorad78/axionyx_erp.git

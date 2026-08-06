@@ -1,0 +1,848 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Axionyx ERP API",
+        "description": "واجهة برمجة نظام إدارة موارد الشركة - شركة توزيع",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost/api",
+            "description": "API Server"
+        }
+    ],
+    "paths": {
+        "/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "تسجيل الدخول",
+                "operationId": "67d6d0fdd54fba132e1b6f55ca254183",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "admin@test.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password"
+                                    },
+                                    "device_name": {
+                                        "type": "string",
+                                        "example": "mobile-app"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم تسجيل الدخول بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string",
+                                            "example": "Bearer"
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "بيانات غير صحيحة"
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "تسجيل الخروج",
+                "operationId": "28d48c13fca984400ac8de99f54ee13a",
+                "responses": {
+                    "200": {
+                        "description": "تم تسجيل الخروج"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/me": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "بيانات المستخدم الحالي",
+                "operationId": "bc2032a379aa97707ccc61511897c120",
+                "responses": {
+                    "200": {
+                        "description": "بيانات المستخدم",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "تسجيل مستخدم جديد (يتطلب صلاحية)",
+                "operationId": "5d4fa5d5607ed675ba93907e1fc94534",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    },
+                                    "phone": {
+                                        "type": "string"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean"
+                                    },
+                                    "role_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم إنشاء المستخدم"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    },
+                    "422": {
+                        "description": "خطأ في البيانات"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/health-check": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "فحص حالة السيرفر",
+                "operationId": "3d2d9cafa9e776de9b5bc232b502bfa6",
+                "responses": {
+                    "200": {
+                        "description": "السيرفر يعمل"
+                    }
+                }
+            }
+        },
+        "/dispatch-orders": {
+            "get": {
+                "tags": [
+                    "Distribution"
+                ],
+                "summary": "قائمة أوامر الصرف",
+                "operationId": "39ff56a05e8f99ab5ca888a54a5e4095",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "trashed",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "نجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Pagination"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Distribution"
+                ],
+                "summary": "إنشاء أمر صرف (تحميل للمندوب)",
+                "operationId": "5f7e80f07eda221c6bc31139b764548d",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "order_no",
+                                    "warehouse_id",
+                                    "representative_id",
+                                    "order_date",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "order_no": {
+                                        "type": "string",
+                                        "example": "DO-001"
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer"
+                                    },
+                                    "representative_id": {
+                                        "type": "integer"
+                                    },
+                                    "order_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "draft",
+                                            "pending",
+                                            "approved",
+                                            "cancelled"
+                                        ]
+                                    },
+                                    "notes": {
+                                        "type": "string"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "product_id": {
+                                                    "type": "integer"
+                                                },
+                                                "quantity": {
+                                                    "type": "number"
+                                                },
+                                                "unit_cost": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم الإنشاء"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/dispatch-orders/{id}/approve": {
+            "post": {
+                "tags": [
+                    "Distribution"
+                ],
+                "summary": "اعتماد أمر الصرف - خصم المخزن وإضافة للمندوب",
+                "operationId": "a9f667105fbf65b997c3c503ec221037",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "approved_by": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم الاعتماد"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/rep-return-orders": {
+            "post": {
+                "tags": [
+                    "Distribution"
+                ],
+                "summary": "إنشاء أمر ارتجاع للمخزن",
+                "operationId": "f2e97b9290e405f494267768b8199d91",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "order_no",
+                                    "warehouse_id",
+                                    "representative_id",
+                                    "return_date",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "order_no": {
+                                        "type": "string",
+                                        "example": "RR-001"
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer"
+                                    },
+                                    "representative_id": {
+                                        "type": "integer"
+                                    },
+                                    "return_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "product_id": {
+                                                    "type": "integer"
+                                                },
+                                                "quantity": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم الإنشاء"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/rep-return-orders/{id}/approve": {
+            "post": {
+                "tags": [
+                    "Distribution"
+                ],
+                "summary": "اعتماد الارتجاع - إرجاع البضاعة للمخزن",
+                "operationId": "9a59344aa619d3080ec1e7f905011b72",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم الاعتماد"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/representative-stocks": {
+            "get": {
+                "tags": [
+                    "Distribution"
+                ],
+                "summary": "مخزون المندوب",
+                "operationId": "5baba3e783fa81dcf8a1e1b017ba9213",
+                "parameters": [
+                    {
+                        "name": "representative_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "product_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "نجاح"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/invoices": {
+            "post": {
+                "tags": [
+                    "Sales"
+                ],
+                "summary": "إنشاء فاتورة بيع (يخصم من مخزون المندوب)",
+                "operationId": "16744eec389ac2e31b5dc17e99acde68",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "invoice_no",
+                                    "customer_id",
+                                    "invoice_date",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "invoice_no": {
+                                        "type": "string"
+                                    },
+                                    "customer_id": {
+                                        "type": "integer"
+                                    },
+                                    "representative_id": {
+                                        "type": "integer"
+                                    },
+                                    "invoice_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "draft",
+                                            "paid",
+                                            "partial",
+                                            "unpaid",
+                                            "cancelled"
+                                        ]
+                                    },
+                                    "total": {
+                                        "type": "number"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "product_id": {
+                                                    "type": "integer"
+                                                },
+                                                "quantity": {
+                                                    "type": "number"
+                                                },
+                                                "price": {
+                                                    "type": "number"
+                                                },
+                                                "total": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم الإنشاء"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/invoices/{id}/confirm": {
+            "post": {
+                "tags": [
+                    "Sales"
+                ],
+                "summary": "تأكيد فاتورة مسودة وخصم المخزون",
+                "operationId": "8a8c1a5abc780acbcd49a2eb208d705b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم التأكيد"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/products": {
+            "get": {
+                "tags": [
+                    "Master Data"
+                ],
+                "summary": "قائمة المنتجات",
+                "operationId": "2549a4913ab01c7a16413aa3d2a14a7f",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "نجاح"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/customers": {
+            "get": {
+                "tags": [
+                    "Master Data"
+                ],
+                "summary": "قائمة العملاء",
+                "operationId": "5a7815171384bdd295214025a9666fc4",
+                "responses": {
+                    "200": {
+                        "description": "نجاح"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/warehouses": {
+            "get": {
+                "tags": [
+                    "Inventory"
+                ],
+                "summary": "قائمة المخازن",
+                "operationId": "2eb963a2da0496ed5fef0c66082aa423",
+                "responses": {
+                    "200": {
+                        "description": "نجاح"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/product-stocks": {
+            "get": {
+                "tags": [
+                    "Inventory"
+                ],
+                "summary": "أرصدة المخزن",
+                "operationId": "fdd8079026f61b5754d051c901965c5f",
+                "responses": {
+                    "200": {
+                        "description": "نجاح"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "User": {
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "type": "boolean"
+                    },
+                    "roles": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Role"
+                        }
+                    },
+                    "representative": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/Representative"
+                            }
+                        ],
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Role": {
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Representative": {
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "region_id": {
+                        "type": "integer"
+                    },
+                    "target_amount": {
+                        "type": "number"
+                    },
+                    "commission_rate": {
+                        "type": "number"
+                    }
+                },
+                "type": "object"
+            },
+            "Pagination": {
+                "properties": {
+                    "current_page": {
+                        "type": "integer"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "per_page": {
+                        "type": "integer"
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "Error": {
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "errors": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "description": "أدخل التوكن: Bearer {token}",
+                "bearerFormat": "Sanctum Token",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "المصادقة"
+        },
+        {
+            "name": "Distribution",
+            "description": "التوزيع - صرف وارتجاع ومخزون المندوب"
+        },
+        {
+            "name": "Sales",
+            "description": "المبيعات والفواتير"
+        },
+        {
+            "name": "Inventory",
+            "description": "المخزون"
+        },
+        {
+            "name": "Master Data",
+            "description": "البيانات الأساسية"
+        }
+    ]
+}

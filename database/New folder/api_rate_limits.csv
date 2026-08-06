@@ -1,0 +1,2 @@
+id,api_client_id,requests_per_minute,requests_per_hour,requests_per_day,created_at,updated_at
+1,1,60,1000,10000,2026-06-16 05:12:41,2026-06-16 05:12:41
