@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\CompanyAccessMiddleware::class,
             \App\Http\Middleware\BranchScope::class,
         ]);
+
         $middleware->alias([
             'api.permission' => \App\Http\Middleware\CheckApiPermission::class,
             'permission' => \App\Http\Middleware\CheckPermission::class,
@@ -25,7 +27,18 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
             'plan.access' => \App\Http\Middleware\CheckPlanAccess::class,
         ]);
+
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('api/*')) {
+                return null;
+            }
+
+            return null;
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
-    })->create();
+        $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $input) {
+            return $request->is('api/*') || $request->expectsJson();
+        });
+    })
+    ->create();
