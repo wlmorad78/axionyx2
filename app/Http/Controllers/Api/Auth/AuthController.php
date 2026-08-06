@@ -22,13 +22,13 @@ class AuthController extends Controller
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
-                'usercode' => ['Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¯Ø®ÙˆÙ„ ØºÙŠØ± ØµØ­ÙŠØ­Ø©.'],
+                'usercode' => ['بيانات الدخول غير صحيحة.'],
             ]);
         }
 
         if (! $user->is_active) {
             throw ValidationException::withMessages([
-                'usercode' => ['Ø­Ø³Ø§Ø¨Ùƒ Ù…Ø¹Ø·Ù‘Ù„. ØªÙˆØ§ØµÙ„ Ù…Ø¹ Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„.'],
+                'usercode' => ['حسابك معطّل. تواصل مع المسؤول.'],
             ]);
         }
 
@@ -51,7 +51,7 @@ class AuthController extends Controller
         }
 
         if (!$token) {
-            throw $lastException ?? new \Exception('ÙØ´Ù„ ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„. Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.');
+            throw $lastException ?? new \Exception('فشل تسجيل الدخول. حاول مرة أخرى.');
         }
 
         $company = $user->company;

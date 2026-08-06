@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\DemoAuthController;
 use App\Http\Controllers\Api\Settings\SubscriptionPlanController;
 use App\Http\Controllers\Web\BankAccountWebController;
 use App\Http\Controllers\Web\BankReconciliationWebController;
@@ -136,10 +135,6 @@ Route::get('/switch-company/{companyId}', function ($companyId) {
     session(['company_id' => $companyId]);
     return back()->with('success', 'تم تبديل الشركة بنجاح.');
 })->name('switch-company');
-
-Route::get('/demo-login', [DemoAuthController::class, 'showLogin'])->name('demo-login');
-Route::post('/demo-login', [DemoAuthController::class, 'login'])->name('demo-login');
-Route::get('/demo-logout', [DemoAuthController::class, 'logout'])->name('demo-logout');
 
 Route::middleware(['auth'])->prefix('load-requests')->name('load-requests.')->group(function () {
     Route::get('/', [LoadRequestWebController::class, 'index'])->name('index');
