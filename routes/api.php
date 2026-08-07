@@ -23,6 +23,9 @@ Route::get('postman-collection', function () {
 // Public: Login (no auth required)
 Route::post('login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
 
+// Public: Handheld login (no auth required)
+require __DIR__.'/api/handheld_auth.php';
+
 // Protected: require auth for all non-login routes below
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -1694,6 +1697,7 @@ Route::post('opening-balance-documents/{openingBalanceDocument}/post', [\App\Htt
 Route::post('opening-balance-documents/{openingBalanceDocument}/cancel', [\App\Http\Controllers\Api\Accounting\OpeningBalanceDocumentController::class, 'cancel'])->middleware('permission:accounting.opening.cancel');
 
 // ===== Sales Invoice Custom Routes =====
+Route::get('sales-invoices/resolve-price', [\App\Http\Controllers\Api\Sales\SalesInvoiceController::class, 'resolvePrice']);
 Route::post('sales-invoices/{salesInvoice}/post', [\App\Http\Controllers\Api\Sales\SalesInvoiceController::class, 'post'])->middleware('permission:sales.invoice.post');
 Route::post('sales-invoices/{salesInvoice}/cancel', [\App\Http\Controllers\Api\Sales\SalesInvoiceController::class, 'cancel'])->middleware('permission:sales.invoice.cancel');
 
