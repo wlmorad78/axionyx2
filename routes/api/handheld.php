@@ -32,7 +32,7 @@ use Illuminate\Support\Facades\DB;
 
 if (!function_exists('resolveEmployee')) {
     function resolveEmployee(\Illuminate\Http\Request $request) {
-        $salesmanUserId = $request->input('_salesman_id');
+        $salesmanUserId = $request->input('_salesman_id') ?? $request->header('X-Salesman-Id');
 
         if ($salesmanUserId) {
             $salesmanUser = \App\Models\User::find($salesmanUserId);
