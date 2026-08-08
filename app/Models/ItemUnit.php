@@ -20,6 +20,7 @@ class ItemUnit extends Model
         'is_default',
         'purchase_price',
         'sale_price',
+        'consumer_price',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class ItemUnit extends Model
         'is_default' => 'boolean',
         'purchase_price' => 'decimal:2',
         'sale_price' => 'decimal:2',
+        'consumer_price' => 'decimal:2',
     ];
 
     public function item()

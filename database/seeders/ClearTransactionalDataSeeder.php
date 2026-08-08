@@ -67,6 +67,9 @@ class ClearTransactionalDataSeeder extends Seeder
             'rep_daily_settlements',
             'salesman_settlements',
             'vehicle_settlements',
+            'vehicle_expenses',
+            'vehicle_daily_expenses',
+            'expenses',
             'tax_returns',
 
             'treasury_custody_transactions',

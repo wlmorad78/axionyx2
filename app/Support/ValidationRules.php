@@ -1430,6 +1430,7 @@ class ValidationRules
                 'is_default' => ['sometimes', 'boolean'],
                 'purchase_price' => ['nullable', 'numeric', 'min:0'],
                 'sale_price' => ['nullable', 'numeric', 'min:0'],
+                'consumer_price' => ['nullable', 'numeric', 'min:0'],
             ],
             'price_list' => [
                 'company_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:companies,id'],

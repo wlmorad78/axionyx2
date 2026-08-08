@@ -102,6 +102,6 @@ class ExpenseTypeController extends Controller
         if ($last && preg_match('/^EX-(\d+)$/', $last->code, $m)) {
             $next = (int) $m[1] + 1;
         }
-        return response()->json(['next_code' => 'EX-' . str_pad((string) $next, 4, '0', STR_PAD_LEFT)]);
+        return response()->json(['next_code' => 'EX-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT)]);
     }
 }

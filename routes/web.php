@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DemoAuthController;
 use App\Http\Controllers\Api\Settings\SubscriptionPlanController;
 use App\Http\Controllers\Web\BankAccountWebController;
 use App\Http\Controllers\Web\BankReconciliationWebController;
@@ -40,7 +41,7 @@ Route::get('/', function () {
         'treasuryBankTransfers', 'bankSupplierPayments',
         'totalTreasuryToBank', 'totalBankToTreasury', 'totalBankToSupplier'
     ));
-});
+})->name('web.dashboard');
 
 Route::get('/admin', function () {
     $user = auth()->user();
@@ -70,7 +71,7 @@ Route::get('/admin', function () {
     $modules = $query->get();
 
     return view('admin.index', compact('modules'));
-});
+})->name('web.admin');
 
 Route::get('/admin/screens/{key}', function (string $key) {
     $screen = AdminScreen::query()
@@ -125,18 +126,22 @@ Route::get('/admin/screens/{key}', function (string $key) {
     }
 
     return view('admin.resource', compact('screen', 'records', 'columns', 'totalCount'));
-});
+})->name('web.admin.screens');
 
-Route::get('/subscription-plans', [SubscriptionPlanController::class, 'index'])->name('subscription-plans.index');
-Route::get('/subscription-plans/{id}', [SubscriptionPlanController::class, 'show'])->name('subscription-plans.show');
-Route::post('/subscription-plans/{id}/assign', [SubscriptionPlanController::class, 'assign'])->name('subscription-plans.assign');
+Route::get('/subscription-plans', [SubscriptionPlanController::class, 'index'])->name('web.subscription-plans.index');
+Route::get('/subscription-plans/{id}', [SubscriptionPlanController::class, 'show'])->name('web.subscription-plans.show');
+Route::post('/subscription-plans/{id}/assign', [SubscriptionPlanController::class, 'assign'])->name('web.subscription-plans.assign');
 
 Route::get('/switch-company/{companyId}', function ($companyId) {
     session(['company_id' => $companyId]);
     return back()->with('success', 'تم تبديل الشركة بنجاح.');
-})->name('switch-company');
+})->name('web.switch-company');
 
-Route::middleware(['auth'])->prefix('load-requests')->name('load-requests.')->group(function () {
+Route::get('/demo-login', [DemoAuthController::class, 'showLogin'])->name('web.demo-login');
+Route::post('/demo-login', [DemoAuthController::class, 'login'])->name('web.demo-login.post');
+Route::get('/demo-logout', [DemoAuthController::class, 'logout'])->name('web.demo-logout');
+
+Route::middleware(['auth'])->prefix('load-requests')->name('web.load-requests.')->group(function () {
     Route::get('/', [LoadRequestWebController::class, 'index'])->name('index');
     Route::get('/create', [LoadRequestWebController::class, 'create'])->name('create');
     Route::post('/', [LoadRequestWebController::class, 'store'])->name('store');
@@ -146,7 +151,7 @@ Route::middleware(['auth'])->prefix('load-requests')->name('load-requests.')->gr
     Route::delete('/{loadRequest}', [LoadRequestWebController::class, 'destroy'])->name('destroy');
 });
 
-Route::middleware(['auth'])->prefix('vehicles')->name('vehicles.')->group(function () {
+Route::middleware(['auth'])->prefix('vehicles')->name('web.vehicles.')->group(function () {
     Route::get('/', [VehicleWebController::class, 'index'])->name('index');
     Route::get('/create', [VehicleWebController::class, 'create'])->name('create');
     Route::post('/', [VehicleWebController::class, 'store'])->name('store');
@@ -157,7 +162,7 @@ Route::middleware(['auth'])->prefix('vehicles')->name('vehicles.')->group(functi
     Route::post('/{vehicle}/restore', [VehicleWebController::class, 'restore'])->name('restore');
 });
 
-Route::middleware(['auth'])->prefix('return-orders')->name('return-orders.')->group(function () {
+Route::middleware(['auth'])->prefix('return-orders')->name('web.return-orders.')->group(function () {
     Route::get('/', [ReturnOrderWebController::class, 'index'])->name('index');
     Route::get('/{returnOrder}', [ReturnOrderWebController::class, 'show'])->name('show');
     Route::get('/{returnOrder}/approve', [ReturnOrderWebController::class, 'approve'])->name('approve');
@@ -165,7 +170,7 @@ Route::middleware(['auth'])->prefix('return-orders')->name('return-orders.')->gr
     Route::patch('/{returnOrder}/reopen', [ReturnOrderWebController::class, 'reopen'])->name('reopen');
 });
 
-Route::middleware(['auth'])->prefix('bank-accounts')->name('bank-accounts.')->group(function () {
+Route::middleware(['auth'])->prefix('bank-accounts')->name('web.bank-accounts.')->group(function () {
     Route::get('/', [BankAccountWebController::class, 'index'])->name('index');
     Route::get('/create', [BankAccountWebController::class, 'create'])->name('create');
     Route::post('/', [BankAccountWebController::class, 'store'])->name('store');
@@ -175,7 +180,7 @@ Route::middleware(['auth'])->prefix('bank-accounts')->name('bank-accounts.')->gr
     Route::delete('/{bankAccount}', [BankAccountWebController::class, 'destroy'])->name('destroy');
 });
 
-Route::middleware(['auth'])->prefix('bank-transfers')->name('bank-transfers.')->group(function () {
+Route::middleware(['auth'])->prefix('bank-transfers')->name('web.bank-transfers.')->group(function () {
     Route::get('/', [BankTransferWebController::class, 'index'])->name('index');
     Route::get('/create', [BankTransferWebController::class, 'create'])->name('create');
     Route::post('/', [BankTransferWebController::class, 'store'])->name('store');
@@ -183,7 +188,7 @@ Route::middleware(['auth'])->prefix('bank-transfers')->name('bank-transfers.')->
     Route::delete('/{bankTransfer}', [BankTransferWebController::class, 'destroy'])->name('destroy');
 });
 
-Route::middleware(['auth'])->prefix('bank-reconciliations')->name('bank-reconciliations.')->group(function () {
+Route::middleware(['auth'])->prefix('bank-reconciliations')->name('web.bank-reconciliations.')->group(function () {
     Route::get('/', [BankReconciliationWebController::class, 'index'])->name('index');
     Route::get('/create', [BankReconciliationWebController::class, 'create'])->name('create');
     Route::post('/', [BankReconciliationWebController::class, 'store'])->name('store');
@@ -191,7 +196,7 @@ Route::middleware(['auth'])->prefix('bank-reconciliations')->name('bank-reconcil
     Route::delete('/{bankReconciliation}', [BankReconciliationWebController::class, 'destroy'])->name('destroy');
 });
 
-Route::middleware(['auth'])->prefix('treasury-bank-transfers')->name('treasury-bank-transfers.')->group(function () {
+Route::middleware(['auth'])->prefix('treasury-bank-transfers')->name('web.treasury-bank-transfers.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Web\TreasuryBankTransferWebController::class, 'index'])->name('index');
     Route::get('/create', [\App\Http\Controllers\Web\TreasuryBankTransferWebController::class, 'create'])->name('create');
     Route::post('/', [\App\Http\Controllers\Web\TreasuryBankTransferWebController::class, 'store'])->name('store');
@@ -199,7 +204,7 @@ Route::middleware(['auth'])->prefix('treasury-bank-transfers')->name('treasury-b
     Route::delete('/{treasuryBankTransfer}', [\App\Http\Controllers\Web\TreasuryBankTransferWebController::class, 'destroy'])->name('destroy');
 });
 
-Route::middleware(['auth'])->prefix('bank-supplier-payments')->name('bank-supplier-payments.')->group(function () {
+Route::middleware(['auth'])->prefix('bank-supplier-payments')->name('web.bank-supplier-payments.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Web\BankSupplierPaymentWebController::class, 'index'])->name('index');
     Route::get('/create', [\App\Http\Controllers\Web\BankSupplierPaymentWebController::class, 'create'])->name('create');
     Route::post('/', [\App\Http\Controllers\Web\BankSupplierPaymentWebController::class, 'store'])->name('store');
@@ -207,12 +212,12 @@ Route::middleware(['auth'])->prefix('bank-supplier-payments')->name('bank-suppli
     Route::delete('/{bankSupplierPayment}', [\App\Http\Controllers\Web\BankSupplierPaymentWebController::class, 'destroy'])->name('destroy');
 });
 
-Route::middleware(['auth'])->prefix('item-ledger')->name('item-ledger.')->group(function () {
+Route::middleware(['auth'])->prefix('item-ledger')->name('web.item-ledger.')->group(function () {
     Route::get('/', [ItemLedgerController::class, 'index'])->name('index');
     Route::get('/rep-drawer/{repId}', [ItemLedgerController::class, 'repDrawer'])->name('rep-drawer');
 });
 
-Route::middleware(['auth'])->prefix('opening-balances')->name('opening-balances.')->group(function () {
+Route::middleware(['auth'])->prefix('opening-balances')->name('web.opening-balances.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Web\OpeningBalanceDocumentWebController::class, 'index'])->name('index');
     Route::get('/create', [\App\Http\Controllers\Web\OpeningBalanceDocumentWebController::class, 'create'])->name('create');
     Route::post('/', [\App\Http\Controllers\Web\OpeningBalanceDocumentWebController::class, 'store'])->name('store');
@@ -225,7 +230,7 @@ Route::middleware(['auth'])->prefix('opening-balances')->name('opening-balances.
     Route::post('/{openingBalance}/restore', [\App\Http\Controllers\Web\OpeningBalanceDocumentWebController::class, 'restore'])->name('restore');
 });
 
-Route::middleware(['auth'])->prefix('treasury-opening-balances')->name('treasury-opening-balances.')->group(function () {
+Route::middleware(['auth'])->prefix('treasury-opening-balances')->name('web.treasury-opening-balances.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Web\TreasuryOpeningBalanceWebController::class, 'index'])->name('index');
     Route::get('/create', [\App\Http\Controllers\Web\TreasuryOpeningBalanceWebController::class, 'create'])->name('create');
     Route::post('/', [\App\Http\Controllers\Web\TreasuryOpeningBalanceWebController::class, 'store'])->name('store');
@@ -235,7 +240,7 @@ Route::middleware(['auth'])->prefix('treasury-opening-balances')->name('treasury
     Route::delete('/{treasuryOpeningBalance}', [\App\Http\Controllers\Web\TreasuryOpeningBalanceWebController::class, 'destroy'])->name('destroy');
 });
 
-Route::middleware(['auth'])->prefix('bank-opening-balances')->name('bank-opening-balances.')->group(function () {
+Route::middleware(['auth'])->prefix('bank-opening-balances')->name('web.bank-opening-balances.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Web\BankOpeningBalanceWebController::class, 'index'])->name('index');
     Route::get('/create', [\App\Http\Controllers\Web\BankOpeningBalanceWebController::class, 'create'])->name('create');
     Route::post('/', [\App\Http\Controllers\Web\BankOpeningBalanceWebController::class, 'store'])->name('store');
@@ -245,7 +250,7 @@ Route::middleware(['auth'])->prefix('bank-opening-balances')->name('bank-opening
     Route::delete('/{bankOpeningBalance}', [\App\Http\Controllers\Web\BankOpeningBalanceWebController::class, 'destroy'])->name('destroy');
 });
 
-Route::middleware(['auth'])->prefix('admin/clear-data')->name('admin.clear-data.')->group(function () {
+Route::middleware(['auth'])->prefix('admin/clear-data')->name('web.admin.clear-data.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Web\ClearDataController::class, 'index'])->name('index');
     Route::post('/group/{group}', [\App\Http\Controllers\Web\ClearDataController::class, 'clearGroup'])->name('group');
     Route::post('/table/{table}', [\App\Http\Controllers\Web\ClearDataController::class, 'clearTable'])->name('table');

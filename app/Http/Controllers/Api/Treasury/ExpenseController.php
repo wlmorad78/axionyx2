@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
 use App\Models\Treasury\Expense;
+use App\Models\Treasury\TreasuryTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -61,7 +62,22 @@ class ExpenseController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        return response()->json(Expense::create($data), 201);
+        $expense = Expense::create($data);
+
+        if (!empty($data['treasury_id']) && $data['amount'] > 0) {
+            TreasuryTransaction::create([
+                'company_id' => $data['company_id'],
+                'treasury_id' => $data['treasury_id'],
+                'type' => 'expense',
+                'amount' => $data['amount'],
+                'reference_type' => 'expense',
+                'reference_id' => $expense->id,
+                'description' => $data['description'] ?? 'مصروف',
+                'transaction_date' => $data['expense_date'],
+            ]);
+        }
+
+        return response()->json($expense, 201);
     }
 
     public function show(Expense $expense)
@@ -119,7 +135,7 @@ class ExpenseController extends Controller
         if ($last && preg_match('/^EXP-(\d+)$/', $last->code, $m)) {
             $next = (int) $m[1] + 1;
         }
-        return response()->json(['next_code' => 'EXP-' . str_pad((string) $next, 4, '0', STR_PAD_LEFT)]);
+        return response()->json(['next_code' => 'EXP-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT)]);
     }
 
     public function summary(Request $request)

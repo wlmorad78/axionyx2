@@ -19,34 +19,24 @@ class BranchScope
 
             if ($headerBranchId && is_numeric($headerBranchId)) {
                 $request->merge(['branch_id' => (int) $headerBranchId]);
-            } elseif (!$request->filled('branch_id')) {
-                // 2. من الفرع الافتراضي للمستخدم
-                $defaultBranch = DB::table('user_branches')
+                // نحتاج العدد فقط
+                $branchCount = DB::table('user_branches')->where('user_id', $user->id)->count();
+                $request->merge(['_user_branch_count' => $branchCount]);
+            } else {
+                // جلب كل فروع المستخدم في استعلام واحد (يستخدم لتحديد الفرع + العدد)
+                $userBranches = DB::table('user_branches')
                     ->where('user_id', $user->id)
-                    ->where('is_default', true)
-                    ->first();
+                    ->orderBy('is_default', 'desc')
+                    ->orderBy('id')
+                    ->get();
 
-                if ($defaultBranch) {
-                    $request->merge(['branch_id' => (int) $defaultBranch->branch_id]);
-                } else {
-                    // 3. أول فرع متاح للمستخدم
-                    $firstBranch = DB::table('user_branches')
-                        ->where('user_id', $user->id)
-                        ->orderBy('id')
-                        ->first();
+                $request->merge(['_user_branch_count' => $userBranches->count()]);
 
-                    if ($firstBranch) {
-                        $request->merge(['branch_id' => (int) $firstBranch->branch_id]);
-                    }
+                if ($userBranches->isNotEmpty()) {
+                    $defaultBranch = $userBranches->firstWhere('is_default', true);
+                    $request->merge(['branch_id' => (int) ($defaultBranch->branch_id ?? $userBranches->first()->branch_id)]);
                 }
             }
-
-            // Attach user's branch count for controllers that need to know
-            $branchCount = DB::table('user_branches')
-                ->where('user_id', $user->id)
-                ->count();
-
-            $request->merge(['_user_branch_count' => $branchCount]);
         }
 
         return $next($request);

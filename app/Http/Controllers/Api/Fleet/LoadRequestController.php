@@ -196,8 +196,13 @@ class LoadRequestController extends Controller
         $loadRequest->load('items.item');
         $warehouseId = $loadRequest->warehouse_id;
         $errors = [];
+
+        // Bulk fetch stock for all items (avoid N+1)
+        $itemIds = $loadRequest->items->pluck('item_id')->unique()->values()->toArray();
+        $stockMap = $this->getBulkWarehouseStock($warehouseId, $itemIds);
+
         foreach ($loadRequest->items as $loadItem) {
-            $available = $this->getWarehouseStock($warehouseId, $loadItem->item_id);
+            $available = $stockMap->get($loadItem->item_id, 0);
             if ($available < $loadItem->base_quantity) {
                 $itemName = $loadItem->item?->name_ar ?? "صنف #{$loadItem->item_id}";
                 $errors[] = "{$itemName}: المتاح {$available}، المطلوب {$loadItem->base_quantity}";
@@ -345,5 +350,38 @@ class LoadRequestController extends Controller
             ->value('total');
 
         return (float) $txnQty + (float) $obQty;
+    }
+
+    protected function getBulkWarehouseStock(int $warehouseId, array $itemIds): \Illuminate\Support\Collection
+    {
+        if (empty($itemIds)) {
+            return collect();
+        }
+
+        $txnQtys = \App\Models\Inventory\InventoryTransactionItem::query()
+            ->selectRaw('item_id, COALESCE(SUM(inventory_transaction_items.qty), 0) as total')
+            ->join('inventory_transactions', 'inventory_transactions.id', '=', 'inventory_transaction_items.inventory_transaction_id')
+            ->whereIn('inventory_transaction_items.item_id', $itemIds)
+            ->where('inventory_transactions.warehouse_id', $warehouseId)
+            ->where('inventory_transactions.status', 'posted')
+            ->whereNull('inventory_transactions.deleted_at')
+            ->groupBy('item_id')
+            ->pluck('total', 'item_id');
+
+        $obQtys = \App\Models\Inventory\InventoryOpeningBalance::query()
+            ->selectRaw('item_id, COALESCE(SUM(qty), 0) as total')
+            ->whereIn('item_id', $itemIds)
+            ->where('warehouse_id', $warehouseId)
+            ->groupBy('item_id')
+            ->pluck('total', 'item_id');
+
+        $stockMap = collect();
+        foreach ($itemIds as $itemId) {
+            $txn = (float) ($txnQtys->get($itemId) ?? 0);
+            $ob = (float) ($obQtys->get($itemId) ?? 0);
+            $stockMap->put($itemId, $txn + $ob);
+        }
+
+        return $stockMap;
     }
 }

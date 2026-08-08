@@ -8,8 +8,6 @@ use App\Models\Inventory\InventoryTransaction;
 use App\Models\Inventory\InventoryTransactionItem;
 use App\Models\Inventory\InventoryTransactionType;
 use App\Models\Treasury\TreasuryTransaction;
-use App\Models\Customer;
-use App\Models\Inventory\ItemUnit;
 use Illuminate\Support\Facades\Log;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
@@ -52,17 +50,9 @@ class SalesInvoiceController extends Controller
 
             $invoice = SalesInvoice::create($validated);
 
-            $isWsCustomer = $this->isWsCustomer($validated['customer_id'] ?? null);
-
             if (!empty($items)) {
                 foreach ($items as $item) {
-                    $price = $item['price'] ?? 0;
-
-                    if ($isWsCustomer) {
-                        $price = $this->getPurchasePrice($item['item_id'] ?? null, $item['unit_id'] ?? null);
-                    }
-
-                    $grossAmount = ($item['qty'] ?? 0) * $price;
+                    $grossAmount = ($item['qty'] ?? 0) * ($item['price'] ?? 0);
                     $discountAmount = $item['discount_amount'] ?? 0;
                     $taxAmount = $item['tax_amount'] ?? 0;
                     $netAmount = $grossAmount - $discountAmount + $taxAmount;
@@ -74,7 +64,7 @@ class SalesInvoiceController extends Controller
                         'warehouse_id' => $item['warehouse_id'] ?? $invoice->warehouse_id,
                         'qty' => $item['qty'] ?? 0,
                         'bonus_qty' => $item['bonus_qty'] ?? 0,
-                        'price' => $price,
+                        'price' => $item['price'] ?? 0,
                         'gross_amount' => $grossAmount,
                         'discount_amount' => $discountAmount,
                         'tax_percent' => $item['tax_rate'] ?? 0,
@@ -121,18 +111,10 @@ class SalesInvoiceController extends Controller
 
             $salesInvoice->update($validated);
 
-            $isWsCustomer = $this->isWsCustomer($validated['customer_id'] ?? $salesInvoice->customer_id);
-
             if (is_array($items)) {
                 $salesInvoice->items()->delete();
                 foreach ($items as $item) {
-                    $price = $item['price'] ?? 0;
-
-                    if ($isWsCustomer) {
-                        $price = $this->getPurchasePrice($item['item_id'] ?? null, $item['unit_id'] ?? null);
-                    }
-
-                    $grossAmount = ($item['qty'] ?? 0) * $price;
+                    $grossAmount = ($item['qty'] ?? 0) * ($item['price'] ?? 0);
                     $discountAmount = $item['discount_amount'] ?? 0;
                     $taxAmount = $item['tax_amount'] ?? 0;
                     $netAmount = $grossAmount - $discountAmount + $taxAmount;
@@ -144,7 +126,7 @@ class SalesInvoiceController extends Controller
                         'warehouse_id' => $item['warehouse_id'] ?? $salesInvoice->warehouse_id,
                         'qty' => $item['qty'] ?? 0,
                         'bonus_qty' => $item['bonus_qty'] ?? 0,
-                        'price' => $price,
+                        'price' => $item['price'] ?? 0,
                         'gross_amount' => $grossAmount,
                         'discount_amount' => $discountAmount,
                         'tax_percent' => $item['tax_rate'] ?? 0,
@@ -232,62 +214,5 @@ class SalesInvoiceController extends Controller
     {
         Log::info('SalesInvoiceController::syncStock called but deprecated; use model lifecycle', ['invoice_id' => $invoice->id]);
         return;
-    }
-
-    public function resolvePrice(Request $request)
-    {
-        $request->validate([
-            'customer_id' => 'required|integer',
-            'item_id' => 'required|integer',
-            'unit_id' => 'nullable|integer',
-        ]);
-
-        $customerId = $request->customer_id;
-        $itemId = $request->item_id;
-        $unitId = $request->unit_id;
-
-        $itemUnit = ItemUnit::where('item_id', $itemId)
-            ->when($unitId, fn($q) => $q->where('unit_id', $unitId))
-            ->first();
-
-        if (!$itemUnit) {
-            return response()->json(['message' => 'الصنف أو الوحدة غير موجودة'], 404);
-        }
-
-        $isWs = $this->isWsCustomer($customerId);
-
-        $price = $isWs ? (float) $itemUnit->purchase_price : (float) $itemUnit->sale_price;
-
-        return response()->json([
-            'item_id' => $itemId,
-            'unit_id' => $itemUnit->unit_id,
-            'price' => $price,
-            'purchase_price' => (float) $itemUnit->purchase_price,
-            'sale_price' => (float) $itemUnit->sale_price,
-            'is_ws_customer' => $isWs,
-            'source' => $isWs ? 'purchase_price' : 'sale_price',
-        ]);
-    }
-
-    private function isWsCustomer($customerId): bool
-    {
-        if (!$customerId) return false;
-
-        $customer = Customer::with('customerType')->find($customerId);
-        if (!$customer || !$customer->customerType) return false;
-
-        return strtoupper($customer->customerType->code) === 'WS'
-            || strtoupper($customer->customerType->name_ar) === 'WS';
-    }
-
-    private function getPurchasePrice($itemId, $unitId): float
-    {
-        if (!$itemId) return 0;
-
-        $itemUnit = ItemUnit::where('item_id', $itemId)
-            ->when($unitId, fn($q) => $q->where('unit_id', $unitId))
-            ->first();
-
-        return $itemUnit ? (float) $itemUnit->purchase_price : 0;
     }
 }

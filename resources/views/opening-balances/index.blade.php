@@ -272,6 +272,54 @@
     @endif
 </article>
 
+<!-- قسم الأرصدة الافتتاحية للمنتجات -->
+<article class="panel" style="margin-top:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2>الأرصدة الافتتاحية للمنتجات</h2>
+        <span style="font-size:13px;color:var(--muted);">{{ $inventoryBalances->count() }} سجل</span>
+    </div>
+
+    @if($inventoryBalances->isEmpty())
+        <div style="text-align:center; padding:30px; color:var(--muted);">
+            <p style="font-size:16px;">لا توجد أرصدة افتتاحية للمنتجات</p>
+            <p style="font-size:13px;">يمكنك إضافة رصيد افتتاحي من شاشة المنتجات</p>
+        </div>
+    @else
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>الصنف</th>
+                        <th>الكود</th>
+                        <th>المخزن</th>
+                        <th>الوحدة</th>
+                        <th>الكمية</th>
+                        <th>التكلفة</th>
+                        <th>الإجمالي</th>
+                        <th>التاريخ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($inventoryBalances as $index => $balance)
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td><strong style="color:var(--accent);">{{ $balance->item?->name_ar ?? '—' }}</strong></td>
+                            <td>{{ $balance->item?->code ?? '—' }}</td>
+                            <td>{{ $balance->warehouse?->name_ar ?? '—' }}</td>
+                            <td>{{ $balance->unit?->name_ar ?? '—' }}</td>
+                            <td style="font-weight:bold;">{{ number_format($balance->qty, 2) }}</td>
+                            <td>{{ number_format($balance->unit_cost, 4) }}</td>
+                            <td>{{ number_format($balance->total_cost, 2) }}</td>
+                            <td>{{ $balance->opening_date?->format('Y-m-d') ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</article>
+
 <!-- نافذة الفلاتر المنبثقة -->
 <div id="filterModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;">
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;width:90%;max-width:650px;max-height:85vh;overflow-y:auto;">

@@ -23,7 +23,6 @@ Route::get('postman-collection', function () {
 // Public: Login (no auth required)
 Route::post('login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
 
-// Public: Handheld login (no auth required)
 require __DIR__.'/api/handheld_auth.php';
 
 // Protected: require auth for all non-login routes below
@@ -972,6 +971,7 @@ require __DIR__.'/api/subscription-plans.php';
 require __DIR__.'/api/company-subscriptions.php';
 require __DIR__.'/api/company-subscription-limits.php';
 require __DIR__.'/api/handheld.php';
+require __DIR__.'/api/new_handheld.php';
 
 // ===== Permissions & Roles Custom Routes =====
 Route::get('permissions/matrix', [\App\Http\Controllers\Api\Permissions\PermissionController::class, 'matrix']);
@@ -1697,7 +1697,6 @@ Route::post('opening-balance-documents/{openingBalanceDocument}/post', [\App\Htt
 Route::post('opening-balance-documents/{openingBalanceDocument}/cancel', [\App\Http\Controllers\Api\Accounting\OpeningBalanceDocumentController::class, 'cancel'])->middleware('permission:accounting.opening.cancel');
 
 // ===== Sales Invoice Custom Routes =====
-Route::get('sales-invoices/resolve-price', [\App\Http\Controllers\Api\Sales\SalesInvoiceController::class, 'resolvePrice']);
 Route::post('sales-invoices/{salesInvoice}/post', [\App\Http\Controllers\Api\Sales\SalesInvoiceController::class, 'post'])->middleware('permission:sales.invoice.post');
 Route::post('sales-invoices/{salesInvoice}/cancel', [\App\Http\Controllers\Api\Sales\SalesInvoiceController::class, 'cancel'])->middleware('permission:sales.invoice.cancel');
 
@@ -2076,82 +2075,5 @@ Route::get('docs/modules', function () {
     }
     return response()->json(['data' => $result]);
 });
-
-// ===== Switch Company (API) =====
-Route::post('switch-company', function (\Illuminate\Http\Request $request) {
-    $request->validate(['company_id' => 'required|integer']);
-    $user = $request->user();
-    $companyId = $request->input('company_id');
-
-    if (!\App\Models\Company::where('id', $companyId)->exists()) {
-        return response()->json(['message' => 'الشركة غير موجودة'], 404);
-    }
-
-    $user->update(['company_id' => $companyId]);
-    return response()->json(['message' => 'تم تبديل الشركة بنجاح', 'company_id' => $companyId]);
-});
-
-// ===== Item Ledger Rep Drawer (API) =====
-Route::get('item-ledger/rep-drawer/{repId}', function (\Illuminate\Http\Request $request, $repId) {
-    $companyId = $request->input('company_id') ?? $request->user()?->company_id;
-    $itemId = $request->input('item_id');
-    $dateFrom = $request->input('date_from');
-    $dateTo = $request->input('date_to');
-
-    if (!$itemId) {
-        return response()->json(['message' => 'item_id مطلوب'], 400);
-    }
-
-    $rep = \App\Models\Employee::find($repId);
-    if (!$rep) {
-        return response()->json(['message' => 'المندوب غير موجود'], 404);
-    }
-
-    $unitService = app(\App\Services\UnitConversionService::class);
-
-    $repTransactions = \App\Models\InventoryTransaction::query()
-        ->where('status', 'posted')
-        ->when($companyId, fn($q) => $q->where('company_id', $companyId))
-        ->where(function ($q) use ($repId) {
-            $q->where(function ($q2) use ($repId) {
-                $q2->where('from_location_type', 'rep')->where('from_location_id', $repId);
-            })->orWhere(function ($q2) use ($repId) {
-                $q2->where('to_location_type', 'rep')->where('to_location_id', $repId);
-            });
-        })
-        ->with('items')
-        ->get();
-
-    $repTransactions = $repTransactions->filter(function ($txn) use ($itemId) {
-        return $txn->items->contains('item_id', $itemId);
-    });
-
-    $movements = [];
-    foreach ($repTransactions as $txn) {
-        foreach ($txn->items->where('item_id', $itemId) as $txnItem) {
-            $qty = (float)$txnItem->qty;
-            $isIn = $qty > 0;
-            $movements[] = [
-                'date' => $txn->transaction_date?->format('Y-m-d'),
-                'transaction_no' => $txn->transaction_no,
-                'type' => $isIn ? 'وارد' : 'صادر',
-                'qty' => abs($qty),
-                'balance' => $qty,
-                'notes' => $txn->notes ?? '',
-            ];
-        }
-    }
-
-    $totalLoaded = $repTransactions->sum(fn($t) => $t->items->where('item_id', $itemId)->where('qty', '>', 0)->sum('qty'));
-    $totalReturned = $repTransactions->sum(fn($t) => abs($t->items->where('item_id', $itemId)->where('qty', '<', 0)->sum('qty')));
-
-    return response()->json([
-        'rep' => ['id' => $rep->id, 'name' => $rep->full_name_ar ?? $rep->employee_code],
-        'total_loaded' => $totalLoaded,
-        'total_returned' => $totalReturned,
-        'balance' => $totalLoaded - $totalReturned,
-        'movements' => $movements,
-    ]);
-})->middleware('auth:sanctum');
 
 }); // End auth:sanctum group

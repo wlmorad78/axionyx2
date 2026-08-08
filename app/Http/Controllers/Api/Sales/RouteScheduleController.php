@@ -96,20 +96,28 @@ class RouteScheduleController extends Controller
             ->whereNull('deleted_at')
             ->get();
 
+        // Bulk fetch routes, employees, and route_customers
+        $routeIds = $schedules->pluck('route_id')->unique()->values();
+        $employeeIds = $schedules->pluck('employee_id')->filter()->unique()->values();
+
+        $routesMap = DB::table('routes')->whereIn('id', $routeIds)->get()->keyBy('id');
+        $employeesMap = Employee::whereIn('id', $employeeIds)->get()->keyBy('id');
+
+        $routeCustomersMap = DB::table('route_customers')
+            ->whereIn('route_id', $routeIds)
+            ->where('is_active', 1)
+            ->whereNull('deleted_at')
+            ->get()
+            ->groupBy('route_id')
+            ->map(fn($rows) => $rows->pluck('customer_id')->toArray());
+
         $routesData = [];
         $allCustomerIds = [];
 
         foreach ($schedules as $sch) {
-            $custs = DB::table('route_customers')
-                ->where('route_id', $sch->route_id)
-                ->where('is_active', 1)
-                ->whereNull('deleted_at')
-                ->pluck('customer_id')
-                ->toArray();
-
-            $routeName = DB::table('routes')->where('id', $sch->route_id)->value('name_ar');
-            $employee = Employee::find($sch->employee_id);
-            $employeeName = $employee?->full_name_ar ?? '';
+            $custs = $routeCustomersMap->get($sch->route_id, []);
+            $routeName = $routesMap->get($sch->route_id)?->name_ar ?? '';
+            $employeeName = $employeesMap->get($sch->employee_id)?->full_name_ar ?? '';
 
             $routesData[] = [
                 'schedule_id' => $sch->id,
@@ -159,14 +167,18 @@ class RouteScheduleController extends Controller
         $totalAllDemand = array_sum($customerTotals);
 
         $itemsData = [];
-        foreach ($itemTotals as $itemId => $totalAvg) {
-            $item = DB::table('items')->where('id', $itemId)->first();
-            $itemsData[] = [
-                'item_id' => $itemId,
-                'item_name' => $item ? ($item->name_ar ?: $item->name_en) : 'â€”',
-                'avg_qty' => round($totalAvg, 2),
-                'avg_cartons' => round($totalAvg / $unitsPerCarton, 2),
-            ];
+        if (!empty($itemTotals)) {
+            $itemsMap = DB::table('items')->whereIn('id', array_keys($itemTotals))->get()->keyBy('id');
+
+            foreach ($itemTotals as $itemId => $totalAvg) {
+                $item = $itemsMap->get($itemId);
+                $itemsData[] = [
+                    'item_id' => $itemId,
+                    'item_name' => $item ? ($item->name_ar ?: $item->name_en) : '—',
+                    'avg_qty' => round($totalAvg, 2),
+                    'avg_cartons' => round($totalAvg / $unitsPerCarton, 2),
+                ];
+            }
         }
 
         $totalDemandCartons = round($totalAllDemand / $unitsPerCarton, 2);

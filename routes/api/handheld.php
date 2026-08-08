@@ -1,6 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route as RouteFacade;
+use App\Http\Controllers\Api\HandheldController;
+
+RouteFacade::post('handheld/bootstrap', [HandheldController::class, 'bootstrap']);
+RouteFacade::post('handheld/sync', [HandheldController::class, 'sync']);
+
 use App\Models\Customer;
 use App\Models\RouteCustomer;
 use App\Models\RouteSchedule;
@@ -631,6 +636,7 @@ RouteFacade::get('handheld/customers', function (\Illuminate\Http\Request $reque
                 'governorate' => $c->governorate?->name_ar,
                 'city' => $c->city?->name_ar,
                 'area' => $c->area?->name_ar,
+                'balance' => calculateCustomerBalance($c->id, $user->company_id),
                 'visit_order' => null,
                 'visit_frequency' => null,
                 'day_of_week' => null,
@@ -678,6 +684,7 @@ RouteFacade::get('handheld/customers', function (\Illuminate\Http\Request $reque
             'route_id' => $rc->route_id,
             'is_today' => $isToday,
             'is_active' => $rc->is_active,
+            'balance' => calculateCustomerBalance($rc->customer->id, $user->company_id),
             'delegate_phone' => $delegatePhone,
             'supervisor_phone' => $supervisorPhone,
             'sales_territory_id' => $rc->route?->sales_territory_id,

@@ -65,8 +65,8 @@ class Treasury extends Model
     public function getBalanceAttribute(): float
     {
         $opening = (float) $this->opening_balance;
-        $credits = (float) $this->transactions()->where('type', 'credit')->sum('amount');
-        $debits = (float) $this->transactions()->where('type', 'debit')->sum('amount');
+        $credits = (float) $this->transactions()->whereIn('type', ['credit', 'income', 'transfer_in', 'opening_balance'])->sum('amount');
+        $debits = (float) $this->transactions()->whereIn('type', ['debit', 'expense', 'transfer_out'])->sum('amount');
         return $opening + $credits - $debits;
     }
 }

@@ -130,7 +130,7 @@ class DashboardController extends Controller
                 $treasuryQuery = $treasuryQuery->where('branch_id', $branchId);
             }
 
-            $data['treasury_balance'] = (float) $treasuryQuery->get()->sum('balance');
+            $data['treasury_balance'] = (float) $treasuryQuery->sum('balance');
         }
 
         // Counts - visible to all roles

@@ -189,16 +189,21 @@ class DistributionPlanController extends Controller
                 ->whereRaw("FIND_IN_SET(?, day_of_week)", [$dayNumber])
                 ->get();
 
+            // Bulk fetch route_customers for all routes
+            $scheduleRouteIds = $schedules->pluck('route_id')->unique()->values();
+            $routeCustomersMap = DB::table('route_customers')
+                ->whereIn('route_id', $scheduleRouteIds)
+                ->where('is_active', 1)
+                ->whereNull('deleted_at')
+                ->get()
+                ->groupBy('route_id')
+                ->map(fn($rows) => $rows->pluck('customer_id')->toArray());
+
             foreach ($schedules as $sch) {
                 $routeId = $sch->route_id;
                 $employeeId = $sch->employee_id;
                 $repRouteMap[$employeeId] = $routeId;
-                $dayCustomers = DB::table('route_customers')
-                    ->where('route_id', $routeId)
-                    ->where('is_active', 1)
-                    ->whereNull('deleted_at')
-                    ->pluck('customer_id')
-                    ->toArray();
+                $dayCustomers = $routeCustomersMap->get($routeId, []);
                 foreach ($dayCustomers as $custId) {
                     $repCustomerMap[$custId] = $employeeId;
                 }
@@ -476,6 +481,25 @@ class DistributionPlanController extends Controller
 
             $plan->load(['reps.customers.items']);
 
+            // Bulk fetch ItemUnits for all items (avoid N+1)
+            $allItemIds = [];
+            foreach ($plan->reps as $rep) {
+                foreach ($rep->customers as $customer) {
+                    foreach ($customer->items as $item) {
+                        $allItemIds[] = $item->item_id;
+                    }
+                }
+            }
+            $allItemIds = array_unique($allItemIds);
+
+            $itemUnitsMap = ItemUnit::whereIn('item_id', $allItemIds)
+                ->get()
+                ->groupBy('item_id')
+                ->map(function ($units) {
+                    $default = $units->firstWhere('is_default', true);
+                    return $default ?? $units->first();
+                });
+
             foreach ($plan->reps as $rep) {
                 $items = [];
                 $totalQty = 0;
@@ -487,12 +511,7 @@ class DistributionPlanController extends Controller
                         $cartons = (float) $item->final_qty;
                         $qty = $cartons * $unitsPerCarton;
 
-                        $itemUnit = ItemUnit::where('item_id', $itemId)
-                            ->where('is_default', true)
-                            ->first();
-                        if (!$itemUnit) {
-                            $itemUnit = ItemUnit::where('item_id', $itemId)->first();
-                        }
+                        $itemUnit = $itemUnitsMap->get($itemId);
                         $unitPrice = (float) ($itemUnit?->sale_price ?? $itemUnit?->purchase_price ?? 0);
                         $totalPrice = $qty * $unitPrice;
 

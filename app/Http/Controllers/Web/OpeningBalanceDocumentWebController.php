@@ -15,6 +15,7 @@ use App\Models\Company\Branch;
 use App\Services\CompanyContext;
 use App\Services\BranchContext;
 use Illuminate\Http\Request;
+use App\Models\InventoryOpeningBalance;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -113,7 +114,12 @@ class OpeningBalanceDocumentWebController extends Controller
         $branches = Branch::where('is_active', true)->orderBy('name_ar')->get();
         $accounts = Account::where('is_active', true)->orderBy('code')->get();
 
-        return view('opening-balances.index', compact('documents', 'stats', 'branches', 'accounts'));
+        $inventoryBalances = InventoryOpeningBalance::with(['item', 'unit', 'warehouse'])
+            ->when($companyId, fn($q) => $q->where('company_id', $companyId))
+            ->orderByDesc('id')
+            ->get();
+
+        return view('opening-balances.index', compact('documents', 'stats', 'branches', 'accounts', 'inventoryBalances'));
     }
 
     public function create(Request $request)

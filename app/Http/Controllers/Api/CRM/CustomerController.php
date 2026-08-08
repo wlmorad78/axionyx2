@@ -77,37 +77,25 @@ class CustomerController extends Controller
             });
         }
 
-        $customers = $query->orderBy('name_ar')->get([
+        $customers = $query->with(['customerGroup', 'customerAccountType'])->orderBy('name_ar')->get([
             'id', 'code', 'name_ar', 'name_en', 'mobile', 'phone',
             'credit_limit', 'customer_group_id', 'customer_account_type_id',
         ]);
 
         $customerIds = $customers->pluck('id')->toArray();
 
-        $invoiceTotals = \App\Models\Sales\SalesInvoice::whereIn('customer_id', $customerIds)
+        // Consolidate 3 separate queries into 1
+        $invoiceStats = \App\Models\Sales\SalesInvoice::whereIn('customer_id', $customerIds)
             ->where('status', '!=', 'cancelled')
-            ->selectRaw('customer_id, COALESCE(SUM(net_total), 0) as total_invoices, COUNT(*) as invoice_count')
+            ->selectRaw('customer_id, COALESCE(SUM(net_total), 0) as total_invoices, COALESCE(SUM(paid_amount), 0) as total_paid, COUNT(*) as invoice_count')
             ->groupBy('customer_id')
-            ->pluck('total_invoices', 'customer_id')
-            ->toArray();
+            ->get()
+            ->keyBy('customer_id');
 
-        $invoiceCounts = \App\Models\Sales\SalesInvoice::whereIn('customer_id', $customerIds)
-            ->where('status', '!=', 'cancelled')
-            ->selectRaw('customer_id, COUNT(*) as count')
-            ->groupBy('customer_id')
-            ->pluck('count', 'customer_id')
-            ->toArray();
-
-        $paidTotals = \App\Models\Sales\SalesInvoice::whereIn('customer_id', $customerIds)
-            ->where('status', '!=', 'cancelled')
-            ->selectRaw('customer_id, COALESCE(SUM(paid_amount), 0) as total_paid')
-            ->groupBy('customer_id')
-            ->pluck('total_paid', 'customer_id')
-            ->toArray();
-
-        $result = $customers->map(function ($customer) use ($invoiceTotals, $invoiceCounts, $paidTotals) {
-            $totalInvoices = $invoiceTotals[$customer->id] ?? 0;
-            $totalPaid = $paidTotals[$customer->id] ?? 0;
+        $result = $customers->map(function ($customer) use ($invoiceStats) {
+            $stats = $invoiceStats->get($customer->id);
+            $totalInvoices = $stats->total_invoices ?? 0;
+            $totalPaid = $stats->total_paid ?? 0;
             $balance = $totalInvoices - $totalPaid;
 
             return [
@@ -123,7 +111,7 @@ class CustomerController extends Controller
                 'total_invoices' => (float) $totalInvoices,
                 'total_paid' => (float) $totalPaid,
                 'balance' => (float) $balance,
-                'invoice_count' => (int) ($invoiceCounts[$customer->id] ?? 0),
+                'invoice_count' => (int) ($stats->invoice_count ?? 0),
             ];
         });
 
@@ -270,19 +258,12 @@ class CustomerController extends Controller
             return response()->json(['code' => 'CU-0001', 'next_code' => 'CU-0001', 'warning' => null]);
         }
 
-        $customers = Customer::withTrashed()
+        // Use a single SQL query to find max sequence instead of loading all customers
+        $maxSeq = Customer::withTrashed()
             ->where('company_id', $companyId)
-            ->where('id', '!=', 0)
             ->where('code', 'like', 'CU-%')
-            ->get();
-
-        $maxSeq = 0;
-        foreach ($customers as $c) {
-            if ($c->code && preg_match('/^CU-(\d+)$/', $c->code, $m)) {
-                $num = (int) $m[1];
-                if ($num > $maxSeq) $maxSeq = $num;
-            }
-        }
+            ->selectRaw("MAX(CAST(SUBSTRING(code, 4) AS UNSIGNED)) as max_seq")
+            ->value('max_seq') ?? 0;
 
         $nextSeq = $maxSeq + 1;
         $code = 'CU-' . str_pad($nextSeq, 5, '0', STR_PAD_LEFT);
