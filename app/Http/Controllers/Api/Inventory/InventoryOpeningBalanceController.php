@@ -14,7 +14,9 @@ class InventoryOpeningBalanceController extends Controller
         $query = InventoryOpeningBalance::with($with);
         $companyId = $request->company_id ?? $request->header('X-Company-Id') ?? $request->user()?->company_id;
         if ($companyId) $query->where('company_id', $companyId);
-        if ($request->branch_id) $query->where('branch_id', $request->branch_id);
+        if ($request->branch_id) $query->where(function ($q) use ($request) {
+            $q->where('branch_id', $request->branch_id)->orWhereNull('branch_id');
+        });
         if ($request->warehouse_id) $query->where('warehouse_id', $request->warehouse_id);
         if ($request->search) {
             $s = $request->search;
@@ -40,6 +42,9 @@ class InventoryOpeningBalanceController extends Controller
         }
         if (!isset($data['company_id'])) {
             $data['company_id'] = $request->user()->company_id ?? auth()->user()->company_id;
+        }
+        if (!isset($data['branch_id']) && $request->branch_id) {
+            $data['branch_id'] = $request->branch_id;
         }
         if (!isset($data['created_by'])) {
             $data['created_by'] = $request->user()->id ?? auth()->id();
