@@ -754,6 +754,7 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
         'items.*.issue_order_id' => 'nullable|exists:issue_orders,id',
         'device_id' => 'nullable|exists:devices,id',
         'temp_invoice_no' => 'nullable|string|max:50',
+        'invoice_no' => 'nullable|string|max:50',
         'branch_id' => 'nullable|exists:branches,id',
         'paid_amount' => 'nullable|numeric|min:0',
         'cash_received' => 'nullable|numeric|min:0',
@@ -801,28 +802,32 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
         $remainingAmount = $isBalancePayment ? 0 : max(0, $netTotal - $paidAmount);
 
         $now = now();
-        $yy = $now->format('y');
-        $mm = $now->format('m');
-        $dd = $now->format('d');
-        $salesCode = $employee->national_id ?? $employee->id;
 
-        $todayPrefix = "{$yy}{$mm}{$dd}-{$salesCode}-";
-        $lastToday = SalesInvoice::where('company_id', $user->company_id)
-            ->where('invoice_no', 'LIKE', "{$todayPrefix}%")
-            ->orderByDesc('invoice_no')
-            ->first();
+        $invoiceNo = $request->input('invoice_no');
+        if (empty($invoiceNo)) {
+            $yy = $now->format('y');
+            $mm = $now->format('m');
+            $dd = $now->format('d');
+            $salesCode = $employee->national_id ?? $employee->id;
 
-        $seq = 1;
-        if ($lastToday && preg_match('/-(\d+)$/', $lastToday->invoice_no, $m)) {
-            $seq = intval($m[1]) + 1;
+            $todayPrefix = "{$yy}{$mm}{$dd}-{$salesCode}-";
+            $lastToday = SalesInvoice::where('company_id', $user->company_id)
+                ->where('invoice_no', 'LIKE', "{$todayPrefix}%")
+                ->orderByDesc('invoice_no')
+                ->first();
+
+            $seq = 1;
+            if ($lastToday && preg_match('/-(\d+)$/', $lastToday->invoice_no, $m)) {
+                $seq = intval($m[1]) + 1;
+            }
+
+            do {
+                $invoiceNo = $todayPrefix . str_pad($seq, 3, '0', STR_PAD_LEFT);
+                $exists = SalesInvoice::where('company_id', $user->company_id)
+                    ->where('invoice_no', $invoiceNo)->exists();
+                $seq++;
+            } while ($exists);
         }
-
-        do {
-            $invoiceNo = $todayPrefix . str_pad($seq, 3, '0', STR_PAD_LEFT);
-            $exists = SalesInvoice::where('company_id', $user->company_id)
-                ->where('invoice_no', $invoiceNo)->exists();
-            $seq++;
-        } while ($exists);
 
         $warehouse = \App\Models\Warehouse::where('company_id', $user->company_id)
             ->where('is_active', true)->first();
@@ -924,6 +929,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         'invoices.*.uuid' => 'required|string',
         'invoices.*.customer_id' => 'required|exists:customers,id',
         'invoices.*.temp_invoice_no' => 'nullable|string',
+        'invoices.*.invoice_no' => 'nullable|string',
         'invoices.*.device_id' => 'nullable|exists:devices,id',
         'invoices.*.invoice_date' => 'required|date',
         'invoices.*.items' => 'required|array|min:1',
@@ -987,28 +993,32 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         $remainingAmount = max(0, $netTotal - $paidAmount);
 
             $now = now();
-            $yy = $now->format('y');
-            $mm = $now->format('m');
-            $dd = $now->format('d');
-            $salesCode = $employee->national_id ?? $employee->id;
 
-            $todayPrefix = "{$yy}{$mm}{$dd}-{$salesCode}-";
-            $lastToday = SalesInvoice::where('company_id', $user->company_id)
-                ->where('invoice_no', 'LIKE', "{$todayPrefix}%")
-                ->orderByDesc('invoice_no')
-                ->first();
+            $invoiceNo = $invoiceData['invoice_no'] ?? null;
+            if (empty($invoiceNo)) {
+                $yy = $now->format('y');
+                $mm = $now->format('m');
+                $dd = $now->format('d');
+                $salesCode = $employee->national_id ?? $employee->id;
 
-            $seq = 1;
-            if ($lastToday && preg_match('/-(\d+)$/', $lastToday->invoice_no, $m)) {
-                $seq = intval($m[1]) + 1;
+                $todayPrefix = "{$yy}{$mm}{$dd}-{$salesCode}-";
+                $lastToday = SalesInvoice::where('company_id', $user->company_id)
+                    ->where('invoice_no', 'LIKE', "{$todayPrefix}%")
+                    ->orderByDesc('invoice_no')
+                    ->first();
+
+                $seq = 1;
+                if ($lastToday && preg_match('/-(\d+)$/', $lastToday->invoice_no, $m)) {
+                    $seq = intval($m[1]) + 1;
+                }
+
+                do {
+                    $invoiceNo = $todayPrefix . str_pad($seq, 3, '0', STR_PAD_LEFT);
+                    $exists = SalesInvoice::where('company_id', $user->company_id)
+                        ->where('invoice_no', $invoiceNo)->exists();
+                    $seq++;
+                } while ($exists);
             }
-
-            do {
-                $invoiceNo = $todayPrefix . str_pad($seq, 3, '0', STR_PAD_LEFT);
-                $exists = SalesInvoice::where('company_id', $user->company_id)
-                    ->where('invoice_no', $invoiceNo)->exists();
-                $seq++;
-            } while ($exists);
 
             $warehouse = \App\Models\Warehouse::where('company_id', $user->company_id)
                 ->where('is_active', true)->first();
