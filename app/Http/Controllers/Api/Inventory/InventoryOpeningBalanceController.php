@@ -10,7 +10,7 @@ class InventoryOpeningBalanceController extends Controller
 {
     public function index(Request $request)
     {
-        $with = $request->with ? explode(',', $request->with) : ['warehouse', 'item', 'unit'];
+        $with = $request->with ? explode(',', $request->with) : ['warehouse', 'item', 'unit', 'branch'];
         $query = InventoryOpeningBalance::with($with);
         $companyId = $request->company_id ?? $request->header('X-Company-Id') ?? $request->user()?->company_id;
         if ($companyId) $query->where('company_id', $companyId);
@@ -43,7 +43,10 @@ class InventoryOpeningBalanceController extends Controller
         if (!isset($data['company_id'])) {
             $data['company_id'] = $request->user()->company_id ?? auth()->user()->company_id;
         }
-        if (!isset($data['branch_id']) && $request->branch_id) {
+        $bodyBranchId = $request->json('branch_id');
+        if ($bodyBranchId) {
+            $data['branch_id'] = $bodyBranchId;
+        } elseif (!isset($data['branch_id']) && $request->branch_id) {
             $data['branch_id'] = $request->branch_id;
         }
         if (!isset($data['created_by'])) {
@@ -70,6 +73,10 @@ class InventoryOpeningBalanceController extends Controller
         }
         if (isset($data['total_price']) && !isset($data['total_cost'])) {
             $data['total_cost'] = $data['total_price'];
+        }
+        $bodyBranchId = $request->json('branch_id');
+        if ($bodyBranchId) {
+            $data['branch_id'] = $bodyBranchId;
         }
         $inventoryOpeningBalance->update($data);
         return response()->json($inventoryOpeningBalance);

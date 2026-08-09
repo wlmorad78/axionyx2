@@ -1997,6 +1997,7 @@ class ValidationRules
             ],
             'inventory_opening_balance' => [
                 'company_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:companies,id'],
+                'branch_id' => ['nullable', 'exists:branches,id'],
                 'warehouse_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:warehouses,id'],
                 'item_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:items,id'],
                 'unit_id' => ['nullable', 'exists:units,id'],
