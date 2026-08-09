@@ -127,8 +127,67 @@ class LoadRequestController extends Controller
     public function update(Request $request, LoadRequest $loadRequest)
     {
         $data = $request->validate(ValidationRules::for('load_request', 'update', $loadRequest));
+
+        if ($loadRequest->status !== 'pending') {
+            return response()->json(['message' => 'لا يمكن تعديل طلب تحميل بحالة مختلفة عن قيد المراجعة'], 422);
+        }
+
         $loadRequest->update($data);
-        return response()->json($loadRequest);
+
+        if ($request->has('items') && is_array($request->items)) {
+            $unitService = app(\App\Services\UnitConversionService::class);
+
+            $existingItemIds = $loadRequest->items->pluck('id')->toArray();
+            $submittedItemIds = collect($request->items)->pluck('item_id')->toArray();
+
+            $idsToDelete = array_diff($existingItemIds, array_map(function ($item) use ($loadRequest) {
+                $existing = $loadRequest->items->firstWhere('item_id', $item['item_id'] ?? null);
+                return $existing?->id;
+            }, $request->items));
+
+            \App\Models\Sales\LoadRequestItem::whereIn('id', $idsToDelete)->delete();
+
+            foreach ($request->items as $itemData) {
+                $existingItem = $loadRequest->items->firstWhere('item_id', $itemData['item_id']);
+
+                $qty = (float) ($itemData['quantity'] ?? 1);
+                $unitId = $itemData['unit_id'] ?? $existingItem?->unit_id;
+                $unitPrice = (float) ($itemData['unit_price'] ?? $existingItem?->unit_price ?? 0);
+                $baseQty = $unitId ? $unitService->toBase($itemData['item_id'], $unitId, $qty) : $qty;
+
+                if ($existingItem) {
+                    $existingItem->update([
+                        'quantity' => $qty,
+                        'base_quantity' => $baseQty,
+                        'unit_id' => $unitId,
+                        'unit_price' => $unitPrice,
+                        'total_price' => $qty * $unitPrice,
+                    ]);
+                } else {
+                    \App\Models\Sales\LoadRequestItem::create([
+                        'load_request_id' => $loadRequest->id,
+                        'item_id' => $itemData['item_id'],
+                        'unit_id' => $unitId,
+                        'quantity' => $qty,
+                        'base_quantity' => $baseQty,
+                        'unit_price' => $unitPrice,
+                        'total_price' => $qty * $unitPrice,
+                    ]);
+                }
+            }
+
+            $loadRequest->refresh()->load('items');
+            $totalQty = (float) $loadRequest->items->sum('quantity');
+            $totalAmount = (float) $loadRequest->items->sum('total_price');
+            $totalItems = $loadRequest->items->count();
+            $loadRequest->update([
+                'total_quantity' => $totalQty,
+                'total_amount' => $totalAmount,
+                'total_items_count' => $totalItems,
+            ]);
+        }
+
+        return response()->json($loadRequest->load(['items.item', 'employee', 'warehouse']));
     }
 
     public function destroy(LoadRequest $loadRequest)
