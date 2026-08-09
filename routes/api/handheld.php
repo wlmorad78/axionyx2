@@ -1923,52 +1923,58 @@ RouteFacade::get('handheld/daily-summary', function (\Illuminate\Http\Request $r
     $user = $request->user();
     $employee = resolveEmployee($request);
 
-    if (!$employee) {
-        return response()->json(['message' => 'المندوب غير موجود'], 404);
-    }
-
     $today = now()->toDateString();
 
-    $visitsCount = CustomerVisit::where('employee_id', $employee->id)
-        ->whereDate('visit_date', $today)
-        ->where('company_id', $user->company_id)
-        ->count();
-
-    $invoices = SalesInvoice::where('sales_rep_id', $employee->id)
-        ->whereDate('invoice_date', $today)
-        ->where('company_id', $user->company_id)
-        ->whereNull('deleted_at')
-        ->get();
-
-    $salesCount = $invoices->count();
-    $totalSales = (float) $invoices->sum('net_total');
-    $totalPaid = (float) $invoices->sum('paid_amount');
-    $totalRemaining = $totalSales - $totalPaid;
-
-    $collectionsFromBalance = \App\Models\Sales\Collection::where('sales_rep_id', $employee->id)
-        ->whereDate('collection_date', $today)
-        ->where('company_id', $user->company_id)
-        ->whereNull('deleted_at')
-        ->where('notes', 'like', '%الدفع من رصيد سابق%')
-        ->sum('amount');
-
-    $todaySettlement = \App\Models\Sales\RepDailySettlement::where('sales_rep_id', $employee->id)
-        ->whereDate('settlement_date', $today)
-        ->where('company_id', $user->company_id)
-        ->first();
-
+    $visitsCount = 0;
+    $salesCount = 0;
+    $totalSales = 0;
+    $totalPaid = 0;
+    $totalRemaining = 0;
+    $collectionsFromBalance = 0;
+    $todaySettlement = null;
     $expenses = [];
-    if ($todaySettlement) {
-        $expenses = $todaySettlement->expenses->map(fn($e) => [
-            'id' => $e->id,
-            'expense_type' => $e->expense_type,
-            'amount' => (float) $e->amount,
-            'notes' => $e->notes,
-        ])->toArray();
-    }
+    $totalExpenses = 0;
+    $expectedCash = 0;
+    $pendingDebts = 0;
 
-    $vehicleExpenses = [];
     if ($employee) {
+        $visitsCount = CustomerVisit::where('employee_id', $employee->id)
+            ->whereDate('visit_date', $today)
+            ->where('company_id', $user->company_id)
+            ->count();
+
+        $invoices = SalesInvoice::where('sales_rep_id', $employee->id)
+            ->whereDate('invoice_date', $today)
+            ->where('company_id', $user->company_id)
+            ->whereNull('deleted_at')
+            ->get();
+
+        $salesCount = $invoices->count();
+        $totalSales = (float) $invoices->sum('net_total');
+        $totalPaid = (float) $invoices->sum('paid_amount');
+        $totalRemaining = $totalSales - $totalPaid;
+
+        $collectionsFromBalance = \App\Models\Sales\Collection::where('sales_rep_id', $employee->id)
+            ->whereDate('collection_date', $today)
+            ->where('company_id', $user->company_id)
+            ->whereNull('deleted_at')
+            ->where('notes', 'like', '%الدفع من رصيد سابق%')
+            ->sum('amount');
+
+        $todaySettlement = \App\Models\Sales\RepDailySettlement::where('sales_rep_id', $employee->id)
+            ->whereDate('settlement_date', $today)
+            ->where('company_id', $user->company_id)
+            ->first();
+
+        if ($todaySettlement) {
+            $expenses = $todaySettlement->expenses->map(fn($e) => [
+                'id' => $e->id,
+                'expense_type' => $e->expense_type,
+                'amount' => (float) $e->amount,
+                'notes' => $e->notes,
+            ])->toArray();
+        }
+
         $assignment = DB::table('vehicle_assignments')
             ->where('sales_rep_id', $employee->id)
             ->where('status', 'active')
@@ -1985,19 +1991,18 @@ RouteFacade::get('handheld/daily-summary', function (\Illuminate\Http\Request $r
                     'notes' => $ve->notes,
                     'source' => 'vehicle',
                 ])->toArray();
+            $expenses = array_merge($expenses, $vehicleExpenses);
         }
+
+        $totalExpenses = collect($expenses)->sum('amount');
+
+        $pendingDebts = \App\Models\Sales\SalesmanDebt::where('salesman_id', $employee->id)
+            ->where('company_id', $user->company_id)
+            ->whereIn('status', ['pending', 'partially_paid'])
+            ->sum('remaining_debt');
+
+        $expectedCash = $totalPaid - $totalExpenses - (float) $collectionsFromBalance;
     }
-
-    $expenses = array_merge($expenses, $vehicleExpenses);
-
-    $totalExpenses = collect($expenses)->sum('amount');
-
-    $pendingDebts = \App\Models\Sales\SalesmanDebt::where('salesman_id', $employee->id)
-        ->where('company_id', $user->company_id)
-        ->whereIn('status', ['pending', 'partially_paid'])
-        ->sum('remaining_debt');
-
-    $expectedCash = $totalPaid - $totalExpenses - (float) $collectionsFromBalance;
 
     return response()->json([
         'data' => [

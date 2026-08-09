@@ -163,6 +163,7 @@ class HandheldController extends BaseApiController
             'local_invoices'    => 'nullable|array',
             'local_visits'      => 'nullable|array',
             'local_returns'     => 'nullable|array',
+            'local_vehicle_expenses' => 'nullable|array',
         ]);
 
         $user = $request->user();
@@ -243,6 +244,39 @@ class HandheldController extends BaseApiController
                 'visit_reason'  => $visit['visit_reason'] ?? null,
                 'created_at'    => now(),
             ]);
+        }
+
+        // Push vehicle expenses
+        $localVehicleExpenses = $request->input('local_vehicle_expenses', []);
+        foreach ($localVehicleExpenses as $expense) {
+            $existing = DB::table('vehicle_daily_expenses')
+                ->where('uuid', $expense['uuid'] ?? '')
+                ->first();
+
+            if (!$existing) {
+                DB::table('vehicle_daily_expenses')->insert([
+                    'uuid'           => $expense['uuid'] ?? \Illuminate\Support\Str::uuid(),
+                    'vehicle_id'     => $expense['vehicle_id'] ?? null,
+                    'employee_id'    => $expense['employee_id'] ?? $request->input('_salesman_id'),
+                    'expense_date'   => $expense['expense_date'] ?? now()->toDateString(),
+                    'expense_type'   => $expense['expense_type'] ?? 'OTHER',
+                    'amount'         => $expense['amount'] ?? 0,
+                    'notes'          => $expense['notes'] ?? null,
+                    'created_by'     => $user->id,
+                    'created_at'     => now(),
+                ]);
+                $pushResults[] = [
+                    'type'   => 'vehicle_expense',
+                    'uuid'   => $expense['uuid'] ?? null,
+                    'status' => 'synced',
+                ];
+            } else {
+                $pushResults[] = [
+                    'type'   => 'vehicle_expense',
+                    'uuid'   => $expense['uuid'] ?? null,
+                    'status' => 'already_exists',
+                ];
+            }
         }
 
         return $this->successResponse([
