@@ -54,11 +54,11 @@ class MenuService
             $result[] = $mapped;
         }
 
-        $result = $this->filterByPermissions($result, $user);
-
-        if ($companyId) {
-            $result = $this->filterByCompanySettings($result, $companyId);
-        }
+        // TEMPORARY: Sidebar filtering disabled — all users see everything
+        // $result = $this->filterByPermissions($result, $user);
+        // if ($companyId) {
+        //     $result = $this->filterByCompanySettings($result, $companyId);
+        // }
 
         return $result;
     }
