@@ -27,7 +27,6 @@ class MenuService
 
             $mapped = [
                 'key' => $item['key'],
-                'permission' => $item['permission'] ?? null,
                 'title_en' => $item['title_en'] ?? $item['title_ar'] ?? $item['key'],
                 'title_ar' => $item['title_ar'] ?? $item['title_en'] ?? $item['key'],
                 'icon' => $item['icon'] ?? 'circle',
@@ -41,7 +40,6 @@ class MenuService
                     if (!is_array($child) || empty($child['key'])) continue;
                     $mapped['children'][] = [
                         'key' => $child['key'],
-                        'permission' => $child['permission'] ?? null,
                         'title_en' => $child['title_en'] ?? $child['title_ar'] ?? $child['key'],
                         'title_ar' => $child['title_ar'] ?? $child['title_en'] ?? $child['key'],
                         'icon' => $child['icon'] ?? 'circle',
