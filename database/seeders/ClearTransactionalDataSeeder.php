@@ -65,6 +65,9 @@ class ClearTransactionalDataSeeder extends Seeder
             'promotion_execution_logs',
             'rep_daily_expenses',
             'rep_daily_settlements',
+            'salesman_debt_payment_lines',
+            'salesman_debts',
+            'salesman_account_movements',
             'salesman_settlements',
             'vehicle_settlements',
             'vehicle_expenses',
@@ -138,6 +141,17 @@ class ClearTransactionalDataSeeder extends Seeder
         if (Schema::hasTable('suppliers')) {
             DB::table('suppliers')->update(['opening_balance' => 0]);
             $this->command->info("Reset: suppliers.opening_balance = 0");
+        }
+
+        if (Schema::hasTable('salesman_accounts')) {
+            DB::table('salesman_accounts')->update([
+                'total_sales' => 0,
+                'total_returns' => 0,
+                'total_collections' => 0,
+                'total_debts' => 0,
+                'current_balance' => 0,
+            ]);
+            $this->command->info("Reset: salesman_accounts balances = 0");
         }
 
         if (Schema::hasTable('number_series')) {

@@ -11,7 +11,7 @@
         <select name="item_id" required style="width:100%; background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;">
             <option value="">-- اختر صنف --</option>
             @foreach($items as $item)
-                <option value="{{ $item->id }}" {{ request('item_id') == $item->id ? 'selected' : '' }}>{{ $item->name_ar ?? $item->name_en }}</option>
+                <option value="{{ $item->id }}" {{ request('item_id') == $item->id ? 'selected' : '' }}>{{ $item->name }}</option>
             @endforeach
         </select>
     </div>
@@ -54,7 +54,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <span style="font-size:14px; color:var(--muted);">الصنف :</span>
-                <strong style="font-size:20px; color:#fff; margin-right:8px;">{{ $selectedItem->name_ar ?? $selectedItem->name_en }}</strong>
+                <strong style="font-size:20px; color:#fff; margin-right:8px;">{{ $selectedItem->name }}</strong>
             </div>
             <div>
                 <span style="font-size:14px; color:var(--muted);">الرصيد الحالي :</span>
