@@ -140,7 +140,7 @@ Route::get('item-sub-categories/next-code', [\App\Http\Controllers\Api\ItemSubCa
 Route::get('product-companies/next-code', [\App\Http\Controllers\Api\ProductCompanyController::class, 'nextCode']);
 Route::get('accounts/next-code', [\App\Http\Controllers\Api\AccountController::class, 'nextCode']);
 Route::get('sales-routes/next-code', [\App\Http\Controllers\Api\SalesRouteController::class, 'nextCode']);
-Route::get('dashboard', [\App\Http\Controllers\Api\DashboardController::class, 'index'])->middleware('auth:sanctum')->name('dashboard.index');
+Route::get('dashboard', [\App\Http\Controllers\Api\Reports\DashboardController::class, 'index'])->middleware('auth:sanctum')->name('dashboard.index');
 Route::get('reports/sales', [\App\Http\Controllers\Api\ReportController::class, 'sales'])->middleware('auth:sanctum')->name('reports.sales');
 Route::get('reports/purchases', [\App\Http\Controllers\Api\ReportController::class, 'purchases'])->middleware('auth:sanctum')->name('reports.purchases');
 Route::get('reports/inventory', [\App\Http\Controllers\Api\ReportController::class, 'inventory'])->middleware('auth:sanctum')->name('reports.inventory');
