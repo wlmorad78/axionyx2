@@ -51,7 +51,7 @@ class CompanySidebarController extends Controller
         }
 
         $allMenuKeys = $this->getAllMenuKeys();
-        $companies = Company::select('id', 'name', 'name_ar', 'name_en', 'code')->get();
+        $companies = Company::select('id', 'name_ar', 'name_en', 'code')->get();
 
         $result = $companies->map(function ($company) use ($allMenuKeys) {
             $settings = CompanySidebarSetting::where('company_id', $company->id)
@@ -88,7 +88,7 @@ class CompanySidebarController extends Controller
             return [
                 'company' => [
                     'id' => $company->id,
-                    'name' => $company->name_ar ?? $company->name,
+                    'name' => $company->name_ar ?? $company->name_en ?? '',
                     'name_en' => $company->name_en,
                     'code' => $company->code,
                 ],

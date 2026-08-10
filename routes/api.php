@@ -601,6 +601,8 @@ require __DIR__.'/api/subscription-plans.php';
 require __DIR__.'/api/company-subscriptions.php';
 require __DIR__.'/api/company-subscription-limits.php';
 require __DIR__.'/api/handheld.php';
+require __DIR__.'/api/handheld_auth.php';
+require __DIR__.'/api/new_handheld.php';
 
 // ===== Permissions & Roles Custom Routes =====
 Route::get('permissions/matrix', [\App\Http\Controllers\Api\Permissions\PermissionController::class, 'matrix']);
