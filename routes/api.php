@@ -21,7 +21,7 @@ Route::get('postman-collection', function () {
 });
 
 // Public: Login (no auth required)
-Route::post('login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+Route::post('login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
 
 // Protected: require auth for all non-login routes below
 Route::middleware('auth:sanctum')->group(function () {
@@ -45,86 +45,86 @@ Route::get('dashboard/widgets/role/{role}', [\App\Http\Controllers\Api\Reports\D
 Route::post('dashboard/widgets/role/{role}', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'syncRoleWidgets']);
 
 // Audit logs
-Route::get('audit-logs/stats', [\App\Http\Controllers\Api\AuditLogController::class, 'stats']);
-Route::apiResource('audit-logs', \App\Http\Controllers\Api\AuditLogController::class)->only(['index', 'show']);
+Route::get('audit-logs/stats', [\App\Http\Controllers\Api\Integration\AuditLogController::class, 'stats']);
+Route::apiResource('audit-logs', \App\Http\Controllers\Api\Integration\AuditLogController::class)->only(['index', 'show']);
 
 // Notifications
-Route::get('notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
-Route::get('notifications/stats', [\App\Http\Controllers\Api\NotificationController::class, 'stats']);
-Route::put('notifications/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllRead']);
-Route::put('notifications/{notification}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead']);
-Route::apiResource('notifications', \App\Http\Controllers\Api\NotificationController::class)->only(['index', 'destroy']);
+Route::get('notifications/unread-count', [\App\Http\Controllers\Api\Notifications\NotificationController::class, 'unreadCount']);
+Route::get('notifications/stats', [\App\Http\Controllers\Api\Notifications\NotificationController::class, 'stats']);
+Route::put('notifications/read-all', [\App\Http\Controllers\Api\Notifications\NotificationController::class, 'markAllRead']);
+Route::put('notifications/{notification}/read', [\App\Http\Controllers\Api\Notifications\NotificationController::class, 'markRead']);
+Route::apiResource('notifications', \App\Http\Controllers\Api\Notifications\NotificationController::class)->only(['index', 'destroy']);
 
 // Approvals
-Route::get('approvals/stats', [\App\Http\Controllers\Api\ApprovalController::class, 'stats']);
-Route::post('approvals/{approval}/approve', [\App\Http\Controllers\Api\ApprovalController::class, 'approve']);
-Route::post('approvals/{approval}/reject', [\App\Http\Controllers\Api\ApprovalController::class, 'reject']);
-Route::apiResource('approvals', \App\Http\Controllers\Api\ApprovalController::class)->only(['index', 'show']);
+Route::get('approvals/stats', [\App\Http\Controllers\Api\Workflows\ApprovalController::class, 'stats']);
+Route::post('approvals/{approval}/approve', [\App\Http\Controllers\Api\Workflows\ApprovalController::class, 'approve']);
+Route::post('approvals/{approval}/reject', [\App\Http\Controllers\Api\Workflows\ApprovalController::class, 'reject']);
+Route::apiResource('approvals', \App\Http\Controllers\Api\Workflows\ApprovalController::class)->only(['index', 'show']);
 
 // Company settings (flexible key-value)
-Route::get('company-settings', [\App\Http\Controllers\Api\CompanySettingController::class, 'index']);
-Route::get('company-settings/{group}', [\App\Http\Controllers\Api\CompanySettingController::class, 'byGroup']);
-Route::put('company-settings', [\App\Http\Controllers\Api\CompanySettingController::class, 'update']);
-Route::delete('company-settings/{group}/{key}', [\App\Http\Controllers\Api\CompanySettingController::class, 'destroy']);
+Route::get('company-settings', [\App\Http\Controllers\Api\Company\CompanySettingController::class, 'index']);
+Route::get('company-settings/{group}', [\App\Http\Controllers\Api\Company\CompanySettingController::class, 'byGroup']);
+Route::put('company-settings', [\App\Http\Controllers\Api\Company\CompanySettingController::class, 'update']);
+Route::delete('company-settings/{group}/{key}', [\App\Http\Controllers\Api\Company\CompanySettingController::class, 'destroy']);
 
 // Module Manager
-Route::get('modules/manifest', [\App\Http\Controllers\Api\ModuleController::class, 'manifest']);
-Route::get('modules/{code}/permissions', [\App\Http\Controllers\Api\ModuleController::class, 'permissions']);
-Route::get('modules/{code}/menu', [\App\Http\Controllers\Api\ModuleController::class, 'menu']);
-Route::post('modules/{code}/install', [\App\Http\Controllers\Api\ModuleController::class, 'install']);
-Route::delete('modules/{code}/uninstall', [\App\Http\Controllers\Api\ModuleController::class, 'uninstall']);
-Route::put('modules/{code}/enable', [\App\Http\Controllers\Api\ModuleController::class, 'enable']);
-Route::put('modules/{code}/disable', [\App\Http\Controllers\Api\ModuleController::class, 'disable']);
-Route::post('modules/{code}/upgrade', [\App\Http\Controllers\Api\ModuleController::class, 'upgrade']);
-Route::apiResource('modules', \App\Http\Controllers\Api\ModuleController::class)->only(['index', 'show']);
+Route::get('modules/manifest', [\App\Http\Controllers\Api\Permissions\ModuleController::class, 'manifest']);
+Route::get('modules/{code}/permissions', [\App\Http\Controllers\Api\Permissions\ModuleController::class, 'permissions']);
+Route::get('modules/{code}/menu', [\App\Http\Controllers\Api\Permissions\ModuleController::class, 'menu']);
+Route::post('modules/{code}/install', [\App\Http\Controllers\Api\Permissions\ModuleController::class, 'install']);
+Route::delete('modules/{code}/uninstall', [\App\Http\Controllers\Api\Permissions\ModuleController::class, 'uninstall']);
+Route::put('modules/{code}/enable', [\App\Http\Controllers\Api\Permissions\ModuleController::class, 'enable']);
+Route::put('modules/{code}/disable', [\App\Http\Controllers\Api\Permissions\ModuleController::class, 'disable']);
+Route::post('modules/{code}/upgrade', [\App\Http\Controllers\Api\Permissions\ModuleController::class, 'upgrade']);
+Route::apiResource('modules', \App\Http\Controllers\Api\Permissions\ModuleController::class)->only(['index', 'show']);
 
 // Event Bus
-Route::get('events/stats', [\App\Http\Controllers\Api\EventController::class, 'stats']);
-Route::get('events/history', [\App\Http\Controllers\Api\EventController::class, 'history']);
-Route::get('events/{code}/subscriptions', [\App\Http\Controllers\Api\EventController::class, 'subscriptions']);
-Route::post('events/{code}/subscribe', [\App\Http\Controllers\Api\EventController::class, 'subscribe']);
-Route::delete('events/{code}/unsubscribe', [\App\Http\Controllers\Api\EventController::class, 'unsubscribe']);
-Route::post('events/{code}/fire', [\App\Http\Controllers\Api\EventController::class, 'fire']);
-Route::apiResource('events', \App\Http\Controllers\Api\EventController::class)->only(['index', 'show']);
+Route::get('events/stats', [\App\Http\Controllers\Api\Notifications\EventController::class, 'stats']);
+Route::get('events/history', [\App\Http\Controllers\Api\Notifications\EventController::class, 'history']);
+Route::get('events/{code}/subscriptions', [\App\Http\Controllers\Api\Notifications\EventController::class, 'subscriptions']);
+Route::post('events/{code}/subscribe', [\App\Http\Controllers\Api\Notifications\EventController::class, 'subscribe']);
+Route::delete('events/{code}/unsubscribe', [\App\Http\Controllers\Api\Notifications\EventController::class, 'unsubscribe']);
+Route::post('events/{code}/fire', [\App\Http\Controllers\Api\Notifications\EventController::class, 'fire']);
+Route::apiResource('events', \App\Http\Controllers\Api\Notifications\EventController::class)->only(['index', 'show']);
 
 // Resource next-code routes
-Route::get('customers/next-code', [\App\Http\Controllers\Api\CustomerController::class, 'nextCode']);
-Route::get('customer-groups/next-code', [\App\Http\Controllers\Api\CustomerGroupController::class, 'nextCode']);
-Route::get('customer-classes/next-code', [\App\Http\Controllers\Api\CustomerClassController::class, 'nextCode']);
-Route::get('customer-types/next-code', [\App\Http\Controllers\Api\CustomerTypeController::class, 'nextCode']);
-Route::get('customer-account-types/next-code', [\App\Http\Controllers\Api\CustomerAccountTypeController::class, 'nextCode']);
-Route::get('trade-program-types/next-code', [\App\Http\Controllers\Api\TradeProgramTypeController::class, 'nextCode']);
-Route::get('warehouses/next-code', [\App\Http\Controllers\Api\WarehouseController::class, 'nextCode']);
-Route::get('companies/next-code', [\App\Http\Controllers\Api\CompanyController::class, 'nextCode']);
-Route::get('branches/next-code', [\App\Http\Controllers\Api\BranchController::class, 'nextCode']);
-Route::get('employees/next-code', [\App\Http\Controllers\Api\EmployeeController::class, 'nextCode']);
-Route::get('users/next-code', [\App\Http\Controllers\Api\UserController::class, 'nextCode']);
-Route::get('employee-contracts/next-code', [\App\Http\Controllers\Api\EmployeeContractController::class, 'nextCode']);
-Route::get('employee-contract-amendments/next-code', [\App\Http\Controllers\Api\EmployeeContractAmendmentController::class, 'nextCode']);
-Route::get('employee-loans/next-code', [\App\Http\Controllers\Api\EmployeeLoanController::class, 'nextCode']);
-Route::get('employee-advances/next-code', [\App\Http\Controllers\Api\EmployeeAdvanceController::class, 'nextCode']);
-Route::get('departments/next-code', [\App\Http\Controllers\Api\DepartmentController::class, 'nextCode']);
-Route::get('position-levels/next-code', [\App\Http\Controllers\Api\PositionLevelController::class, 'nextCode']);
-Route::get('job-positions/next-code', [\App\Http\Controllers\Api\JobPositionController::class, 'nextCode']);
-Route::get('job-families/next-code', [\App\Http\Controllers\Api\JobFamilyController::class, 'nextCode']);
-Route::get('job-titles/next-code', [\App\Http\Controllers\Api\JobTitleController::class, 'nextCode']);
-Route::get('job-grades/next-code', [\App\Http\Controllers\Api\JobGradeController::class, 'nextCode']);
-Route::get('salary-scales/next-code', [\App\Http\Controllers\Api\SalaryScaleController::class, 'nextCode']);
-Route::get('sales-territories/next-code', [\App\Http\Controllers\Api\SalesTerritoryController::class, 'nextCode']);
+Route::get('customers/next-code', [\App\Http\Controllers\Api\CRM\CustomerController::class, 'nextCode']);
+Route::get('customer-groups/next-code', [\App\Http\Controllers\Api\CRM\CustomerGroupController::class, 'nextCode']);
+Route::get('customer-classes/next-code', [\App\Http\Controllers\Api\CRM\CustomerClassController::class, 'nextCode']);
+Route::get('customer-types/next-code', [\App\Http\Controllers\Api\CRM\CustomerTypeController::class, 'nextCode']);
+Route::get('customer-account-types/next-code', [\App\Http\Controllers\Api\CRM\CustomerAccountTypeController::class, 'nextCode']);
+Route::get('trade-program-types/next-code', [\App\Http\Controllers\Api\Sales\TradeProgramTypeController::class, 'nextCode']);
+Route::get('warehouses/next-code', [\App\Http\Controllers\Api\Inventory\WarehouseController::class, 'nextCode']);
+Route::get('companies/next-code', [\App\Http\Controllers\Api\Company\CompanyController::class, 'nextCode']);
+Route::get('branches/next-code', [\App\Http\Controllers\Api\Settings\BranchController::class, 'nextCode']);
+Route::get('employees/next-code', [\App\Http\Controllers\Api\HR\EmployeeController::class, 'nextCode']);
+Route::get('users/next-code', [\App\Http\Controllers\Api\Permissions\UserController::class, 'nextCode']);
+Route::get('employee-contracts/next-code', [\App\Http\Controllers\Api\HR\EmployeeContractController::class, 'nextCode']);
+Route::get('employee-contract-amendments/next-code', [\App\Http\Controllers\Api\HR\EmployeeContractAmendmentController::class, 'nextCode']);
+Route::get('employee-loans/next-code', [\App\Http\Controllers\Api\HR\EmployeeLoanController::class, 'nextCode']);
+Route::get('employee-advances/next-code', [\App\Http\Controllers\Api\HR\EmployeeAdvanceController::class, 'nextCode']);
+Route::get('departments/next-code', [\App\Http\Controllers\Api\HR\DepartmentController::class, 'nextCode']);
+Route::get('position-levels/next-code', [\App\Http\Controllers\Api\HR\PositionLevelController::class, 'nextCode']);
+Route::get('job-positions/next-code', [\App\Http\Controllers\Api\HR\JobPositionController::class, 'nextCode']);
+Route::get('job-families/next-code', [\App\Http\Controllers\Api\HR\JobFamilyController::class, 'nextCode']);
+Route::get('job-titles/next-code', [\App\Http\Controllers\Api\HR\JobTitleController::class, 'nextCode']);
+Route::get('job-grades/next-code', [\App\Http\Controllers\Api\HR\JobGradeController::class, 'nextCode']);
+Route::get('salary-scales/next-code', [\App\Http\Controllers\Api\HR\SalaryScaleController::class, 'nextCode']);
+Route::get('sales-territories/next-code', [\App\Http\Controllers\Api\Sales\SalesTerritoryController::class, 'nextCode']);
 Route::get('sales-territory-types/next-code', function () { return response()->json(['code' => 'STT-00001']); });
-Route::get('organization-units/next-code', [\App\Http\Controllers\Api\OrganizationUnitController::class, 'nextCode']);
-Route::get('cost-centers/next-code', [\App\Http\Controllers\Api\CostCenterController::class, 'nextCode']);
-Route::get('treasuries/next-code', [\App\Http\Controllers\Api\TreasuryController::class, 'nextCode']);
-Route::get('stock-adjustments/next-code', [\App\Http\Controllers\Api\StockAdjustmentController::class, 'nextCode']);
-Route::get('stock-counts/next-code', [\App\Http\Controllers\Api\StockCountController::class, 'nextCode']);
-Route::get('warehouse-transfers/next-code', [\App\Http\Controllers\Api\WarehouseTransferController::class, 'nextCode']);
-Route::get('inventory-transactions/next-code', [\App\Http\Controllers\Api\InventoryTransactionController::class, 'nextCode']);
-Route::get('inventory-revaluations/next-code', [\App\Http\Controllers\Api\InventoryRevaluationController::class, 'nextCode']);
-Route::get('journal-entries/next-code', [\App\Http\Controllers\Api\JournalEntryController::class, 'nextCode']);
-Route::get('manual-journal-entries/next-code', [\App\Http\Controllers\Api\ManualJournalEntryController::class, 'nextCode']);
-Route::get('receipt-vouchers/next-code', [\App\Http\Controllers\Api\ReceiptVoucherController::class, 'nextCode']);
-Route::get('payment-vouchers/next-code', [\App\Http\Controllers\Api\PaymentVoucherController::class, 'nextCode']);
-Route::get('suppliers/{id}/statement', [\App\Http\Controllers\Api\SupplierController::class, 'statement']);
+Route::get('organization-units/next-code', [\App\Http\Controllers\Api\HR\OrganizationUnitController::class, 'nextCode']);
+Route::get('cost-centers/next-code', [\App\Http\Controllers\Api\Accounting\CostCenterController::class, 'nextCode']);
+Route::get('treasuries/next-code', [\App\Http\Controllers\Api\Treasury\TreasuryController::class, 'nextCode']);
+Route::get('stock-adjustments/next-code', [\App\Http\Controllers\Api\Inventory\StockAdjustmentController::class, 'nextCode']);
+Route::get('stock-counts/next-code', [\App\Http\Controllers\Api\Inventory\StockCountController::class, 'nextCode']);
+Route::get('warehouse-transfers/next-code', [\App\Http\Controllers\Api\Inventory\WarehouseTransferController::class, 'nextCode']);
+Route::get('inventory-transactions/next-code', [\App\Http\Controllers\Api\Inventory\InventoryTransactionController::class, 'nextCode']);
+Route::get('inventory-revaluations/next-code', [\App\Http\Controllers\Api\Inventory\InventoryRevaluationController::class, 'nextCode']);
+Route::get('journal-entries/next-code', [\App\Http\Controllers\Api\Accounting\JournalEntryController::class, 'nextCode']);
+Route::get('manual-journal-entries/next-code', [\App\Http\Controllers\Api\Accounting\ManualJournalEntryController::class, 'nextCode']);
+Route::get('receipt-vouchers/next-code', [\App\Http\Controllers\Api\Treasury\ReceiptVoucherController::class, 'nextCode']);
+Route::get('payment-vouchers/next-code', [\App\Http\Controllers\Api\Treasury\PaymentVoucherController::class, 'nextCode']);
+Route::get('suppliers/{id}/statement', [\App\Http\Controllers\Api\Suppliers\SupplierController::class, 'statement']);
 Route::get('suppliers/{id}/unpaid-invoices', function ($id) {
     $invoices = \App\Models\PurchaseInvoice::where('supplier_id', $id)
         ->where('status', '!=', 'cancelled')
@@ -133,18 +133,18 @@ Route::get('suppliers/{id}/unpaid-invoices', function ($id) {
         ->get(['id', 'invoice_no', 'invoice_date', 'net_total', 'paid_amount', 'remaining_amount']);
     return response()->json($invoices);
 });
-Route::get('bank-transfers/next-code', [\App\Http\Controllers\Api\BankTransferController::class, 'nextCode']);
-Route::get('items/next-code', [\App\Http\Controllers\Api\ItemController::class, 'nextCode']);
-Route::get('item-categories/next-code', [\App\Http\Controllers\Api\ItemCategoryController::class, 'nextCode']);
-Route::get('item-sub-categories/next-code', [\App\Http\Controllers\Api\ItemSubCategoryController::class, 'nextCode']);
-Route::get('product-companies/next-code', [\App\Http\Controllers\Api\ProductCompanyController::class, 'nextCode']);
-Route::get('accounts/next-code', [\App\Http\Controllers\Api\AccountController::class, 'nextCode']);
-Route::get('sales-routes/next-code', [\App\Http\Controllers\Api\SalesRouteController::class, 'nextCode']);
+Route::get('bank-transfers/next-code', [\App\Http\Controllers\Api\Treasury\BankTransferController::class, 'nextCode']);
+Route::get('items/next-code', [\App\Http\Controllers\Api\Inventory\ItemController::class, 'nextCode']);
+Route::get('item-categories/next-code', [\App\Http\Controllers\Api\Inventory\ItemCategoryController::class, 'nextCode']);
+Route::get('item-sub-categories/next-code', [\App\Http\Controllers\Api\Inventory\ItemSubCategoryController::class, 'nextCode']);
+Route::get('product-companies/next-code', [\App\Http\Controllers\Api\Inventory\ProductCompanyController::class, 'nextCode']);
+Route::get('accounts/next-code', [\App\Http\Controllers\Api\Accounting\AccountController::class, 'nextCode']);
+Route::get('sales-routes/next-code', [\App\Http\Controllers\Api\Sales\SalesRouteController::class, 'nextCode']);
 Route::get('dashboard', [\App\Http\Controllers\Api\Reports\DashboardController::class, 'index'])->middleware('auth:sanctum')->name('dashboard.index');
-Route::get('reports/sales', [\App\Http\Controllers\Api\ReportController::class, 'sales'])->middleware('auth:sanctum')->name('reports.sales');
-Route::get('reports/purchases', [\App\Http\Controllers\Api\ReportController::class, 'purchases'])->middleware('auth:sanctum')->name('reports.purchases');
-Route::get('reports/inventory', [\App\Http\Controllers\Api\ReportController::class, 'inventory'])->middleware('auth:sanctum')->name('reports.inventory');
-Route::get('reports/profit', [\App\Http\Controllers\Api\ReportController::class, 'profit'])->name('reports.profit');
+Route::get('reports/sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'sales'])->middleware('auth:sanctum')->name('reports.sales');
+Route::get('reports/purchases', [\App\Http\Controllers\Api\Reports\ReportController::class, 'purchases'])->middleware('auth:sanctum')->name('reports.purchases');
+Route::get('reports/inventory', [\App\Http\Controllers\Api\Reports\ReportController::class, 'inventory'])->middleware('auth:sanctum')->name('reports.inventory');
+Route::get('reports/profit', [\App\Http\Controllers\Api\Reports\ReportController::class, 'profit'])->name('reports.profit');
 
 // Item Movement Report
 Route::get('reports/item-movement', function (\Illuminate\Http\Request $request) {
@@ -160,10 +160,10 @@ Route::get('reports/item-movement', function (\Illuminate\Http\Request $request)
 
     $item = \App\Models\Item::with('baseUnit')->find($itemId);
     if (!$item) {
-        return response()->json(['message' => 'الصنف غير موجود'], 404);
+        return response()->json(['message' => 'Ø§Ù„ØµÙ†Ù ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯'], 404);
     }
 
-    // Determine base unit name — use default unit (is_default=1) first, then fallback to conv=1
+    // Determine base unit name â€” use default unit (is_default=1) first, then fallback to conv=1
     $baseUnitName = $item->baseUnit?->name_ar ?? '';
     if (empty($baseUnitName)) {
         $defaultUnit = \App\Models\ItemUnit::where('item_id', $itemId)
@@ -174,7 +174,7 @@ Route::get('reports/item-movement', function (\Illuminate\Http\Request $request)
         }
         $baseUnitName = $defaultUnit && $defaultUnit->unit
             ? $defaultUnit->unit->name_ar
-            : 'وحدة';
+            : 'ÙˆØ­Ø¯Ø©';
     }
 
     // Opening balance from InventoryOpeningBalance
@@ -231,7 +231,7 @@ Route::get('reports/item-movement', function (\Illuminate\Http\Request $request)
             if ($referenceShort !== '' && stripos($referenceShort, 'return') !== false) {
                 $isReturnType = true;
             }
-            if (!$isReturnType && $txnTypeName !== '' && (stripos($txnTypeName, 'return') !== false || str_contains($txnTypeName, 'مرتجع'))) {
+            if (!$isReturnType && $txnTypeName !== '' && (stripos($txnTypeName, 'return') !== false || str_contains($txnTypeName, 'Ù…Ø±ØªØ¬Ø¹'))) {
                 $isReturnType = true;
             }
             if ($isReturnType) {
@@ -247,17 +247,17 @@ Route::get('reports/item-movement', function (\Illuminate\Http\Request $request)
             if ($txn->reference_type) {
                 $refShort = class_basename($txn->reference_type);
                 $referenceType = match($refShort) {
-                    'PurchaseInvoice' => 'فاتورة شراء',
-                    'SalesInvoice' => 'فاتورة بيع',
-                    'PurchaseReturn' => 'مرتجع شراء',
-                    'SalesReturn' => 'مرتجع بيع',
-                    'StockAdjustment' => 'تعديل مخزون',
-                    'WarehouseTransfer' => 'نقل مخزون',
-                    'InventoryOpeningBalance' => 'رصيد افتتاحي',
-                    'IssueOrder' => 'إذن صرف',
-                    'LoadRequest' => 'طلب تحميل',
-                    'CustomerReturn' => 'مرتجع عميل',
-                    'ReturnOrder' => 'طلب إرجاع',
+                    'PurchaseInvoice' => 'ÙØ§ØªÙˆØ±Ø© Ø´Ø±Ø§Ø¡',
+                    'SalesInvoice' => 'ÙØ§ØªÙˆØ±Ø© Ø¨ÙŠØ¹',
+                    'PurchaseReturn' => 'Ù…Ø±ØªØ¬Ø¹ Ø´Ø±Ø§Ø¡',
+                    'SalesReturn' => 'Ù…Ø±ØªØ¬Ø¹ Ø¨ÙŠØ¹',
+                    'StockAdjustment' => 'ØªØ¹Ø¯ÙŠÙ„ Ù…Ø®Ø²ÙˆÙ†',
+                    'WarehouseTransfer' => 'Ù†Ù‚Ù„ Ù…Ø®Ø²ÙˆÙ†',
+                    'InventoryOpeningBalance' => 'Ø±ØµÙŠØ¯ Ø§ÙØªØªØ§Ø­ÙŠ',
+                    'IssueOrder' => 'Ø¥Ø°Ù† ØµØ±Ù',
+                    'LoadRequest' => 'Ø·Ù„Ø¨ ØªØ­Ù…ÙŠÙ„',
+                    'CustomerReturn' => 'Ù…Ø±ØªØ¬Ø¹ Ø¹Ù…ÙŠÙ„',
+                    'ReturnOrder' => 'Ø·Ù„Ø¨ Ø¥Ø±Ø¬Ø§Ø¹',
                     default => $refShort,
                 };
 
@@ -363,7 +363,7 @@ Route::get('reports/item-ledger', function (\Illuminate\Http\Request $request) {
     $dateTo = $request->input('date_to');
 
     $item = \App\Models\Item::find($itemId);
-    if (!$item) return response()->json(['message' => 'الصنف غير موجود'], 404);
+    if (!$item) return response()->json(['message' => 'Ø§Ù„ØµÙ†Ù ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯'], 404);
 
     $rows = \Illuminate\Support\Facades\DB::table('inventory_transaction_items')
         ->join('inventory_transactions', 'inventory_transaction_items.inventory_transaction_id', '=', 'inventory_transactions.id')
@@ -399,10 +399,10 @@ Route::get('reports/item-ledger', function (\Illuminate\Http\Request $request) {
         ->get();
 
     $typeLabelMap = [
-        'purchase' => 'شراء', 'purchase_return' => 'مرتجع شراء',
-        'load' => 'تحميل', 'sale' => 'بيع',
-        'return' => 'مرتجع', 'unload' => 'تفريغ',
-        'transfer_rep' => 'تحويل مندوب', 'transfer_wh' => 'تحويل مخزني',
+        'purchase' => 'Ø´Ø±Ø§Ø¡', 'purchase_return' => 'Ù…Ø±ØªØ¬Ø¹ Ø´Ø±Ø§Ø¡',
+        'load' => 'ØªØ­Ù…ÙŠÙ„', 'sale' => 'Ø¨ÙŠØ¹',
+        'return' => 'Ù…Ø±ØªØ¬Ø¹', 'unload' => 'ØªÙØ±ÙŠØº',
+        'transfer_rep' => 'ØªØ­ÙˆÙŠÙ„ Ù…Ù†Ø¯ÙˆØ¨', 'transfer_wh' => 'ØªØ­ÙˆÙŠÙ„ Ù…Ø®Ø²Ù†ÙŠ',
     ];
 
     $locationNameCache = [];
@@ -410,11 +410,11 @@ Route::get('reports/item-ledger', function (\Illuminate\Http\Request $request) {
         $key = "$type:$id";
         if (!isset($locationNameCache[$key])) {
             $locationNameCache[$key] = match($type) {
-                'warehouse' => \App\Models\Warehouse::find($id)?->name ?? "مخزن #$id",
-                'rep' => \App\Models\Employee::find($id)?->full_name_ar ?? "مندوب #$id",
-                'customer' => \App\Models\Customer::find($id)?->name ?? "عميل #$id",
-                'supplier' => \App\Models\Supplier::find($id)?->name ?? "مورد #$id",
-                'vehicle' => "مركبة #$id",
+                'warehouse' => \App\Models\Warehouse::find($id)?->name ?? "Ù…Ø®Ø²Ù† #$id",
+                'rep' => \App\Models\Employee::find($id)?->full_name_ar ?? "Ù…Ù†Ø¯ÙˆØ¨ #$id",
+                'customer' => \App\Models\Customer::find($id)?->name ?? "Ø¹Ù…ÙŠÙ„ #$id",
+                'supplier' => \App\Models\Supplier::find($id)?->name ?? "Ù…ÙˆØ±Ø¯ #$id",
+                'vehicle' => "Ù…Ø±ÙƒØ¨Ø© #$id",
                 default => "#$type #$id",
             };
         }
@@ -474,12 +474,12 @@ Route::get('reports/item-ledger', function (\Illuminate\Http\Request $request) {
         $fromName = $row->from_location_type && $row->from_location_id
             ? $resolveLocation($row->from_location_type, $row->from_location_id)
             : ($row->warehouse_id
-                ? (\App\Models\Warehouse::find($row->warehouse_id)?->name ?? "مخزن #{$row->warehouse_id}")
-                : '—');
+                ? (\App\Models\Warehouse::find($row->warehouse_id)?->name ?? "Ù…Ø®Ø²Ù† #{$row->warehouse_id}")
+                : 'â€”');
 
         $toName = $row->to_location_type && $row->to_location_id
             ? $resolveLocation($row->to_location_type, $row->to_location_id)
-            : '—';
+            : 'â€”';
 
         $movements[] = [
             'id' => $row->id,
@@ -487,7 +487,7 @@ Route::get('reports/item-ledger', function (\Illuminate\Http\Request $request) {
             'transaction_no' => $row->transaction_no,
             'ref_number' => $resolveRefNumber($row),
             'movement_type' => $type,
-            'type_label' => $typeLabelMap[$type] ?? $row->txn_type_name ?? 'أخرى',
+            'type_label' => $typeLabelMap[$type] ?? $row->txn_type_name ?? 'Ø£Ø®Ø±Ù‰',
             'txn_type_code' => $row->txn_type_code,
             'txn_type_name' => $row->txn_type_name,
             'from_name' => $fromName,
@@ -536,7 +536,7 @@ Route::get('reports/item-ledger', function (\Illuminate\Http\Request $request) {
     if (!empty($repIds)) {
         $emps = \App\Models\Employee::whereIn('id', $repIds)->get()->keyBy('id');
         foreach ($repMap as $id => &$data) {
-            $data['rep_name'] = $emps->get($id)?->full_name_ar ?? "مندوب #$id";
+            $data['rep_name'] = $emps->get($id)?->full_name_ar ?? "Ù…Ù†Ø¯ÙˆØ¨ #$id";
         }
     }
     unset($data);
@@ -563,7 +563,7 @@ Route::get('reports/item-ledger', function (\Illuminate\Http\Request $request) {
             'code' => $item->code ?? $item->id,
             'name_ar' => $item->name_ar ?? $item->name,
             'name_en' => $item->name_en ?? '',
-            'unit' => $item->baseUnit?->name_ar ?? 'وحدة',
+            'unit' => $item->baseUnit?->name_ar ?? 'ÙˆØ­Ø¯Ø©',
         ],
         'stats' => $stats,
         'movements' => $movements,
@@ -603,11 +603,11 @@ require __DIR__.'/api/company-subscription-limits.php';
 require __DIR__.'/api/handheld.php';
 
 // ===== Permissions & Roles Custom Routes =====
-Route::get('permissions/matrix', [\App\Http\Controllers\Api\PermissionController::class, 'matrix']);
-Route::get('permissions/check/{permission}', [\App\Http\Controllers\Api\PermissionController::class, 'check']);
-Route::post('permissions/check-batch', [\App\Http\Controllers\Api\PermissionController::class, 'checkBatch']);
-Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'updatePermissions']);
-Route::post('roles/copy-permissions', [\App\Http\Controllers\Api\RoleController::class, 'copyPermissions']);
+Route::get('permissions/matrix', [\App\Http\Controllers\Api\Permissions\PermissionController::class, 'matrix']);
+Route::get('permissions/check/{permission}', [\App\Http\Controllers\Api\Permissions\PermissionController::class, 'check']);
+Route::post('permissions/check-batch', [\App\Http\Controllers\Api\Permissions\PermissionController::class, 'checkBatch']);
+Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\Permissions\RoleController::class, 'updatePermissions']);
+Route::post('roles/copy-permissions', [\App\Http\Controllers\Api\Permissions\RoleController::class, 'copyPermissions']);
 
 // Per-company next-code routes
 Route::get('purchase-invoices/next-code', function (\Illuminate\Http\Request $request) {
@@ -636,397 +636,397 @@ Route::get('sales-invoices/next-code', function (\Illuminate\Http\Request $reque
 
 // Resource Routes
 $resources = [
-    'roles' => \App\Http\Controllers\Api\RoleController::class,
-    'permissions' => \App\Http\Controllers\Api\PermissionController::class,
-    'warehouse-types' => \App\Http\Controllers\Api\WarehouseTypeController::class,
-    'treasury-types' => \App\Http\Controllers\Api\TreasuryTypeController::class,
-    'organizational-levels' => \App\Http\Controllers\Api\OrganizationalLevelController::class,
-    'organization-unit-types' => \App\Http\Controllers\Api\OrganizationUnitTypeController::class,
-    'organization-units' => \App\Http\Controllers\Api\OrganizationUnitController::class,
-    'cost-center-types' => \App\Http\Controllers\Api\CostCenterTypeController::class,
-    'cost-centers' => \App\Http\Controllers\Api\CostCenterController::class,
-    'sales-territory-types' => \App\Http\Controllers\Api\SalesTerritoryTypeController::class,
-    'sales-territories' => \App\Http\Controllers\Api\SalesTerritoryController::class,
-    'departments' => \App\Http\Controllers\Api\DepartmentController::class,
-    'position-levels' => \App\Http\Controllers\Api\PositionLevelController::class,
-    'job-positions' => \App\Http\Controllers\Api\JobPositionController::class,
-    'job-families' => \App\Http\Controllers\Api\JobFamilyController::class,
-    'job-titles' => \App\Http\Controllers\Api\JobTitleController::class,
-    'job-grades' => \App\Http\Controllers\Api\JobGradeController::class,
-    'salary-scales' => \App\Http\Controllers\Api\SalaryScaleController::class,
-    'employee-statuses' => \App\Http\Controllers\Api\EmployeeStatusController::class,
-    'employees' => \App\Http\Controllers\Api\EmployeeController::class,
-    'employee-assignments' => \App\Http\Controllers\Api\EmployeeAssignmentController::class,
-    'contract-types' => \App\Http\Controllers\Api\ContractTypeController::class,
-    'contract-statuses' => \App\Http\Controllers\Api\ContractStatusController::class,
-    'employee-contracts' => \App\Http\Controllers\Api\EmployeeContractController::class,
-    'employee-contract-amendments' => \App\Http\Controllers\Api\EmployeeContractAmendmentController::class,
-    'leave-types' => \App\Http\Controllers\Api\LeaveTypeController::class,
-    'leave-requests' => \App\Http\Controllers\Api\LeaveRequestController::class,
-    'employee-loans' => \App\Http\Controllers\Api\EmployeeLoanController::class,
-    'employee-advances' => \App\Http\Controllers\Api\EmployeeAdvanceController::class,
-    'employee-penalties' => \App\Http\Controllers\Api\EmployeePenaltyController::class,
-    'employee-rewards' => \App\Http\Controllers\Api\EmployeeRewardController::class,
-    'shift-types' => \App\Http\Controllers\Api\ShiftTypeController::class,
-    'shifts' => \App\Http\Controllers\Api\ShiftController::class,
-    'employee-shifts' => \App\Http\Controllers\Api\EmployeeShiftController::class,
-    'attendance-statuses' => \App\Http\Controllers\Api\AttendanceStatusController::class,
-    'attendance-records' => \App\Http\Controllers\Api\AttendanceRecordController::class,
-    'attendance-adjustments' => \App\Http\Controllers\Api\AttendanceAdjustmentController::class,
-    'holidays' => \App\Http\Controllers\Api\HolidayController::class,
-    'employee-missions' => \App\Http\Controllers\Api\EmployeeMissionController::class,
-    'salary-component-types' => \App\Http\Controllers\Api\SalaryComponentTypeController::class,
-    'salary-components' => \App\Http\Controllers\Api\SalaryComponentController::class,
-    'employee-salary-structures' => \App\Http\Controllers\Api\EmployeeSalaryStructureController::class,
-    'payroll-periods' => \App\Http\Controllers\Api\PayrollPeriodController::class,
-    'payroll-runs' => \App\Http\Controllers\Api\PayrollRunController::class,
-    'payroll-run-details' => \App\Http\Controllers\Api\PayrollRunDetailController::class,
-    'customer-groups' => \App\Http\Controllers\Api\CustomerGroupController::class,
-    'customer-classes' => \App\Http\Controllers\Api\CustomerClassController::class,
-    'customer-types' => \App\Http\Controllers\Api\CustomerTypeController::class,
-    'customer-account-types' => \App\Http\Controllers\Api\CustomerAccountTypeController::class,
-    'trade-program-types' => \App\Http\Controllers\Api\TradeProgramTypeController::class,
-    'customer-addresses' => \App\Http\Controllers\Api\CustomerAddressController::class,
-    'customer-contacts' => \App\Http\Controllers\Api\CustomerContactController::class,
-    'customer-credit-limits' => \App\Http\Controllers\Api\CustomerCreditLimitController::class,
-    'item-categories' => \App\Http\Controllers\Api\ItemCategoryController::class,
-    'item-sub-categories' => \App\Http\Controllers\Api\ItemSubCategoryController::class,
-    'item-units' => \App\Http\Controllers\Api\ItemUnitController::class,
-    'item-prices' => \App\Http\Controllers\Api\ItemPriceController::class,
-    'item-barcodes' => \App\Http\Controllers\Api\ItemBarcodeController::class,
-    'item-batches' => \App\Http\Controllers\Api\ItemBatchController::class,
-    'items' => \App\Http\Controllers\Api\ItemController::class,
-    'product-companies' => \App\Http\Controllers\Api\ProductCompanyController::class,
-    'price-levels' => \App\Http\Controllers\Api\PriceLevelController::class,
-    'customer-price-levels' => \App\Http\Controllers\Api\CustomerPriceLevelController::class,
-    'customer-special-prices' => \App\Http\Controllers\Api\CustomerSpecialPriceController::class,
-    'pricing-methods' => \App\Http\Controllers\Api\PricingMethodController::class,
-    'pricing-rules' => \App\Http\Controllers\Api\PricingRuleController::class,
-    'pricing-rule-conditions' => \App\Http\Controllers\Api\PricingRuleConditionController::class,
-    'pricing-rule-items' => \App\Http\Controllers\Api\PricingRuleItemController::class,
-    'quantity-price-breaks' => \App\Http\Controllers\Api\QuantityPriceBreakController::class,
-    'contract-prices' => \App\Http\Controllers\Api\ContractPriceController::class,
-    'pricing-calculations' => \App\Http\Controllers\Api\PricingCalculationController::class,
-    'pricing-calculation-details' => \App\Http\Controllers\Api\PricingCalculationDetailController::class,
-    'price-approval-requests' => \App\Http\Controllers\Api\PriceApprovalRequestController::class,
-    'price-approval-steps' => \App\Http\Controllers\Api\PriceApprovalStepController::class,
-    'pricing-exceptions' => \App\Http\Controllers\Api\PricingExceptionController::class,
-    'pricing-audit-log' => \App\Http\Controllers\Api\PricingAuditLogController::class,
-    'customer-price-lists' => \App\Http\Controllers\Api\CustomerPriceListController::class,
-    'inventory-transaction-types' => \App\Http\Controllers\Api\InventoryTransactionTypeController::class,
-    'inventory-transactions' => \App\Http\Controllers\Api\InventoryTransactionController::class,
-    'inventory-transaction-items' => \App\Http\Controllers\Api\InventoryTransactionItemController::class,
-    'inventory-opening-balances' => \App\Http\Controllers\Api\InventoryOpeningBalanceController::class,
-    'stock-adjustments' => \App\Http\Controllers\Api\StockAdjustmentController::class,
-    'stock-adjustment-items' => \App\Http\Controllers\Api\StockAdjustmentItemController::class,
-    'stock-counts' => \App\Http\Controllers\Api\StockCountController::class,
-    'stock-count-items' => \App\Http\Controllers\Api\StockCountItemController::class,
-    'warehouse-transfers' => \App\Http\Controllers\Api\WarehouseTransferController::class,
-    'warehouse-transfer-items' => \App\Http\Controllers\Api\WarehouseTransferItemController::class,
-    'inventory-revaluations' => \App\Http\Controllers\Api\InventoryRevaluationController::class,
-    'inventory-revaluation-items' => \App\Http\Controllers\Api\InventoryRevaluationItemController::class,
-    'load-requests' => \App\Http\Controllers\Api\LoadRequestController::class,
-    'load-request-items' => \App\Http\Controllers\Api\LoadRequestItemController::class,
-    'issue-orders' => \App\Http\Controllers\Api\IssueOrderController::class,
-    'issue-order-items' => \App\Http\Controllers\Api\IssueOrderItemController::class,
-    'return-orders' => \App\Http\Controllers\Api\ReturnOrderController::class,
-    'return-order-items' => \App\Http\Controllers\Api\ReturnOrderItemController::class,
-    'distribution-plans' => \App\Http\Controllers\Api\DistributionPlanController::class,
-    'salesman-assignments' => \App\Http\Controllers\Api\SalesmanAssignmentController::class,
-    'sales-routes' => \App\Http\Controllers\Api\SalesRouteController::class,
-    'route-schedules' => \App\Http\Controllers\Api\RouteScheduleController::class,
-    'route-customers' => \App\Http\Controllers\Api\RouteCustomerController::class,
-    'customer-visits' => \App\Http\Controllers\Api\CustomerVisitController::class,
-    'route-visits' => \App\Http\Controllers\Api\RouteVisitController::class,
-    'sales-incentives' => \App\Http\Controllers\Api\SalesIncentiveController::class,
-    'sales-incentive-conditions' => \App\Http\Controllers\Api\SalesIncentiveConditionController::class,
-    'sales-incentive-condition-items' => \App\Http\Controllers\Api\SalesIncentiveConditionItemController::class,
-    'sales-incentive-rewards' => \App\Http\Controllers\Api\SalesIncentiveRewardController::class,
-    'sales-invoices' => \App\Http\Controllers\Api\SalesInvoiceController::class,
-    'sales-invoice-items' => \App\Http\Controllers\Api\SalesInvoiceItemController::class,
-    'sales-invoice-discounts' => \App\Http\Controllers\Api\SalesInvoiceDiscountController::class,
-    'sales-invoice-taxes' => \App\Http\Controllers\Api\SalesInvoiceTaxController::class,
-    'sales-invoice-incentives' => \App\Http\Controllers\Api\SalesInvoiceIncentiveController::class,
-    'collections' => \App\Http\Controllers\Api\CollectionController::class,
-    'salesman-settlements' => \App\Http\Controllers\Api\SalesmanSettlementController::class,
-    'customer-returns' => \App\Http\Controllers\Api\CustomerReturnController::class,
-    'customer-return-items' => \App\Http\Controllers\Api\CustomerReturnItemController::class,
-    'daily-distribution-dashboards' => \App\Http\Controllers\Api\DailyDistributionDashboardController::class,
-    'treasuries' => \App\Http\Controllers\Api\TreasuryController::class,
-    'treasury-shifts' => \App\Http\Controllers\Api\TreasuryShiftController::class,
-    'treasury-shift-transactions' => \App\Http\Controllers\Api\TreasuryShiftTransactionController::class,
-    'treasury-counts' => \App\Http\Controllers\Api\TreasuryCountController::class,
-    'treasury-count-details' => \App\Http\Controllers\Api\TreasuryCountDetailController::class,
-    'treasury-transfers' => \App\Http\Controllers\Api\TreasuryTransferController::class,
-    'treasury-adjustments' => \App\Http\Controllers\Api\TreasuryAdjustmentController::class,
-    'treasury-opening-balances' => \App\Http\Controllers\Api\TreasuryOpeningBalanceController::class,
-    'treasury-daily-closings' => \App\Http\Controllers\Api\TreasuryDailyClosingController::class,
-    'treasury-closing-details' => \App\Http\Controllers\Api\TreasuryClosingDetailController::class,
-    'treasury-custodies' => \App\Http\Controllers\Api\TreasuryCustodyController::class,
-    'treasury-custody-transactions' => \App\Http\Controllers\Api\TreasuryCustodyTransactionController::class,
-    'treasury-cash-limits' => \App\Http\Controllers\Api\TreasuryCashLimitController::class,
-    'treasury-alerts' => \App\Http\Controllers\Api\TreasuryAlertController::class,
-    'treasury-transactions' => \App\Http\Controllers\Api\TreasuryTransactionController::class,
-    'account-types' => \App\Http\Controllers\Api\AccountTypeController::class,
-    'account-groups' => \App\Http\Controllers\Api\AccountGroupController::class,
-    'journal-entry-types' => \App\Http\Controllers\Api\JournalEntryTypeController::class,
-    'journal-entries' => \App\Http\Controllers\Api\JournalEntryController::class,
-    'journal-entry-lines' => \App\Http\Controllers\Api\JournalEntryLineController::class,
-    'fiscal-years' => \App\Http\Controllers\Api\FiscalYearController::class,
-    'accounting-periods' => \App\Http\Controllers\Api\AccountingPeriodController::class,
-    'opening-balances' => \App\Http\Controllers\Api\OpeningBalanceController::class,
-    'opening-balance-documents' => \App\Http\Controllers\Api\OpeningBalanceDocumentController::class,
-    'manual-journal-entries' => \App\Http\Controllers\Api\ManualJournalEntryController::class,
-    'manual-journal-entry-lines' => \App\Http\Controllers\Api\ManualJournalEntryLineController::class,
-    'bank-accounts' => \App\Http\Controllers\Api\BankAccountController::class,
-    'bank-transfers' => \App\Http\Controllers\Api\BankTransferController::class,
-    'bank-reconciliations' => \App\Http\Controllers\Api\BankReconciliationController::class,
-    'receipt-vouchers' => \App\Http\Controllers\Api\ReceiptVoucherController::class,
-    'payment-vouchers' => \App\Http\Controllers\Api\PaymentVoucherController::class,
-    'customer-ledger' => \App\Http\Controllers\Api\CustomerLedgerController::class,
-    'supplier-ledger' => \App\Http\Controllers\Api\SupplierLedgerController::class,
-    'tax-types' => \App\Http\Controllers\Api\TaxTypeController::class,
-    'tax-rates' => \App\Http\Controllers\Api\TaxRateController::class,
-    'tax-groups' => \App\Http\Controllers\Api\TaxGroupController::class,
-    'tax-group-details' => \App\Http\Controllers\Api\TaxGroupDetailController::class,
-    'tax-exemptions' => \App\Http\Controllers\Api\TaxExemptionController::class,
-    'customer-tax-profiles' => \App\Http\Controllers\Api\CustomerTaxProfileController::class,
-    'supplier-tax-profiles' => \App\Http\Controllers\Api\SupplierTaxProfileController::class,
-    'item-tax-profiles' => \App\Http\Controllers\Api\ItemTaxProfileController::class,
-    'tax-rules' => \App\Http\Controllers\Api\TaxRuleController::class,
-    'tax-calculations' => \App\Http\Controllers\Api\TaxCalculationController::class,
-    'tax-calculation-details' => \App\Http\Controllers\Api\TaxCalculationDetailController::class,
-    'tax-jurisdictions' => \App\Http\Controllers\Api\TaxJurisdictionController::class,
-    'tax-periods' => \App\Http\Controllers\Api\TaxPeriodController::class,
-    'tax-returns' => \App\Http\Controllers\Api\TaxReturnController::class,
-    'tax-return-details' => \App\Http\Controllers\Api\TaxReturnDetailController::class,
-    'withholding-tax-certificates' => \App\Http\Controllers\Api\WithholdingTaxCertificateController::class,
-    'purchase-requests' => \App\Http\Controllers\Api\PurchaseRequestController::class,
-    'purchase-request-items' => \App\Http\Controllers\Api\PurchaseRequestItemController::class,
-    'supplier-groups' => \App\Http\Controllers\Api\SupplierGroupController::class,
-    'supplier-contacts' => \App\Http\Controllers\Api\SupplierContactController::class,
-    'supplier-quotations' => \App\Http\Controllers\Api\SupplierQuotationController::class,
-    'supplier-quotation-items' => \App\Http\Controllers\Api\SupplierQuotationItemController::class,
-    'purchase-orders' => \App\Http\Controllers\Api\PurchaseOrderController::class,
-    'purchase-order-items' => \App\Http\Controllers\Api\PurchaseOrderItemController::class,
-    'purchase-receipts' => \App\Http\Controllers\Api\PurchaseReceiptController::class,
-    'purchase-receipt-items' => \App\Http\Controllers\Api\PurchaseReceiptItemController::class,
-    'purchase-invoices' => \App\Http\Controllers\Api\PurchaseInvoiceController::class,
-    'purchase-invoice-items' => \App\Http\Controllers\Api\PurchaseInvoiceItemController::class,
-    'purchase-returns' => \App\Http\Controllers\Api\PurchaseReturnController::class,
-    'purchase-return-items' => \App\Http\Controllers\Api\PurchaseReturnItemController::class,
-    'purchase-expenses' => \App\Http\Controllers\Api\PurchaseExpenseController::class,
-    'driver' => \App\Http\Controllers\Api\DriverController::class,
-    'drivers' => \App\Http\Controllers\Api\DriverController::class,
-    'vehicle-assignments' => \App\Http\Controllers\Api\VehicleAssignmentController::class,
-    'vehicle-fuel-transactions' => \App\Http\Controllers\Api\VehicleFuelTransactionController::class,
-    'vehicle-maintenance' => \App\Http\Controllers\Api\VehicleMaintenanceController::class,
-    'vehicle-expenses' => \App\Http\Controllers\Api\VehicleExpenseController::class,
-    'vehicle-loadings' => \App\Http\Controllers\Api\VehicleLoadingController::class,
-    'vehicle-warehouses' => \App\Http\Controllers\Api\VehicleWarehouseController::class,
-    'vehicle-inventory-transactions' => \App\Http\Controllers\Api\VehicleInventoryTransactionController::class,
-    'vehicle-stock-balances' => \App\Http\Controllers\Api\VehicleStockBalanceController::class,
-    'vehicle-loads' => \App\Http\Controllers\Api\VehicleLoadController::class,
-    'vehicle-load-items' => \App\Http\Controllers\Api\VehicleLoadItemController::class,
-    'vehicle-unloads' => \App\Http\Controllers\Api\VehicleUnloadController::class,
-    'vehicle-unload-items' => \App\Http\Controllers\Api\VehicleUnloadItemController::class,
-    'vehicle-cash-accounts' => \App\Http\Controllers\Api\VehicleCashAccountController::class,
-    'vehicle-cash-transactions' => \App\Http\Controllers\Api\VehicleCashTransactionController::class,
-    'vehicle-daily-expenses' => \App\Http\Controllers\Api\VehicleDailyExpenseController::class,
-    'vehicle-stock-counts' => \App\Http\Controllers\Api\VehicleStockCountController::class,
-    'vehicle-stock-count-items' => \App\Http\Controllers\Api\VehicleStockCountItemController::class,
-    'vehicle-settlements' => \App\Http\Controllers\Api\VehicleSettlementController::class,
-    'vehicle-settlement-items' => \App\Http\Controllers\Api\VehicleSettlementItemController::class,
-    'vehicle-deposits' => \App\Http\Controllers\Api\VehicleDepositController::class,
-    'vehicle-documents' => \App\Http\Controllers\Api\VehicleDocumentController::class,
-    'vehicle-ownership-history' => \App\Http\Controllers\Api\VehicleOwnershipHistoryController::class,
-    'vehicle-meter-readings' => \App\Http\Controllers\Api\VehicleMeterReadingController::class,
-    'vehicle-maintenance-plans' => \App\Http\Controllers\Api\VehicleMaintenancePlanController::class,
-    'vehicle-work-orders' => \App\Http\Controllers\Api\VehicleWorkOrderController::class,
-    'vehicle-work-order-items' => \App\Http\Controllers\Api\VehicleWorkOrderItemController::class,
-    'vehicle-maintenance-parts' => \App\Http\Controllers\Api\VehicleMaintenancePartController::class,
-    'vehicle-tires' => \App\Http\Controllers\Api\VehicleTireController::class,
-    'vehicle-tire-movements' => \App\Http\Controllers\Api\VehicleTireMovementController::class,
-    'vehicle-tire-inspections' => \App\Http\Controllers\Api\VehicleTireInspectionController::class,
-    'vehicle-batteries' => \App\Http\Controllers\Api\VehicleBatteryController::class,
-    'vehicle-fuel-cards' => \App\Http\Controllers\Api\VehicleFuelCardController::class,
-    'vehicle-fuel-stations' => \App\Http\Controllers\Api\VehicleFuelStationController::class,
-    'vehicle-fuel-prices' => \App\Http\Controllers\Api\VehicleFuelPriceController::class,
-    'driver-licenses' => \App\Http\Controllers\Api\DriverLicenseController::class,
-    'driver-training' => \App\Http\Controllers\Api\DriverTrainingController::class,
-    'driver-violations' => \App\Http\Controllers\Api\DriverViolationController::class,
-    'driver-medical-tests' => \App\Http\Controllers\Api\DriverMedicalTestController::class,
-    'driver-behavior-scores' => \App\Http\Controllers\Api\DriverBehaviorScoreController::class,
-    'vehicle-accidents' => \App\Http\Controllers\Api\VehicleAccidentController::class,
-    'vehicle-insurance' => \App\Http\Controllers\Api\VehicleInsuranceController::class,
-    'vehicle-insurance-claims' => \App\Http\Controllers\Api\VehicleInsuranceClaimController::class,
-    'vehicle-reservations' => \App\Http\Controllers\Api\VehicleReservationController::class,
-    'geofences' => \App\Http\Controllers\Api\GeofenceController::class,
-    'vehicle-geofence-events' => \App\Http\Controllers\Api\VehicleGeofenceEventController::class,
-    'vehicle-speed-violations' => \App\Http\Controllers\Api\VehicleSpeedViolationController::class,
-    'vehicle-idle-time' => \App\Http\Controllers\Api\VehicleIdleTimeController::class,
-    'vehicle-trip-history' => \App\Http\Controllers\Api\VehicleTripHistoryController::class,
-    'vehicle-cost-analysis' => \App\Http\Controllers\Api\VehicleCostAnalysisController::class,
-    'vehicle-alerts' => \App\Http\Controllers\Api\VehicleAlertController::class,
-    'asset-categories' => \App\Http\Controllers\Api\AssetCategoryController::class,
-    'assets' => \App\Http\Controllers\Api\AssetController::class,
-    'asset-assignments' => \App\Http\Controllers\Api\AssetAssignmentController::class,
-    'asset-depreciations' => \App\Http\Controllers\Api\AssetDepreciationController::class,
-    'leads' => \App\Http\Controllers\Api\LeadController::class,
-    'lead-activities' => \App\Http\Controllers\Api\LeadActivityController::class,
-    'opportunities' => \App\Http\Controllers\Api\OpportunityController::class,
-    'opportunity-stages' => \App\Http\Controllers\Api\OpportunityStageController::class,
-    'document-categories' => \App\Http\Controllers\Api\DocumentCategoryController::class,
-    'documents' => \App\Http\Controllers\Api\DocumentController::class,
-    'audit-logs' => \App\Http\Controllers\Api\AuditLogController::class,
-    'login-logs' => \App\Http\Controllers\Api\LoginLogController::class,
-    'api-logs' => \App\Http\Controllers\Api\ApiLogController::class,
-    'workflow-definitions' => \App\Http\Controllers\Api\WorkflowDefinitionController::class,
-    'workflow-steps' => \App\Http\Controllers\Api\WorkflowStepController::class,
-    'approval-requests' => \App\Http\Controllers\Api\ApprovalRequestController::class,
-    'approval-actions' => \App\Http\Controllers\Api\ApprovalActionController::class,
-    'notification-templates' => \App\Http\Controllers\Api\NotificationTemplateController::class,
-    'notifications' => \App\Http\Controllers\Api\NotificationController::class,
-    'notification-queue' => \App\Http\Controllers\Api\NotificationQueueController::class,
-    'kpi-definitions' => \App\Http\Controllers\Api\KpiDefinitionController::class,
-    'kpi-targets' => \App\Http\Controllers\Api\KpiTargetController::class,
-    'kpi-results' => \App\Http\Controllers\Api\KpiResultController::class,
-    'sales-targets' => \App\Http\Controllers\Api\SalesTargetController::class,
-    'sales-target-details' => \App\Http\Controllers\Api\SalesTargetDetailController::class,
-    'budgets' => \App\Http\Controllers\Api\BudgetController::class,
-    'budget-lines' => \App\Http\Controllers\Api\BudgetLineController::class,
-    'demand-forecasts' => \App\Http\Controllers\Api\DemandForecastController::class,
-    'forecast-history' => \App\Http\Controllers\Api\ForecastHistoryController::class,
-    'replenishment-rules' => \App\Http\Controllers\Api\ReplenishmentRuleController::class,
-    'replenishment-suggestions' => \App\Http\Controllers\Api\ReplenishmentSuggestionController::class,
-    'route-templates' => \App\Http\Controllers\Api\RouteTemplateController::class,
-    'route-stops' => \App\Http\Controllers\Api\RouteStopController::class,
-    'gps-tracking-sessions' => \App\Http\Controllers\Api\GpsTrackingSessionController::class,
-    'gps-tracking-points' => \App\Http\Controllers\Api\GpsTrackingPointController::class,
-    'e-invoice-providers' => \App\Http\Controllers\Api\EInvoiceProviderController::class,
-    'e-invoice-transactions' => \App\Http\Controllers\Api\EInvoiceTransactionController::class,
-    'message-templates' => \App\Http\Controllers\Api\MessageTemplateController::class,
-    'message-logs' => \App\Http\Controllers\Api\MessageLogController::class,
-    'sync-batches' => \App\Http\Controllers\Api\SyncBatchController::class,
-    'sync-logs' => \App\Http\Controllers\Api\SyncLogController::class,
-    'mobile-devices' => \App\Http\Controllers\Api\MobileDeviceController::class,
-    'master-data-request-types' => \App\Http\Controllers\Api\MasterDataTypeController::class,
-    'master-data-requests' => \App\Http\Controllers\Api\MasterDataRequestController::class,
-    'master-data-request-steps' => \App\Http\Controllers\Api\MasterDataRequestStepController::class,
-    'master-data-request-history' => \App\Http\Controllers\Api\MasterDataRequestHistoryController::class,
-    'master-data-workflows' => \App\Http\Controllers\Api\MasterDataWorkflowController::class,
-    'master-data-workflow-steps' => \App\Http\Controllers\Api\MasterDataWorkflowStepController::class,
-    'customer-agreement-types' => \App\Http\Controllers\Api\CustomerAgreementTypeController::class,
-    'customer-agreements' => \App\Http\Controllers\Api\CustomerAgreementController::class,
-    'customer-agreement-items' => \App\Http\Controllers\Api\CustomerAgreementItemController::class,
-    'marketing-support-types' => \App\Http\Controllers\Api\MarketingSupportTypeController::class,
-    'customer-marketing-supports' => \App\Http\Controllers\Api\CustomerMarketingSupportController::class,
-    'customer-rebate-rules' => \App\Http\Controllers\Api\CustomerRebateRuleController::class,
-    'customer-agreement-targets' => \App\Http\Controllers\Api\CustomerAgreementTargetController::class,
-    'customer-agreement-payments' => \App\Http\Controllers\Api\CustomerAgreementPaymentController::class,
-    'customer-agreement-history' => \App\Http\Controllers\Api\CustomerAgreementHistoryController::class,
-    'marketing-asset-categories' => \App\Http\Controllers\Api\MarketingAssetCategoryController::class,
-    'marketing-assets' => \App\Http\Controllers\Api\MarketingAssetController::class,
-    'customer-marketing-assets' => \App\Http\Controllers\Api\CustomerMarketingAssetController::class,
-    'marketing-asset-movements' => \App\Http\Controllers\Api\MarketingAssetMovementController::class,
-    'marketing-asset-maintenance' => \App\Http\Controllers\Api\MarketingAssetMaintenanceController::class,
-    'merchandising-visits' => \App\Http\Controllers\Api\MerchandisingVisitController::class,
-    'merchandising-checklists' => \App\Http\Controllers\Api\MerchandisingChecklistController::class,
-    'merchandising-visit-details' => \App\Http\Controllers\Api\MerchandisingVisitDetailController::class,
-    'merchandising-photos' => \App\Http\Controllers\Api\MerchandisingPhotoController::class,
-    'marketing-materials' => \App\Http\Controllers\Api\MarketingMaterialController::class,
-    'customer-marketing-materials' => \App\Http\Controllers\Api\CustomerMarketingMaterialController::class,
-    'marketing-campaigns' => \App\Http\Controllers\Api\MarketingCampaignController::class,
-    'marketing-campaign-customers' => \App\Http\Controllers\Api\MarketingCampaignCustomerController::class,
-    'competitors' => \App\Http\Controllers\Api\CompetitorController::class,
-    'competitor-brands' => \App\Http\Controllers\Api\CompetitorBrandController::class,
-    'competitor-products' => \App\Http\Controllers\Api\CompetitorProductController::class,
-    'competitor-price-surveys' => \App\Http\Controllers\Api\CompetitorPriceSurveyController::class,
-    'competitor-price-survey-items' => \App\Http\Controllers\Api\CompetitorPriceSurveyItemController::class,
-    'competitor-promotions' => \App\Http\Controllers\Api\CompetitorPromotionController::class,
-    'competitor-promotion-items' => \App\Http\Controllers\Api\CompetitorPromotionItemController::class,
-    'shelf-share-surveys' => \App\Http\Controllers\Api\ShelfShareSurveyController::class,
-    'shelf-share-items' => \App\Http\Controllers\Api\ShelfShareItemController::class,
-    'competitor-new-products' => \App\Http\Controllers\Api\CompetitorNewProductController::class,
-    'market-issues' => \App\Http\Controllers\Api\MarketIssueController::class,
-    'competitor-photos' => \App\Http\Controllers\Api\CompetitorPhotoController::class,
-    'survey-categories' => \App\Http\Controllers\Api\SurveyCategoryController::class,
-    'surveys' => \App\Http\Controllers\Api\SurveyController::class,
-    'survey-questions' => \App\Http\Controllers\Api\SurveyQuestionController::class,
-    'survey-question-options' => \App\Http\Controllers\Api\SurveyQuestionOptionController::class,
-    'survey-question-rules' => \App\Http\Controllers\Api\SurveyQuestionRuleController::class,
-    'survey-responses' => \App\Http\Controllers\Api\SurveyResponseController::class,
-    'survey-response-answers' => \App\Http\Controllers\Api\SurveyResponseAnswerController::class,
-    'survey-response-options' => \App\Http\Controllers\Api\SurveyResponseOptionController::class,
-    'survey-response-photos' => \App\Http\Controllers\Api\SurveyResponsePhotoController::class,
-    'survey-scoring-rules' => \App\Http\Controllers\Api\SurveyScoringRuleController::class,
-    'survey-scores' => \App\Http\Controllers\Api\SurveyScoreController::class,
-    'survey-assignments' => \App\Http\Controllers\Api\SurveyAssignmentController::class,
-    'merchandising-standards' => \App\Http\Controllers\Api\MerchandisingStandardController::class,
-    'merchandising-standard-items' => \App\Http\Controllers\Api\MerchandisingStandardItemController::class,
-    'display-locations' => \App\Http\Controllers\Api\DisplayLocationController::class,
-    'merchandising-audits' => \App\Http\Controllers\Api\MerchandisingAuditController::class,
-    'merchandising-audit-details' => \App\Http\Controllers\Api\MerchandisingAuditDetailController::class,
-    'shelf-audits' => \App\Http\Controllers\Api\ShelfAuditController::class,
-    'shelf-audit-items' => \App\Http\Controllers\Api\ShelfAuditItemController::class,
-    'competitor-shelf-items' => \App\Http\Controllers\Api\CompetitorShelfItemController::class,
-    'availability-audits' => \App\Http\Controllers\Api\AvailabilityAuditController::class,
-    'refrigerator-audits' => \App\Http\Controllers\Api\RefrigeratorAuditController::class,
-    'posm-audits' => \App\Http\Controllers\Api\PosmAuditController::class,
-    'merchandising-audit-photos' => \App\Http\Controllers\Api\MerchandisingAuditPhotoController::class,
-    'merchandising-tasks' => \App\Http\Controllers\Api\MerchandisingTaskController::class,
-    'merchandising-task-assignments' => \App\Http\Controllers\Api\MerchandisingTaskAssignmentController::class,
-    'notification-types' => \App\Http\Controllers\Api\NotificationTypeController::class,
-    'notification-channels' => \App\Http\Controllers\Api\NotificationChannelController::class,
-    'notification-events' => \App\Http\Controllers\Api\NotificationEventController::class,
-    'notification-rules' => \App\Http\Controllers\Api\NotificationRuleController::class,
-    'notification-rule-recipients' => \App\Http\Controllers\Api\NotificationRuleRecipientController::class,
-    'notification-recipients' => \App\Http\Controllers\Api\NotificationRecipientController::class,
-    'notification-deliveries' => \App\Http\Controllers\Api\NotificationDeliveryController::class,
-    'notification-preferences' => \App\Http\Controllers\Api\NotificationPreferenceController::class,
-    'notification-groups' => \App\Http\Controllers\Api\NotificationGroupController::class,
-    'notification-group-members' => \App\Http\Controllers\Api\NotificationGroupMemberController::class,
-    'alert-rules' => \App\Http\Controllers\Api\AlertRuleController::class,
-    'alerts' => \App\Http\Controllers\Api\AlertController::class,
-    'alert-actions' => \App\Http\Controllers\Api\AlertActionController::class,
-    'scheduled-notifications' => \App\Http\Controllers\Api\ScheduledNotificationController::class,
-    'integration-providers' => \App\Http\Controllers\Api\IntegrationProviderController::class,
-    'integration-accounts' => \App\Http\Controllers\Api\IntegrationAccountController::class,
-    'integration-endpoints' => \App\Http\Controllers\Api\IntegrationEndpointController::class,
-    'integration-events' => \App\Http\Controllers\Api\IntegrationEventController::class,
-    'integration-event-subscriptions' => \App\Http\Controllers\Api\IntegrationEventSubscriptionController::class,
-    'api-clients' => \App\Http\Controllers\Api\ApiClientController::class,
-    'api-tokens' => \App\Http\Controllers\Api\ApiTokenController::class,
-    'api-permissions' => \App\Http\Controllers\Api\ApiPermissionController::class,
-    'webhook-endpoints' => \App\Http\Controllers\Api\WebhookEndpointController::class,
-    'webhook-subscriptions' => \App\Http\Controllers\Api\WebhookSubscriptionController::class,
-    'webhook-logs' => \App\Http\Controllers\Api\WebhookLogController::class,
-    'api-request-logs' => \App\Http\Controllers\Api\ApiRequestLogController::class,
-    'api-rate-limits' => \App\Http\Controllers\Api\ApiRateLimitController::class,
-    'integration-jobs' => \App\Http\Controllers\Api\IntegrationJobController::class,
-    'integration-job-runs' => \App\Http\Controllers\Api\IntegrationJobRunController::class,
-    'external-documents' => \App\Http\Controllers\Api\ExternalDocumentController::class,
-    'external-document-logs' => \App\Http\Controllers\Api\ExternalDocumentLogController::class,
-    'integration-error-logs' => \App\Http\Controllers\Api\IntegrationErrorLogController::class,
-    'api-audit-logs' => \App\Http\Controllers\Api\ApiAuditLogController::class,
-    'workflow-types' => \App\Http\Controllers\Api\WorkflowTypeController::class,
-    'workflows' => \App\Http\Controllers\Api\WorkflowController::class,
-    'workflow-conditions' => \App\Http\Controllers\Api\WorkflowConditionController::class,
-    'workflow-instances' => \App\Http\Controllers\Api\WorkflowInstanceController::class,
-    'workflow-instance-steps' => \App\Http\Controllers\Api\WorkflowInstanceStepController::class,
-    'workflow-delegations' => \App\Http\Controllers\Api\WorkflowDelegationController::class,
-    'workflow-escalations' => \App\Http\Controllers\Api\WorkflowEscalationController::class,
-    'workflow-notifications' => \App\Http\Controllers\Api\WorkflowNotificationController::class,
-    'workflow-actions-log' => \App\Http\Controllers\Api\WorkflowActionLogController::class,
-    'workflow-templates' => \App\Http\Controllers\Api\WorkflowTemplateController::class,
-    'workflow-template-steps' => \App\Http\Controllers\Api\WorkflowTemplateStepController::class,
-    'workflow-roles' => \App\Http\Controllers\Api\WorkflowRoleController::class,
-    'workflow-sla-rules' => \App\Http\Controllers\Api\WorkflowSlaRuleController::class,
-    'vehicle-types' => \App\Http\Controllers\Api\VehicleTypeController::class,
-    'vehicles' => \App\Http\Controllers\Api\VehicleController::class,
+    'roles' => \App\Http\Controllers\Api\Permissions\RoleController::class,
+    'permissions' => \App\Http\Controllers\Api\Permissions\PermissionController::class,
+    'warehouse-types' => \App\Http\Controllers\Api\Inventory\WarehouseTypeController::class,
+    'treasury-types' => \App\Http\Controllers\Api\Treasury\TreasuryTypeController::class,
+    'organizational-levels' => \App\Http\Controllers\Api\HR\OrganizationalLevelController::class,
+    'organization-unit-types' => \App\Http\Controllers\Api\HR\OrganizationUnitTypeController::class,
+    'organization-units' => \App\Http\Controllers\Api\HR\OrganizationUnitController::class,
+    'cost-center-types' => \App\Http\Controllers\Api\Accounting\CostCenterTypeController::class,
+    'cost-centers' => \App\Http\Controllers\Api\Accounting\CostCenterController::class,
+    'sales-territory-types' => \App\Http\Controllers\Api\Sales\SalesTerritoryTypeController::class,
+    'sales-territories' => \App\Http\Controllers\Api\Sales\SalesTerritoryController::class,
+    'departments' => \App\Http\Controllers\Api\HR\DepartmentController::class,
+    'position-levels' => \App\Http\Controllers\Api\HR\PositionLevelController::class,
+    'job-positions' => \App\Http\Controllers\Api\HR\JobPositionController::class,
+    'job-families' => \App\Http\Controllers\Api\HR\JobFamilyController::class,
+    'job-titles' => \App\Http\Controllers\Api\HR\JobTitleController::class,
+    'job-grades' => \App\Http\Controllers\Api\HR\JobGradeController::class,
+    'salary-scales' => \App\Http\Controllers\Api\HR\SalaryScaleController::class,
+    'employee-statuses' => \App\Http\Controllers\Api\HR\EmployeeStatusController::class,
+    'employees' => \App\Http\Controllers\Api\HR\EmployeeController::class,
+    'employee-assignments' => \App\Http\Controllers\Api\HR\EmployeeAssignmentController::class,
+    'contract-types' => \App\Http\Controllers\Api\Pricing\ContractTypeController::class,
+    'contract-statuses' => \App\Http\Controllers\Api\Pricing\ContractStatusController::class,
+    'employee-contracts' => \App\Http\Controllers\Api\HR\EmployeeContractController::class,
+    'employee-contract-amendments' => \App\Http\Controllers\Api\HR\EmployeeContractAmendmentController::class,
+    'leave-types' => \App\Http\Controllers\Api\HR\LeaveTypeController::class,
+    'leave-requests' => \App\Http\Controllers\Api\HR\LeaveRequestController::class,
+    'employee-loans' => \App\Http\Controllers\Api\HR\EmployeeLoanController::class,
+    'employee-advances' => \App\Http\Controllers\Api\HR\EmployeeAdvanceController::class,
+    'employee-penalties' => \App\Http\Controllers\Api\HR\EmployeePenaltyController::class,
+    'employee-rewards' => \App\Http\Controllers\Api\HR\EmployeeRewardController::class,
+    'shift-types' => \App\Http\Controllers\Api\HR\ShiftTypeController::class,
+    'shifts' => \App\Http\Controllers\Api\HR\ShiftController::class,
+    'employee-shifts' => \App\Http\Controllers\Api\HR\EmployeeShiftController::class,
+    'attendance-statuses' => \App\Http\Controllers\Api\HR\AttendanceStatusController::class,
+    'attendance-records' => \App\Http\Controllers\Api\HR\AttendanceRecordController::class,
+    'attendance-adjustments' => \App\Http\Controllers\Api\HR\AttendanceAdjustmentController::class,
+    'holidays' => \App\Http\Controllers\Api\HR\HolidayController::class,
+    'employee-missions' => \App\Http\Controllers\Api\HR\EmployeeMissionController::class,
+    'salary-component-types' => \App\Http\Controllers\Api\HR\SalaryComponentTypeController::class,
+    'salary-components' => \App\Http\Controllers\Api\HR\SalaryComponentController::class,
+    'employee-salary-structures' => \App\Http\Controllers\Api\HR\EmployeeSalaryStructureController::class,
+    'payroll-periods' => \App\Http\Controllers\Api\HR\PayrollPeriodController::class,
+    'payroll-runs' => \App\Http\Controllers\Api\HR\PayrollRunController::class,
+    'payroll-run-details' => \App\Http\Controllers\Api\HR\PayrollRunDetailController::class,
+    'customer-groups' => \App\Http\Controllers\Api\CRM\CustomerGroupController::class,
+    'customer-classes' => \App\Http\Controllers\Api\CRM\CustomerClassController::class,
+    'customer-types' => \App\Http\Controllers\Api\CRM\CustomerTypeController::class,
+    'customer-account-types' => \App\Http\Controllers\Api\CRM\CustomerAccountTypeController::class,
+    'trade-program-types' => \App\Http\Controllers\Api\Sales\TradeProgramTypeController::class,
+    'customer-addresses' => \App\Http\Controllers\Api\CRM\CustomerAddressController::class,
+    'customer-contacts' => \App\Http\Controllers\Api\CRM\CustomerContactController::class,
+    'customer-credit-limits' => \App\Http\Controllers\Api\CRM\CustomerCreditLimitController::class,
+    'item-categories' => \App\Http\Controllers\Api\Inventory\ItemCategoryController::class,
+    'item-sub-categories' => \App\Http\Controllers\Api\Inventory\ItemSubCategoryController::class,
+    'item-units' => \App\Http\Controllers\Api\Inventory\ItemUnitController::class,
+    'item-prices' => \App\Http\Controllers\Api\Inventory\ItemPriceController::class,
+    'item-barcodes' => \App\Http\Controllers\Api\Inventory\ItemBarcodeController::class,
+    'item-batches' => \App\Http\Controllers\Api\Inventory\ItemBatchController::class,
+    'items' => \App\Http\Controllers\Api\Inventory\ItemController::class,
+    'product-companies' => \App\Http\Controllers\Api\Inventory\ProductCompanyController::class,
+    'price-levels' => \App\Http\Controllers\Api\Pricing\PriceLevelController::class,
+    'customer-price-levels' => \App\Http\Controllers\Api\Pricing\CustomerPriceLevelController::class,
+    'customer-special-prices' => \App\Http\Controllers\Api\Pricing\CustomerSpecialPriceController::class,
+    'pricing-methods' => \App\Http\Controllers\Api\Pricing\PricingMethodController::class,
+    'pricing-rules' => \App\Http\Controllers\Api\Pricing\PricingRuleController::class,
+    'pricing-rule-conditions' => \App\Http\Controllers\Api\Pricing\PricingRuleConditionController::class,
+    'pricing-rule-items' => \App\Http\Controllers\Api\Pricing\PricingRuleItemController::class,
+    'quantity-price-breaks' => \App\Http\Controllers\Api\Pricing\QuantityPriceBreakController::class,
+    'contract-prices' => \App\Http\Controllers\Api\Pricing\ContractPriceController::class,
+    'pricing-calculations' => \App\Http\Controllers\Api\Pricing\PricingCalculationController::class,
+    'pricing-calculation-details' => \App\Http\Controllers\Api\Pricing\PricingCalculationDetailController::class,
+    'price-approval-requests' => \App\Http\Controllers\Api\Pricing\PriceApprovalRequestController::class,
+    'price-approval-steps' => \App\Http\Controllers\Api\Pricing\PriceApprovalStepController::class,
+    'pricing-exceptions' => \App\Http\Controllers\Api\Pricing\PricingExceptionController::class,
+    'pricing-audit-log' => \App\Http\Controllers\Api\Pricing\PricingAuditLogController::class,
+    'customer-price-lists' => \App\Http\Controllers\Api\Pricing\CustomerPriceListController::class,
+    'inventory-transaction-types' => \App\Http\Controllers\Api\Inventory\InventoryTransactionTypeController::class,
+    'inventory-transactions' => \App\Http\Controllers\Api\Inventory\InventoryTransactionController::class,
+    'inventory-transaction-items' => \App\Http\Controllers\Api\Inventory\InventoryTransactionItemController::class,
+    'inventory-opening-balances' => \App\Http\Controllers\Api\Inventory\InventoryOpeningBalanceController::class,
+    'stock-adjustments' => \App\Http\Controllers\Api\Inventory\StockAdjustmentController::class,
+    'stock-adjustment-items' => \App\Http\Controllers\Api\Inventory\StockAdjustmentItemController::class,
+    'stock-counts' => \App\Http\Controllers\Api\Inventory\StockCountController::class,
+    'stock-count-items' => \App\Http\Controllers\Api\Inventory\StockCountItemController::class,
+    'warehouse-transfers' => \App\Http\Controllers\Api\Inventory\WarehouseTransferController::class,
+    'warehouse-transfer-items' => \App\Http\Controllers\Api\Inventory\WarehouseTransferItemController::class,
+    'inventory-revaluations' => \App\Http\Controllers\Api\Inventory\InventoryRevaluationController::class,
+    'inventory-revaluation-items' => \App\Http\Controllers\Api\Inventory\InventoryRevaluationItemController::class,
+    'load-requests' => \App\Http\Controllers\Api\Fleet\LoadRequestController::class,
+    'load-request-items' => \App\Http\Controllers\Api\Fleet\LoadRequestItemController::class,
+    'issue-orders' => \App\Http\Controllers\Api\Inventory\IssueOrderController::class,
+    'issue-order-items' => \App\Http\Controllers\Api\Inventory\IssueOrderItemController::class,
+    'return-orders' => \App\Http\Controllers\Api\Sales\ReturnOrderController::class,
+    'return-order-items' => \App\Http\Controllers\Api\Sales\ReturnOrderItemController::class,
+    'distribution-plans' => \App\Http\Controllers\Api\Sales\DistributionPlanController::class,
+    'salesman-assignments' => \App\Http\Controllers\Api\Sales\SalesmanAssignmentController::class,
+    'sales-routes' => \App\Http\Controllers\Api\Sales\SalesRouteController::class,
+    'route-schedules' => \App\Http\Controllers\Api\Sales\RouteScheduleController::class,
+    'route-customers' => \App\Http\Controllers\Api\Sales\RouteCustomerController::class,
+    'customer-visits' => \App\Http\Controllers\Api\CRM\CustomerVisitController::class,
+    'route-visits' => \App\Http\Controllers\Api\Sales\RouteVisitController::class,
+    'sales-incentives' => \App\Http\Controllers\Api\Sales\SalesIncentiveController::class,
+    'sales-incentive-conditions' => \App\Http\Controllers\Api\Sales\SalesIncentiveConditionController::class,
+    'sales-incentive-condition-items' => \App\Http\Controllers\Api\Sales\SalesIncentiveConditionItemController::class,
+    'sales-incentive-rewards' => \App\Http\Controllers\Api\Sales\SalesIncentiveRewardController::class,
+    'sales-invoices' => \App\Http\Controllers\Api\Sales\SalesInvoiceController::class,
+    'sales-invoice-items' => \App\Http\Controllers\Api\Sales\SalesInvoiceItemController::class,
+    'sales-invoice-discounts' => \App\Http\Controllers\Api\Sales\SalesInvoiceDiscountController::class,
+    'sales-invoice-taxes' => \App\Http\Controllers\Api\Sales\SalesInvoiceTaxController::class,
+    'sales-invoice-incentives' => \App\Http\Controllers\Api\Sales\SalesInvoiceIncentiveController::class,
+    'collections' => \App\Http\Controllers\Api\Sales\CollectionController::class,
+    'salesman-settlements' => \App\Http\Controllers\Api\Sales\SalesmanSettlementController::class,
+    'customer-returns' => \App\Http\Controllers\Api\Sales\CustomerReturnController::class,
+    'customer-return-items' => \App\Http\Controllers\Api\Sales\CustomerReturnItemController::class,
+    'daily-distribution-dashboards' => \App\Http\Controllers\Api\Sales\DailyDistributionDashboardController::class,
+    'treasuries' => \App\Http\Controllers\Api\Treasury\TreasuryController::class,
+    'treasury-shifts' => \App\Http\Controllers\Api\Treasury\TreasuryShiftController::class,
+    'treasury-shift-transactions' => \App\Http\Controllers\Api\Treasury\TreasuryShiftTransactionController::class,
+    'treasury-counts' => \App\Http\Controllers\Api\Treasury\TreasuryCountController::class,
+    'treasury-count-details' => \App\Http\Controllers\Api\Treasury\TreasuryCountDetailController::class,
+    'treasury-transfers' => \App\Http\Controllers\Api\Treasury\TreasuryTransferController::class,
+    'treasury-adjustments' => \App\Http\Controllers\Api\Treasury\TreasuryAdjustmentController::class,
+    'treasury-opening-balances' => \App\Http\Controllers\Api\Treasury\TreasuryOpeningBalanceController::class,
+    'treasury-daily-closings' => \App\Http\Controllers\Api\Treasury\TreasuryDailyClosingController::class,
+    'treasury-closing-details' => \App\Http\Controllers\Api\Treasury\TreasuryClosingDetailController::class,
+    'treasury-custodies' => \App\Http\Controllers\Api\Treasury\TreasuryCustodyController::class,
+    'treasury-custody-transactions' => \App\Http\Controllers\Api\Treasury\TreasuryCustodyTransactionController::class,
+    'treasury-cash-limits' => \App\Http\Controllers\Api\Treasury\TreasuryCashLimitController::class,
+    'treasury-alerts' => \App\Http\Controllers\Api\Treasury\TreasuryAlertController::class,
+    'treasury-transactions' => \App\Http\Controllers\Api\Treasury\TreasuryTransactionController::class,
+    'account-types' => \App\Http\Controllers\Api\Accounting\AccountTypeController::class,
+    'account-groups' => \App\Http\Controllers\Api\Accounting\AccountGroupController::class,
+    'journal-entry-types' => \App\Http\Controllers\Api\Accounting\JournalEntryTypeController::class,
+    'journal-entries' => \App\Http\Controllers\Api\Accounting\JournalEntryController::class,
+    'journal-entry-lines' => \App\Http\Controllers\Api\Accounting\JournalEntryLineController::class,
+    'fiscal-years' => \App\Http\Controllers\Api\Accounting\FiscalYearController::class,
+    'accounting-periods' => \App\Http\Controllers\Api\Accounting\AccountingPeriodController::class,
+    'opening-balances' => \App\Http\Controllers\Api\Accounting\OpeningBalanceController::class,
+    'opening-balance-documents' => \App\Http\Controllers\Api\Accounting\OpeningBalanceDocumentController::class,
+    'manual-journal-entries' => \App\Http\Controllers\Api\Accounting\ManualJournalEntryController::class,
+    'manual-journal-entry-lines' => \App\Http\Controllers\Api\Accounting\ManualJournalEntryLineController::class,
+    'bank-accounts' => \App\Http\Controllers\Api\Treasury\BankAccountController::class,
+    'bank-transfers' => \App\Http\Controllers\Api\Treasury\BankTransferController::class,
+    'bank-reconciliations' => \App\Http\Controllers\Api\Treasury\BankReconciliationController::class,
+    'receipt-vouchers' => \App\Http\Controllers\Api\Treasury\ReceiptVoucherController::class,
+    'payment-vouchers' => \App\Http\Controllers\Api\Treasury\PaymentVoucherController::class,
+    'customer-ledger' => \App\Http\Controllers\Api\CRM\CustomerLedgerController::class,
+    'supplier-ledger' => \App\Http\Controllers\Api\Suppliers\SupplierLedgerController::class,
+    'tax-types' => \App\Http\Controllers\Api\Tax\TaxTypeController::class,
+    'tax-rates' => \App\Http\Controllers\Api\Tax\TaxRateController::class,
+    'tax-groups' => \App\Http\Controllers\Api\Tax\TaxGroupController::class,
+    'tax-group-details' => \App\Http\Controllers\Api\Tax\TaxGroupDetailController::class,
+    'tax-exemptions' => \App\Http\Controllers\Api\Tax\TaxExemptionController::class,
+    'customer-tax-profiles' => \App\Http\Controllers\Api\CRM\CustomerTaxProfileController::class,
+    'supplier-tax-profiles' => \App\Http\Controllers\Api\Suppliers\SupplierTaxProfileController::class,
+    'item-tax-profiles' => \App\Http\Controllers\Api\Tax\ItemTaxProfileController::class,
+    'tax-rules' => \App\Http\Controllers\Api\Tax\TaxRuleController::class,
+    'tax-calculations' => \App\Http\Controllers\Api\Tax\TaxCalculationController::class,
+    'tax-calculation-details' => \App\Http\Controllers\Api\Tax\TaxCalculationDetailController::class,
+    'tax-jurisdictions' => \App\Http\Controllers\Api\Tax\TaxJurisdictionController::class,
+    'tax-periods' => \App\Http\Controllers\Api\Tax\TaxPeriodController::class,
+    'tax-returns' => \App\Http\Controllers\Api\Tax\TaxReturnController::class,
+    'tax-return-details' => \App\Http\Controllers\Api\Tax\TaxReturnDetailController::class,
+    'withholding-tax-certificates' => \App\Http\Controllers\Api\Tax\WithholdingTaxCertificateController::class,
+    'purchase-requests' => \App\Http\Controllers\Api\Purchase\PurchaseRequestController::class,
+    'purchase-request-items' => \App\Http\Controllers\Api\Purchase\PurchaseRequestItemController::class,
+    'supplier-groups' => \App\Http\Controllers\Api\Suppliers\SupplierGroupController::class,
+    'supplier-contacts' => \App\Http\Controllers\Api\Suppliers\SupplierContactController::class,
+    'supplier-quotations' => \App\Http\Controllers\Api\Purchase\SupplierQuotationController::class,
+    'supplier-quotation-items' => \App\Http\Controllers\Api\Purchase\SupplierQuotationItemController::class,
+    'purchase-orders' => \App\Http\Controllers\Api\Purchase\PurchaseOrderController::class,
+    'purchase-order-items' => \App\Http\Controllers\Api\Purchase\PurchaseOrderItemController::class,
+    'purchase-receipts' => \App\Http\Controllers\Api\Purchase\PurchaseReceiptController::class,
+    'purchase-receipt-items' => \App\Http\Controllers\Api\Purchase\PurchaseReceiptItemController::class,
+    'purchase-invoices' => \App\Http\Controllers\Api\Purchase\PurchaseInvoiceController::class,
+    'purchase-invoice-items' => \App\Http\Controllers\Api\Purchase\PurchaseInvoiceItemController::class,
+    'purchase-returns' => \App\Http\Controllers\Api\Purchase\PurchaseReturnController::class,
+    'purchase-return-items' => \App\Http\Controllers\Api\Purchase\PurchaseReturnItemController::class,
+    'purchase-expenses' => \App\Http\Controllers\Api\Purchase\PurchaseExpenseController::class,
+    'driver' => \App\Http\Controllers\Api\Fleet\DriverController::class,
+    'drivers' => \App\Http\Controllers\Api\Fleet\DriverController::class,
+    'vehicle-assignments' => \App\Http\Controllers\Api\Fleet\VehicleAssignmentController::class,
+    'vehicle-fuel-transactions' => \App\Http\Controllers\Api\Fleet\VehicleFuelTransactionController::class,
+    'vehicle-maintenance' => \App\Http\Controllers\Api\Fleet\VehicleMaintenanceController::class,
+    'vehicle-expenses' => \App\Http\Controllers\Api\Fleet\VehicleExpenseController::class,
+    'vehicle-loadings' => \App\Http\Controllers\Api\Fleet\VehicleLoadingController::class,
+    'vehicle-warehouses' => \App\Http\Controllers\Api\Fleet\VehicleWarehouseController::class,
+    'vehicle-inventory-transactions' => \App\Http\Controllers\Api\Fleet\VehicleInventoryTransactionController::class,
+    'vehicle-stock-balances' => \App\Http\Controllers\Api\Fleet\VehicleStockBalanceController::class,
+    'vehicle-loads' => \App\Http\Controllers\Api\Fleet\VehicleLoadController::class,
+    'vehicle-load-items' => \App\Http\Controllers\Api\Fleet\VehicleLoadItemController::class,
+    'vehicle-unloads' => \App\Http\Controllers\Api\Fleet\VehicleUnloadController::class,
+    'vehicle-unload-items' => \App\Http\Controllers\Api\Fleet\VehicleUnloadItemController::class,
+    'vehicle-cash-accounts' => \App\Http\Controllers\Api\Fleet\VehicleCashAccountController::class,
+    'vehicle-cash-transactions' => \App\Http\Controllers\Api\Fleet\VehicleCashTransactionController::class,
+    'vehicle-daily-expenses' => \App\Http\Controllers\Api\Fleet\VehicleDailyExpenseController::class,
+    'vehicle-stock-counts' => \App\Http\Controllers\Api\Fleet\VehicleStockCountController::class,
+    'vehicle-stock-count-items' => \App\Http\Controllers\Api\Fleet\VehicleStockCountItemController::class,
+    'vehicle-settlements' => \App\Http\Controllers\Api\Fleet\VehicleSettlementController::class,
+    'vehicle-settlement-items' => \App\Http\Controllers\Api\Fleet\VehicleSettlementItemController::class,
+    'vehicle-deposits' => \App\Http\Controllers\Api\Fleet\VehicleDepositController::class,
+    'vehicle-documents' => \App\Http\Controllers\Api\Fleet\VehicleDocumentController::class,
+    'vehicle-ownership-history' => \App\Http\Controllers\Api\Fleet\VehicleOwnershipHistoryController::class,
+    'vehicle-meter-readings' => \App\Http\Controllers\Api\Fleet\VehicleMeterReadingController::class,
+    'vehicle-maintenance-plans' => \App\Http\Controllers\Api\Fleet\VehicleMaintenancePlanController::class,
+    'vehicle-work-orders' => \App\Http\Controllers\Api\Fleet\VehicleWorkOrderController::class,
+    'vehicle-work-order-items' => \App\Http\Controllers\Api\Fleet\VehicleWorkOrderItemController::class,
+    'vehicle-maintenance-parts' => \App\Http\Controllers\Api\Fleet\VehicleMaintenancePartController::class,
+    'vehicle-tires' => \App\Http\Controllers\Api\Fleet\VehicleTireController::class,
+    'vehicle-tire-movements' => \App\Http\Controllers\Api\Fleet\VehicleTireMovementController::class,
+    'vehicle-tire-inspections' => \App\Http\Controllers\Api\Fleet\VehicleTireInspectionController::class,
+    'vehicle-batteries' => \App\Http\Controllers\Api\Fleet\VehicleBatteryController::class,
+    'vehicle-fuel-cards' => \App\Http\Controllers\Api\Fleet\VehicleFuelCardController::class,
+    'vehicle-fuel-stations' => \App\Http\Controllers\Api\Fleet\VehicleFuelStationController::class,
+    'vehicle-fuel-prices' => \App\Http\Controllers\Api\Fleet\VehicleFuelPriceController::class,
+    'driver-licenses' => \App\Http\Controllers\Api\Fleet\DriverLicenseController::class,
+    'driver-training' => \App\Http\Controllers\Api\Fleet\DriverTrainingController::class,
+    'driver-violations' => \App\Http\Controllers\Api\Fleet\DriverViolationController::class,
+    'driver-medical-tests' => \App\Http\Controllers\Api\Fleet\DriverMedicalTestController::class,
+    'driver-behavior-scores' => \App\Http\Controllers\Api\Fleet\DriverBehaviorScoreController::class,
+    'vehicle-accidents' => \App\Http\Controllers\Api\Fleet\VehicleAccidentController::class,
+    'vehicle-insurance' => \App\Http\Controllers\Api\Fleet\VehicleInsuranceController::class,
+    'vehicle-insurance-claims' => \App\Http\Controllers\Api\Fleet\VehicleInsuranceClaimController::class,
+    'vehicle-reservations' => \App\Http\Controllers\Api\Fleet\VehicleReservationController::class,
+    'geofences' => \App\Http\Controllers\Api\Fleet\GeofenceController::class,
+    'vehicle-geofence-events' => \App\Http\Controllers\Api\Fleet\VehicleGeofenceEventController::class,
+    'vehicle-speed-violations' => \App\Http\Controllers\Api\Fleet\VehicleSpeedViolationController::class,
+    'vehicle-idle-time' => \App\Http\Controllers\Api\Fleet\VehicleIdleTimeController::class,
+    'vehicle-trip-history' => \App\Http\Controllers\Api\Fleet\VehicleTripHistoryController::class,
+    'vehicle-cost-analysis' => \App\Http\Controllers\Api\Fleet\VehicleCostAnalysisController::class,
+    'vehicle-alerts' => \App\Http\Controllers\Api\Fleet\VehicleAlertController::class,
+    'asset-categories' => \App\Http\Controllers\Api\Assets\AssetCategoryController::class,
+    'assets' => \App\Http\Controllers\Api\Assets\AssetController::class,
+    'asset-assignments' => \App\Http\Controllers\Api\Assets\AssetAssignmentController::class,
+    'asset-depreciations' => \App\Http\Controllers\Api\Assets\AssetDepreciationController::class,
+    'leads' => \App\Http\Controllers\Api\CRM\LeadController::class,
+    'lead-activities' => \App\Http\Controllers\Api\CRM\LeadActivityController::class,
+    'opportunities' => \App\Http\Controllers\Api\CRM\OpportunityController::class,
+    'opportunity-stages' => \App\Http\Controllers\Api\CRM\OpportunityStageController::class,
+    'document-categories' => \App\Http\Controllers\Api\Settings\DocumentCategoryController::class,
+    'documents' => \App\Http\Controllers\Api\Settings\DocumentController::class,
+    'audit-logs' => \App\Http\Controllers\Api\Integration\AuditLogController::class,
+    'login-logs' => \App\Http\Controllers\Api\Auth\LoginLogController::class,
+    'api-logs' => \App\Http\Controllers\Api\Integration\ApiLogController::class,
+    'workflow-definitions' => \App\Http\Controllers\Api\Workflows\WorkflowDefinitionController::class,
+    'workflow-steps' => \App\Http\Controllers\Api\Workflows\WorkflowStepController::class,
+    'approval-requests' => \App\Http\Controllers\Api\Workflows\ApprovalRequestController::class,
+    'approval-actions' => \App\Http\Controllers\Api\Workflows\ApprovalActionController::class,
+    'notification-templates' => \App\Http\Controllers\Api\Notifications\NotificationTemplateController::class,
+    'notifications' => \App\Http\Controllers\Api\Notifications\NotificationController::class,
+    'notification-queue' => \App\Http\Controllers\Api\Notifications\NotificationQueueController::class,
+    'kpi-definitions' => \App\Http\Controllers\Api\HR\KpiDefinitionController::class,
+    'kpi-targets' => \App\Http\Controllers\Api\HR\KpiTargetController::class,
+    'kpi-results' => \App\Http\Controllers\Api\HR\KpiResultController::class,
+    'sales-targets' => \App\Http\Controllers\Api\Sales\SalesTargetController::class,
+    'sales-target-details' => \App\Http\Controllers\Api\Sales\SalesTargetDetailController::class,
+    'budgets' => \App\Http\Controllers\Api\Accounting\BudgetController::class,
+    'budget-lines' => \App\Http\Controllers\Api\Accounting\BudgetLineController::class,
+    'demand-forecasts' => \App\Http\Controllers\Api\Sales\DemandForecastController::class,
+    'forecast-history' => \App\Http\Controllers\Api\Sales\ForecastHistoryController::class,
+    'replenishment-rules' => \App\Http\Controllers\Api\Inventory\ReplenishmentRuleController::class,
+    'replenishment-suggestions' => \App\Http\Controllers\Api\Inventory\ReplenishmentSuggestionController::class,
+    'route-templates' => \App\Http\Controllers\Api\Sales\RouteTemplateController::class,
+    'route-stops' => \App\Http\Controllers\Api\Sales\RouteStopController::class,
+    'gps-tracking-sessions' => \App\Http\Controllers\Api\Fleet\GpsTrackingSessionController::class,
+    'gps-tracking-points' => \App\Http\Controllers\Api\Fleet\GpsTrackingPointController::class,
+    'e-invoice-providers' => \App\Http\Controllers\Api\Tax\EInvoiceProviderController::class,
+    'e-invoice-transactions' => \App\Http\Controllers\Api\Tax\EInvoiceTransactionController::class,
+    'message-templates' => \App\Http\Controllers\Api\Notifications\MessageTemplateController::class,
+    'message-logs' => \App\Http\Controllers\Api\Notifications\MessageLogController::class,
+    'sync-batches' => \App\Http\Controllers\Api\Integration\SyncBatchController::class,
+    'sync-logs' => \App\Http\Controllers\Api\Integration\SyncLogController::class,
+    'mobile-devices' => \App\Http\Controllers\Api\Integration\MobileDeviceController::class,
+    'master-data-request-types' => \App\Http\Controllers\Api\Workflows\MasterDataTypeController::class,
+    'master-data-requests' => \App\Http\Controllers\Api\Workflows\MasterDataRequestController::class,
+    'master-data-request-steps' => \App\Http\Controllers\Api\Workflows\MasterDataRequestStepController::class,
+    'master-data-request-history' => \App\Http\Controllers\Api\Workflows\MasterDataRequestHistoryController::class,
+    'master-data-workflows' => \App\Http\Controllers\Api\Workflows\MasterDataWorkflowController::class,
+    'master-data-workflow-steps' => \App\Http\Controllers\Api\Workflows\MasterDataWorkflowStepController::class,
+    'customer-agreement-types' => \App\Http\Controllers\Api\CRM\CustomerAgreementTypeController::class,
+    'customer-agreements' => \App\Http\Controllers\Api\CRM\CustomerAgreementController::class,
+    'customer-agreement-items' => \App\Http\Controllers\Api\CRM\CustomerAgreementItemController::class,
+    'marketing-support-types' => \App\Http\Controllers\Api\CRM\MarketingSupportTypeController::class,
+    'customer-marketing-supports' => \App\Http\Controllers\Api\CRM\CustomerMarketingSupportController::class,
+    'customer-rebate-rules' => \App\Http\Controllers\Api\Pricing\CustomerRebateRuleController::class,
+    'customer-agreement-targets' => \App\Http\Controllers\Api\CRM\CustomerAgreementTargetController::class,
+    'customer-agreement-payments' => \App\Http\Controllers\Api\CRM\CustomerAgreementPaymentController::class,
+    'customer-agreement-history' => \App\Http\Controllers\Api\CRM\CustomerAgreementHistoryController::class,
+    'marketing-asset-categories' => \App\Http\Controllers\Api\CRM\MarketingAssetCategoryController::class,
+    'marketing-assets' => \App\Http\Controllers\Api\CRM\MarketingAssetController::class,
+    'customer-marketing-assets' => \App\Http\Controllers\Api\CRM\CustomerMarketingAssetController::class,
+    'marketing-asset-movements' => \App\Http\Controllers\Api\CRM\MarketingAssetMovementController::class,
+    'marketing-asset-maintenance' => \App\Http\Controllers\Api\CRM\MarketingAssetMaintenanceController::class,
+    'merchandising-visits' => \App\Http\Controllers\Api\Merchandising\MerchandisingVisitController::class,
+    'merchandising-checklists' => \App\Http\Controllers\Api\Merchandising\MerchandisingChecklistController::class,
+    'merchandising-visit-details' => \App\Http\Controllers\Api\Merchandising\MerchandisingVisitDetailController::class,
+    'merchandising-photos' => \App\Http\Controllers\Api\Merchandising\MerchandisingPhotoController::class,
+    'marketing-materials' => \App\Http\Controllers\Api\CRM\MarketingMaterialController::class,
+    'customer-marketing-materials' => \App\Http\Controllers\Api\CRM\CustomerMarketingMaterialController::class,
+    'marketing-campaigns' => \App\Http\Controllers\Api\CRM\MarketingCampaignController::class,
+    'marketing-campaign-customers' => \App\Http\Controllers\Api\CRM\MarketingCampaignCustomerController::class,
+    'competitors' => \App\Http\Controllers\Api\Surveys\CompetitorController::class,
+    'competitor-brands' => \App\Http\Controllers\Api\Surveys\CompetitorBrandController::class,
+    'competitor-products' => \App\Http\Controllers\Api\Surveys\CompetitorProductController::class,
+    'competitor-price-surveys' => \App\Http\Controllers\Api\Surveys\CompetitorPriceSurveyController::class,
+    'competitor-price-survey-items' => \App\Http\Controllers\Api\Surveys\CompetitorPriceSurveyItemController::class,
+    'competitor-promotions' => \App\Http\Controllers\Api\Surveys\CompetitorPromotionController::class,
+    'competitor-promotion-items' => \App\Http\Controllers\Api\Surveys\CompetitorPromotionItemController::class,
+    'shelf-share-surveys' => \App\Http\Controllers\Api\Merchandising\ShelfShareSurveyController::class,
+    'shelf-share-items' => \App\Http\Controllers\Api\Merchandising\ShelfShareItemController::class,
+    'competitor-new-products' => \App\Http\Controllers\Api\Surveys\CompetitorNewProductController::class,
+    'market-issues' => \App\Http\Controllers\Api\Merchandising\MarketIssueController::class,
+    'competitor-photos' => \App\Http\Controllers\Api\Surveys\CompetitorPhotoController::class,
+    'survey-categories' => \App\Http\Controllers\Api\Surveys\SurveyCategoryController::class,
+    'surveys' => \App\Http\Controllers\Api\Surveys\SurveyController::class,
+    'survey-questions' => \App\Http\Controllers\Api\Surveys\SurveyQuestionController::class,
+    'survey-question-options' => \App\Http\Controllers\Api\Surveys\SurveyQuestionOptionController::class,
+    'survey-question-rules' => \App\Http\Controllers\Api\Surveys\SurveyQuestionRuleController::class,
+    'survey-responses' => \App\Http\Controllers\Api\Surveys\SurveyResponseController::class,
+    'survey-response-answers' => \App\Http\Controllers\Api\Surveys\SurveyResponseAnswerController::class,
+    'survey-response-options' => \App\Http\Controllers\Api\Surveys\SurveyResponseOptionController::class,
+    'survey-response-photos' => \App\Http\Controllers\Api\Surveys\SurveyResponsePhotoController::class,
+    'survey-scoring-rules' => \App\Http\Controllers\Api\Surveys\SurveyScoringRuleController::class,
+    'survey-scores' => \App\Http\Controllers\Api\Surveys\SurveyScoreController::class,
+    'survey-assignments' => \App\Http\Controllers\Api\Surveys\SurveyAssignmentController::class,
+    'merchandising-standards' => \App\Http\Controllers\Api\Merchandising\MerchandisingStandardController::class,
+    'merchandising-standard-items' => \App\Http\Controllers\Api\Merchandising\MerchandisingStandardItemController::class,
+    'display-locations' => \App\Http\Controllers\Api\Inventory\DisplayLocationController::class,
+    'merchandising-audits' => \App\Http\Controllers\Api\Merchandising\MerchandisingAuditController::class,
+    'merchandising-audit-details' => \App\Http\Controllers\Api\Merchandising\MerchandisingAuditDetailController::class,
+    'shelf-audits' => \App\Http\Controllers\Api\Merchandising\ShelfAuditController::class,
+    'shelf-audit-items' => \App\Http\Controllers\Api\Merchandising\ShelfAuditItemController::class,
+    'competitor-shelf-items' => \App\Http\Controllers\Api\Surveys\CompetitorShelfItemController::class,
+    'availability-audits' => \App\Http\Controllers\Api\Merchandising\AvailabilityAuditController::class,
+    'refrigerator-audits' => \App\Http\Controllers\Api\Merchandising\RefrigeratorAuditController::class,
+    'posm-audits' => \App\Http\Controllers\Api\Merchandising\PosmAuditController::class,
+    'merchandising-audit-photos' => \App\Http\Controllers\Api\Merchandising\MerchandisingAuditPhotoController::class,
+    'merchandising-tasks' => \App\Http\Controllers\Api\Merchandising\MerchandisingTaskController::class,
+    'merchandising-task-assignments' => \App\Http\Controllers\Api\Merchandising\MerchandisingTaskAssignmentController::class,
+    'notification-types' => \App\Http\Controllers\Api\Notifications\NotificationTypeController::class,
+    'notification-channels' => \App\Http\Controllers\Api\Notifications\NotificationChannelController::class,
+    'notification-events' => \App\Http\Controllers\Api\Notifications\NotificationEventController::class,
+    'notification-rules' => \App\Http\Controllers\Api\Notifications\NotificationRuleController::class,
+    'notification-rule-recipients' => \App\Http\Controllers\Api\Notifications\NotificationRuleRecipientController::class,
+    'notification-recipients' => \App\Http\Controllers\Api\Notifications\NotificationRecipientController::class,
+    'notification-deliveries' => \App\Http\Controllers\Api\Notifications\NotificationDeliveryController::class,
+    'notification-preferences' => \App\Http\Controllers\Api\Notifications\NotificationPreferenceController::class,
+    'notification-groups' => \App\Http\Controllers\Api\Notifications\NotificationGroupController::class,
+    'notification-group-members' => \App\Http\Controllers\Api\Notifications\NotificationGroupMemberController::class,
+    'alert-rules' => \App\Http\Controllers\Api\Notifications\AlertRuleController::class,
+    'alerts' => \App\Http\Controllers\Api\Notifications\AlertController::class,
+    'alert-actions' => \App\Http\Controllers\Api\Notifications\AlertActionController::class,
+    'scheduled-notifications' => \App\Http\Controllers\Api\Notifications\ScheduledNotificationController::class,
+    'integration-providers' => \App\Http\Controllers\Api\Integration\IntegrationProviderController::class,
+    'integration-accounts' => \App\Http\Controllers\Api\Integration\IntegrationAccountController::class,
+    'integration-endpoints' => \App\Http\Controllers\Api\Integration\IntegrationEndpointController::class,
+    'integration-events' => \App\Http\Controllers\Api\Integration\IntegrationEventController::class,
+    'integration-event-subscriptions' => \App\Http\Controllers\Api\Integration\IntegrationEventSubscriptionController::class,
+    'api-clients' => \App\Http\Controllers\Api\Integration\ApiClientController::class,
+    'api-tokens' => \App\Http\Controllers\Api\Integration\ApiTokenController::class,
+    'api-permissions' => \App\Http\Controllers\Api\Permissions\ApiPermissionController::class,
+    'webhook-endpoints' => \App\Http\Controllers\Api\Integration\WebhookEndpointController::class,
+    'webhook-subscriptions' => \App\Http\Controllers\Api\Integration\WebhookSubscriptionController::class,
+    'webhook-logs' => \App\Http\Controllers\Api\Integration\WebhookLogController::class,
+    'api-request-logs' => \App\Http\Controllers\Api\Integration\ApiRequestLogController::class,
+    'api-rate-limits' => \App\Http\Controllers\Api\Integration\ApiRateLimitController::class,
+    'integration-jobs' => \App\Http\Controllers\Api\Integration\IntegrationJobController::class,
+    'integration-job-runs' => \App\Http\Controllers\Api\Integration\IntegrationJobRunController::class,
+    'external-documents' => \App\Http\Controllers\Api\Settings\ExternalDocumentController::class,
+    'external-document-logs' => \App\Http\Controllers\Api\Settings\ExternalDocumentLogController::class,
+    'integration-error-logs' => \App\Http\Controllers\Api\Integration\IntegrationErrorLogController::class,
+    'api-audit-logs' => \App\Http\Controllers\Api\Integration\ApiAuditLogController::class,
+    'workflow-types' => \App\Http\Controllers\Api\Workflows\WorkflowTypeController::class,
+    'workflows' => \App\Http\Controllers\Api\Workflows\WorkflowController::class,
+    'workflow-conditions' => \App\Http\Controllers\Api\Workflows\WorkflowConditionController::class,
+    'workflow-instances' => \App\Http\Controllers\Api\Workflows\WorkflowInstanceController::class,
+    'workflow-instance-steps' => \App\Http\Controllers\Api\Workflows\WorkflowInstanceStepController::class,
+    'workflow-delegations' => \App\Http\Controllers\Api\Workflows\WorkflowDelegationController::class,
+    'workflow-escalations' => \App\Http\Controllers\Api\Workflows\WorkflowEscalationController::class,
+    'workflow-notifications' => \App\Http\Controllers\Api\Workflows\WorkflowNotificationController::class,
+    'workflow-actions-log' => \App\Http\Controllers\Api\Workflows\WorkflowActionLogController::class,
+    'workflow-templates' => \App\Http\Controllers\Api\Workflows\WorkflowTemplateController::class,
+    'workflow-template-steps' => \App\Http\Controllers\Api\Workflows\WorkflowTemplateStepController::class,
+    'workflow-roles' => \App\Http\Controllers\Api\Workflows\WorkflowRoleController::class,
+    'workflow-sla-rules' => \App\Http\Controllers\Api\Workflows\WorkflowSlaRuleController::class,
+    'vehicle-types' => \App\Http\Controllers\Api\Fleet\VehicleTypeController::class,
+    'vehicles' => \App\Http\Controllers\Api\Fleet\VehicleController::class,
 ];
 
-Route::get('route-schedules/today-count', [\App\Http\Controllers\Api\RouteScheduleController::class, 'todayCount']);
+Route::get('route-schedules/today-count', [\App\Http\Controllers\Api\Sales\RouteScheduleController::class, 'todayCount']);
 
 foreach ($resources as $uri => $controller) {
     if (class_exists($controller)) {
@@ -1034,18 +1034,18 @@ foreach ($resources as $uri => $controller) {
     }
 }
 
-Route::post('return-orders/{returnOrder}/approve', [\App\Http\Controllers\Api\ReturnOrderController::class, 'approve']);
-Route::post('return-orders/{returnOrder}/reject', [\App\Http\Controllers\Api\ReturnOrderController::class, 'reject']);
+Route::post('return-orders/{returnOrder}/approve', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'approve']);
+Route::post('return-orders/{returnOrder}/reject', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reject']);
 
-Route::post('distribution-plans/{plan}/calculate', [\App\Http\Controllers\Api\DistributionPlanController::class, 'calculate']);
-Route::post('distribution-plans/{plan}/approve', [\App\Http\Controllers\Api\DistributionPlanController::class, 'approve']);
-Route::post('distribution-plans/{plan}/reopen', [\App\Http\Controllers\Api\DistributionPlanController::class, 'reopen']);
-Route::put('distribution-plans/{plan}/customers/{customer}/qty', [\App\Http\Controllers\Api\DistributionPlanController::class, 'updateCustomerQty']);
-Route::put('distribution-plans/{plan}/items/{item}/qty', [\App\Http\Controllers\Api\DistributionPlanController::class, 'updateItemQty']);
+Route::post('distribution-plans/{plan}/calculate', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'calculate']);
+Route::post('distribution-plans/{plan}/approve', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'approve']);
+Route::post('distribution-plans/{plan}/reopen', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'reopen']);
+Route::put('distribution-plans/{plan}/customers/{customer}/qty', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'updateCustomerQty']);
+Route::put('distribution-plans/{plan}/items/{item}/qty', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'updateItemQty']);
 
 // Fix: vehicle-inventory-transaction-items has param name > 32 chars
-if (class_exists(\App\Http\Controllers\Api\VehicleInventoryTransactionItemController::class, false)) {
-    Route::resource('vehicle-inventory-transaction-items', \App\Http\Controllers\Api\VehicleInventoryTransactionItemController::class, [
+if (class_exists(\App\Http\Controllers\Api\Fleet\VehicleInventoryTransactionItemController::class, false)) {
+    Route::resource('vehicle-inventory-transaction-items', \App\Http\Controllers\Api\Fleet\VehicleInventoryTransactionItemController::class, [
         'parameters' => ['vehicle-inventory-transaction-items' => 'vi_item'],
     ]);
 }
@@ -1281,25 +1281,25 @@ foreach ($softDeleteResources as $resource) {
 }
 
 // ===== Permission Custom Routes =====
-Route::get('permissions/matrix', [\App\Http\Controllers\Api\PermissionController::class, 'matrix']);
-Route::get('permissions/check/{permission}', [\App\Http\Controllers\Api\PermissionController::class, 'check']);
-Route::post('permissions/check-batch', [\App\Http\Controllers\Api\PermissionController::class, 'checkBatch']);
+Route::get('permissions/matrix', [\App\Http\Controllers\Api\Permissions\PermissionController::class, 'matrix']);
+Route::get('permissions/check/{permission}', [\App\Http\Controllers\Api\Permissions\PermissionController::class, 'check']);
+Route::post('permissions/check-batch', [\App\Http\Controllers\Api\Permissions\PermissionController::class, 'checkBatch']);
 
 // ===== Role Custom Routes =====
-Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'updatePermissions']);
-Route::post('roles/copy-permissions', [\App\Http\Controllers\Api\RoleController::class, 'copyPermissions']);
+Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\Permissions\RoleController::class, 'updatePermissions']);
+Route::post('roles/copy-permissions', [\App\Http\Controllers\Api\Permissions\RoleController::class, 'copyPermissions']);
 
 // ===== Opening Balance Document Custom Routes =====
-Route::post('opening-balance-documents/{openingBalanceDocument}/post', [\App\Http\Controllers\Api\OpeningBalanceDocumentController::class, 'post'])->middleware('permission:accounting.opening.post');
-Route::post('opening-balance-documents/{openingBalanceDocument}/cancel', [\App\Http\Controllers\Api\OpeningBalanceDocumentController::class, 'cancel'])->middleware('permission:accounting.opening.cancel');
+Route::post('opening-balance-documents/{openingBalanceDocument}/post', [\App\Http\Controllers\Api\Accounting\OpeningBalanceDocumentController::class, 'post'])->middleware('permission:accounting.opening.post');
+Route::post('opening-balance-documents/{openingBalanceDocument}/cancel', [\App\Http\Controllers\Api\Accounting\OpeningBalanceDocumentController::class, 'cancel'])->middleware('permission:accounting.opening.cancel');
 
 // ===== Sales Invoice Custom Routes =====
-Route::post('sales-invoices/{salesInvoice}/post', [\App\Http\Controllers\Api\SalesInvoiceController::class, 'post'])->middleware('permission:sales.invoice.post');
-Route::post('sales-invoices/{salesInvoice}/cancel', [\App\Http\Controllers\Api\SalesInvoiceController::class, 'cancel'])->middleware('permission:sales.invoice.cancel');
+Route::post('sales-invoices/{salesInvoice}/post', [\App\Http\Controllers\Api\Sales\SalesInvoiceController::class, 'post'])->middleware('permission:sales.invoice.post');
+Route::post('sales-invoices/{salesInvoice}/cancel', [\App\Http\Controllers\Api\Sales\SalesInvoiceController::class, 'cancel'])->middleware('permission:sales.invoice.cancel');
 
 // ===== Purchase Invoice Custom Routes =====
-Route::post('purchase-invoices/{purchaseInvoice}/post', [\App\Http\Controllers\Api\PurchaseInvoiceController::class, 'post'])->middleware('permission:purchase.invoice.post');
-Route::post('purchase-invoices/{purchaseInvoice}/cancel', [\App\Http\Controllers\Api\PurchaseInvoiceController::class, 'cancel'])->middleware('permission:purchase.invoice.cancel');
+Route::post('purchase-invoices/{purchaseInvoice}/post', [\App\Http\Controllers\Api\Purchase\PurchaseInvoiceController::class, 'post'])->middleware('permission:purchase.invoice.post');
+Route::post('purchase-invoices/{purchaseInvoice}/cancel', [\App\Http\Controllers\Api\Purchase\PurchaseInvoiceController::class, 'cancel'])->middleware('permission:purchase.invoice.cancel');
 
 // ===== Inventory Module =====
 
@@ -1432,7 +1432,7 @@ Route::get('loading-products', function (\Illuminate\Http\Request $request) {
     $search = $request->input('search');
 
     if (!$warehouseId) {
-        return response()->json(['message' => 'warehouse_id مطلوب'], 400);
+        return response()->json(['message' => 'warehouse_id Ù…Ø·Ù„ÙˆØ¨'], 400);
     }
 
     $openingBalances = \App\Models\InventoryOpeningBalance::query()
@@ -1552,7 +1552,7 @@ Route::post('load-requests/create', function (\Illuminate\Http\Request $request)
                 'item_id' => $item['item_id'],
                 'unit_id' => $item['unit_id'] ?? null,
                 'quantity' => $totalQty,
-                'notes' => $incentiveQty > 0 ? "حافز: $incentiveQty" : null,
+                'notes' => $incentiveQty > 0 ? "Ø­Ø§ÙØ²: $incentiveQty" : null,
             ]);
         }
     }
@@ -1561,9 +1561,9 @@ Route::post('load-requests/create', function (\Illuminate\Http\Request $request)
 });
 
 // Update Load Request Status
-Route::patch('load-requests/{loadRequest}/status', [\App\Http\Controllers\Api\LoadRequestController::class, 'updateStatus']);
-Route::post('load-requests/{loadRequest}/approve', [\App\Http\Controllers\Api\LoadRequestController::class, 'approve']);
-Route::post('load-requests/{loadRequest}/reject', [\App\Http\Controllers\Api\LoadRequestController::class, 'reject']);
+Route::patch('load-requests/{loadRequest}/status', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'updateStatus']);
+Route::post('load-requests/{loadRequest}/approve', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'approve']);
+Route::post('load-requests/{loadRequest}/reject', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'reject']);
 
 // Warehouse Transfers next-code
 Route::get('warehouse-transfers/next-code', function () {
@@ -1576,21 +1576,21 @@ Route::get('warehouse-transfers/next-code', function () {
 // ============================================================
 // PHASE 5: REPORT BUILDER
 // ============================================================
-Route::get('reports/tables', [\App\Http\Controllers\Api\ReportController::class, 'tables']);
-Route::get('reports/tables/{table}/schema', [\App\Http\Controllers\Api\ReportController::class, 'tableSchema']);
-Route::get('reports/templates', [\App\Http\Controllers\Api\ReportController::class, 'templates']);
-Route::get('reports', [\App\Http\Controllers\Api\ReportController::class, 'index']);
-Route::post('reports', [\App\Http\Controllers\Api\ReportController::class, 'store']);
-Route::get('reports/{report}', [\App\Http\Controllers\Api\ReportController::class, 'show']);
-Route::put('reports/{report}', [\App\Http\Controllers\Api\ReportController::class, 'update']);
-Route::delete('reports/{report}', [\App\Http\Controllers\Api\ReportController::class, 'destroy']);
-Route::post('reports/{report}/execute', [\App\Http\Controllers\Api\ReportController::class, 'execute']);
-Route::post('reports/{report}/share', [\App\Http\Controllers\Api\ReportController::class, 'share']);
+Route::get('reports/tables', [\App\Http\Controllers\Api\Reports\ReportController::class, 'tables']);
+Route::get('reports/tables/{table}/schema', [\App\Http\Controllers\Api\Reports\ReportController::class, 'tableSchema']);
+Route::get('reports/templates', [\App\Http\Controllers\Api\Reports\ReportController::class, 'templates']);
+Route::get('reports', [\App\Http\Controllers\Api\Reports\ReportController::class, 'index']);
+Route::post('reports', [\App\Http\Controllers\Api\Reports\ReportController::class, 'store']);
+Route::get('reports/{report}', [\App\Http\Controllers\Api\Reports\ReportController::class, 'show']);
+Route::put('reports/{report}', [\App\Http\Controllers\Api\Reports\ReportController::class, 'update']);
+Route::delete('reports/{report}', [\App\Http\Controllers\Api\Reports\ReportController::class, 'destroy']);
+Route::post('reports/{report}/execute', [\App\Http\Controllers\Api\Reports\ReportController::class, 'execute']);
+Route::post('reports/{report}/share', [\App\Http\Controllers\Api\Reports\ReportController::class, 'share']);
 
 // ============================================================
 // PHASE 6: INTEGRATION HUB
 // ============================================================
-$ic = \App\Http\Controllers\Api\IntegrationController::class;
+$ic = \App\Http\Controllers\Api\Integration\IntegrationController::class;
 
 // Webhooks
 Route::get('webhooks', [$ic, 'webhookIndex']);
@@ -1614,7 +1614,7 @@ Route::get('webhooks/events/available', [$ic, 'availableEvents']);
 // ============================================================
 // PHASE 7: BACKGROUND JOBS MONITOR
 // ============================================================
-$mc = \App\Http\Controllers\Api\MonitoringController::class;
+$mc = \App\Http\Controllers\Api\Reports\MonitoringController::class;
 Route::get('monitoring/queue/stats', [$mc, 'queueStats']);
 Route::get('monitoring/queue/jobs', [$mc, 'queueJobs']);
 Route::post('monitoring/queue/jobs/{id}/retry', [$mc, 'queueRetry']);
@@ -1628,7 +1628,7 @@ Route::get('monitoring/activity/stats', [$mc, 'activityStats']);
 // ============================================================
 // PHASE 10: SUPER ADMIN PANEL
 // ============================================================
-$sc = \App\Http\Controllers\Api\SuperAdminController::class;
+$sc = \App\Http\Controllers\Api\Settings\SuperAdminController::class;
 Route::get('super-admin/stats', [$sc, 'stats']);
 Route::get('super-admin/health', [$sc, 'health']);
 Route::get('super-admin/companies', [$sc, 'companies']);
@@ -1637,8 +1637,8 @@ Route::put('super-admin/companies/{company}/subscription', [$sc, 'updateSubscrip
 Route::get('super-admin/plans', [$sc, 'plans']);
 
 // ===== Vehicle Alert Custom Routes =====
-Route::post('vehicle-alerts/{id}/mark-read', [\App\Http\Controllers\Api\VehicleAlertController::class, 'markAsRead']);
-Route::post('vehicle-alerts/{id}/resolve', [\App\Http\Controllers\Api\VehicleAlertController::class, 'resolve']);
+Route::post('vehicle-alerts/{id}/mark-read', [\App\Http\Controllers\Api\Fleet\VehicleAlertController::class, 'markAsRead']);
+Route::post('vehicle-alerts/{id}/resolve', [\App\Http\Controllers\Api\Fleet\VehicleAlertController::class, 'resolve']);
 
 // ============================================================
 // PHASE 8: API DOCUMENTATION (auto-generated)
