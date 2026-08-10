@@ -35,14 +35,14 @@ Route::post('company-sidebar', [\App\Http\Controllers\Api\CompanySidebarControll
 Route::delete('company-sidebar', [\App\Http\Controllers\Api\CompanySidebarController::class, 'destroy']);
 
 // Dashboard widgets
-Route::get('dashboard', [\App\Http\Controllers\Api\DashboardWidgetController::class, 'dashboard']);
-Route::get('dashboard/widgets', [\App\Http\Controllers\Api\DashboardWidgetController::class, 'index']);
-Route::post('dashboard/widgets', [\App\Http\Controllers\Api\DashboardWidgetController::class, 'store']);
-Route::get('dashboard/widgets/{widget}', [\App\Http\Controllers\Api\DashboardWidgetController::class, 'show']);
-Route::put('dashboard/widgets/{widget}', [\App\Http\Controllers\Api\DashboardWidgetController::class, 'update']);
-Route::delete('dashboard/widgets/{widget}', [\App\Http\Controllers\Api\DashboardWidgetController::class, 'destroy']);
-Route::get('dashboard/widgets/role/{role}', [\App\Http\Controllers\Api\DashboardWidgetController::class, 'roleWidgets']);
-Route::post('dashboard/widgets/role/{role}', [\App\Http\Controllers\Api\DashboardWidgetController::class, 'syncRoleWidgets']);
+Route::get('dashboard', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'dashboard']);
+Route::get('dashboard/widgets', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'index']);
+Route::post('dashboard/widgets', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'store']);
+Route::get('dashboard/widgets/{widget}', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'show']);
+Route::put('dashboard/widgets/{widget}', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'update']);
+Route::delete('dashboard/widgets/{widget}', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'destroy']);
+Route::get('dashboard/widgets/role/{role}', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'roleWidgets']);
+Route::post('dashboard/widgets/role/{role}', [\App\Http\Controllers\Api\Reports\DashboardWidgetController::class, 'syncRoleWidgets']);
 
 // Audit logs
 Route::get('audit-logs/stats', [\App\Http\Controllers\Api\AuditLogController::class, 'stats']);
