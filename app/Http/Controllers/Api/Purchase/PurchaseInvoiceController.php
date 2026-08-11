@@ -55,12 +55,25 @@ class PurchaseInvoiceController extends Controller
             $invoice = PurchaseInvoice::create($validated);
 
             if (!empty($items)) {
+                $unitService = app(\App\Services\UnitConversionService::class);
+
                 foreach ($items as $item) {
+                    $itemId = $item['item_id'] ?? null;
+                    $enteredUnitId = $item['unit_id'] ?? null;
+                    $enteredQty = (float) ($item['qty'] ?? 0);
+
+                    $resolved = $unitService->resolveUnit($itemId, $enteredUnitId);
+                    $unitId = $resolved?->unit_id ?? $enteredUnitId;
+                    $conversionFactor = $resolved?->conversion_factor ?? 1;
+                    $qtyInBase = $unitService->toBase($itemId, $unitId, $enteredQty);
+
                     PurchaseInvoiceItem::create([
                         'purchase_invoice_id' => $invoice->id,
-                        'item_id' => $item['item_id'] ?? null,
-                        'unit_id' => $item['unit_id'] ?? null,
+                        'item_id' => $itemId,
+                        'unit_id' => $unitId,
                         'qty' => $item['qty'] ?? 0,
+                        'conversion_factor' => $conversionFactor,
+                        'base_quantity' => $qtyInBase,
                         'price' => $item['price'] ?? 0,
                         'discount_amount' => $item['discount_amount'] ?? 0,
                         'tax_amount' => $item['tax_amount'] ?? 0,
@@ -98,12 +111,25 @@ class PurchaseInvoiceController extends Controller
 
             if (is_array($items)) {
                 $purchaseInvoice->items()->delete();
+                $unitService = app(\App\Services\UnitConversionService::class);
+
                 foreach ($items as $item) {
+                    $itemId = $item['item_id'] ?? null;
+                    $enteredUnitId = $item['unit_id'] ?? null;
+                    $enteredQty = (float) ($item['qty'] ?? 0);
+
+                    $resolved = $unitService->resolveUnit($itemId, $enteredUnitId);
+                    $unitId = $resolved?->unit_id ?? $enteredUnitId;
+                    $conversionFactor = $resolved?->conversion_factor ?? 1;
+                    $qtyInBase = $unitService->toBase($itemId, $unitId, $enteredQty);
+
                     PurchaseInvoiceItem::create([
                         'purchase_invoice_id' => $purchaseInvoice->id,
-                        'item_id' => $item['item_id'] ?? null,
-                        'unit_id' => $item['unit_id'] ?? null,
+                        'item_id' => $itemId,
+                        'unit_id' => $unitId,
                         'qty' => $item['qty'] ?? 0,
+                        'conversion_factor' => $conversionFactor,
+                        'base_quantity' => $qtyInBase,
                         'price' => $item['price'] ?? 0,
                         'discount_amount' => $item['discount_amount'] ?? 0,
                         'tax_amount' => $item['tax_amount'] ?? 0,

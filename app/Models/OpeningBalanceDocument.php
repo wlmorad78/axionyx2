@@ -119,15 +119,28 @@ class OpeningBalanceDocument extends Document {
                 'created_by' => $this->posted_by ?? $this->created_by,
             ]);
 
+            $unitService = app(\App\Services\UnitConversionService::class);
+
             foreach ($itemLines as $line) {
+                $conversionFactor = 1;
+                if (!empty($line->unit_id)) {
+                    $iu = \App\Models\ItemUnit::where('item_id', $line->item_id)
+                        ->where('unit_id', $line->unit_id)
+                        ->whereNull('deleted_at')
+                        ->first();
+                    if ($iu && $iu->conversion_factor > 0) $conversionFactor = $iu->conversion_factor;
+                }
+                $qtyInBase = (float)$line->qty * $conversionFactor;
+
                 InventoryTransactionItem::create([
                     'inventory_transaction_id' => $invTransaction->id,
                     'item_id' => $line->item_id,
                     'unit_id' => $line->unit_id,
                     'warehouse_id' => $line->warehouse_id,
-                    'qty' => $line->qty,
+                    'conversion_factor' => $conversionFactor,
+                    'qty' => $qtyInBase,
                     'unit_cost' => $line->unit_cost,
-                    'total_cost' => $line->qty * $line->unit_cost,
+                    'total_cost' => $qtyInBase * $line->unit_cost,
                     'direction' => 'in',
                 ]);
             }

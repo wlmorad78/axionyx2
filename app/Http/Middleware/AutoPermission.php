@@ -110,6 +110,8 @@ class AutoPermission
         'sales-incentive-rewards'   => ['sales', 'target'],
         'salesman-assignments'      => ['sales', 'route'],
         'salesman-settlements'      => ['sales', 'invoice'],
+        'salesman-debts'            => ['sales', 'invoice'],
+        'customer-debts'            => ['sales', 'invoice'],
         'collections'               => ['sales', 'invoice'],
 
         // Purchase
@@ -140,6 +142,9 @@ class AutoPermission
         'treasury-custodies'        => ['treasury', 'custody'],
         'treasury-custody-transactions' => ['treasury', 'custody'],
         'treasury-opening-balances'  => ['treasury', 'treasury'],
+        'bank-opening-balances'      => ['treasury', 'treasury'],
+        'treasury-bank-transfers'    => ['treasury', 'treasury'],
+        'bank-supplier-payments'     => ['treasury', 'treasury'],
         'treasury-alerts'           => ['treasury', 'treasury'],
         'treasury-cash-limits'      => ['treasury', 'treasury'],
         'safes'                     => ['treasury', 'treasury'],

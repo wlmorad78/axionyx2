@@ -29,3 +29,6 @@ AXIONYXAPP/
 axionyx-react/
 axionyx_handheld/
 testproduct/
+
+database.sqlite-shm
+database.sqlite-wal

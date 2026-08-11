@@ -402,11 +402,18 @@ class LoadRequestController extends Controller
             ->whereNull('inventory_transactions.deleted_at')
             ->value('total');
 
-        $obQty = \App\Models\Inventory\InventoryOpeningBalance::query()
-            ->selectRaw('COALESCE(SUM(qty), 0) as total')
+        $unitService = app(\App\Services\UnitConversionService::class);
+
+        $obRecords = \App\Models\Inventory\InventoryOpeningBalance::query()
             ->where('item_id', $itemId)
             ->where('warehouse_id', $warehouseId)
-            ->value('total');
+            ->get();
+
+        $obQty = 0;
+        foreach ($obRecords as $ob) {
+            $conversionFactor = $unitService->getConversionFactor($itemId, $ob->unit_id);
+            $obQty += (float)$ob->qty * $conversionFactor;
+        }
 
         return (float) $txnQty + (float) $obQty;
     }
@@ -427,12 +434,19 @@ class LoadRequestController extends Controller
             ->groupBy('item_id')
             ->pluck('total', 'item_id');
 
-        $obQtys = \App\Models\Inventory\InventoryOpeningBalance::query()
-            ->selectRaw('item_id, COALESCE(SUM(qty), 0) as total')
+        $obRecords = \App\Models\Inventory\InventoryOpeningBalance::query()
             ->whereIn('item_id', $itemIds)
             ->where('warehouse_id', $warehouseId)
-            ->groupBy('item_id')
-            ->pluck('total', 'item_id');
+            ->get();
+
+        $unitService = app(\App\Services\UnitConversionService::class);
+
+        $obQtys = collect();
+        foreach ($obRecords as $ob) {
+            $conversionFactor = $unitService->getConversionFactor($ob->item_id, $ob->unit_id);
+            $current = (float) ($obQtys->get($ob->item_id) ?? 0);
+            $obQtys->put($ob->item_id, $current + (float)$ob->qty * $conversionFactor);
+        }
 
         $stockMap = collect();
         foreach ($itemIds as $itemId) {

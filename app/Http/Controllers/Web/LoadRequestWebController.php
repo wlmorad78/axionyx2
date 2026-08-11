@@ -340,11 +340,18 @@ class LoadRequestWebController extends Controller
             ->whereNull('inventory_transactions.deleted_at')
             ->value('total');
 
-        $obQty = \App\Models\Inventory\InventoryOpeningBalance::query()
-            ->selectRaw('COALESCE(SUM(qty), 0) as total')
+        $unitService = app(\App\Services\UnitConversionService::class);
+
+        $obRecords = \App\Models\Inventory\InventoryOpeningBalance::query()
             ->where('item_id', $itemId)
             ->where('warehouse_id', $warehouseId)
-            ->value('total');
+            ->get();
+
+        $obQty = 0;
+        foreach ($obRecords as $ob) {
+            $conversionFactor = $unitService->getConversionFactor($itemId, $ob->unit_id);
+            $obQty += (float)$ob->qty * $conversionFactor;
+        }
 
         return (float) $txnQty + (float) $obQty;
     }

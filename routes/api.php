@@ -220,11 +220,6 @@ Route::get('reports/item-movement', function (\Illuminate\Http\Request $request)
             $refShort = $txn->reference_type ? class_basename($txn->reference_type) : '';
             $isIssueOrder = ($refShort === 'IssueOrder');
 
-            $qtyIn  = $isAddition ? abs($qty) : 0;
-            $qtyOut = ($isSubtraction && !$isIssueOrder) ? abs($qty) : 0;
-            $qtyLoad = ($isSubtraction && $isIssueOrder) ? abs($qty) : 0;
-
-            $qtyReturn = 0;
             $txnTypeName = $txn->transactionType?->name ?? '';
             $referenceShort = $txn->reference_type ? class_basename($txn->reference_type) : '';
             $isReturnType = false;
@@ -234,8 +229,18 @@ Route::get('reports/item-movement', function (\Illuminate\Http\Request $request)
             if (!$isReturnType && $txnTypeName !== '' && (stripos($txnTypeName, 'return') !== false || str_contains($txnTypeName, 'Ù…Ø±ØªØ¬Ø¹'))) {
                 $isReturnType = true;
             }
+
+            $qtyIn = 0;
+            $qtyOut = 0;
+            $qtyLoad = 0;
+            $qtyReturn = 0;
+
             if ($isReturnType) {
                 $qtyReturn = abs($qty);
+            } else {
+                $qtyIn = $isAddition ? abs($qty) : 0;
+                $qtyOut = ($isSubtraction && !$isIssueOrder) ? abs($qty) : 0;
+                $qtyLoad = ($isSubtraction && $isIssueOrder) ? abs($qty) : 0;
             }
 
             $runningBalance += $qty;
@@ -751,6 +756,9 @@ $resources = [
     'sales-invoice-incentives' => \App\Http\Controllers\Api\Sales\SalesInvoiceIncentiveController::class,
     'collections' => \App\Http\Controllers\Api\Sales\CollectionController::class,
     'salesman-settlements' => \App\Http\Controllers\Api\Sales\SalesmanSettlementController::class,
+    'salesman-debts' => \App\Http\Controllers\Api\Sales\SalesmanDebtController::class,
+    'customer-debts' => \App\Http\Controllers\Api\Sales\SalesmanDebtController::class,
+    'rep-debt-payments' => \App\Http\Controllers\Api\Sales\SalesmanDebtController::class,
     'customer-returns' => \App\Http\Controllers\Api\Sales\CustomerReturnController::class,
     'customer-return-items' => \App\Http\Controllers\Api\Sales\CustomerReturnItemController::class,
     'daily-distribution-dashboards' => \App\Http\Controllers\Api\Sales\DailyDistributionDashboardController::class,
@@ -762,6 +770,9 @@ $resources = [
     'treasury-transfers' => \App\Http\Controllers\Api\Treasury\TreasuryTransferController::class,
     'treasury-adjustments' => \App\Http\Controllers\Api\Treasury\TreasuryAdjustmentController::class,
     'treasury-opening-balances' => \App\Http\Controllers\Api\Treasury\TreasuryOpeningBalanceController::class,
+    'bank-opening-balances' => \App\Http\Controllers\Api\Treasury\BankOpeningBalanceController::class,
+    'treasury-bank-transfers' => \App\Http\Controllers\Api\Treasury\TreasuryBankTransferController::class,
+    'bank-supplier-payments' => \App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class,
     'treasury-daily-closings' => \App\Http\Controllers\Api\Treasury\TreasuryDailyClosingController::class,
     'treasury-closing-details' => \App\Http\Controllers\Api\Treasury\TreasuryClosingDetailController::class,
     'treasury-custodies' => \App\Http\Controllers\Api\Treasury\TreasuryCustodyController::class,
@@ -1039,6 +1050,8 @@ foreach ($resources as $uri => $controller) {
 Route::post('return-orders/{returnOrder}/approve', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'approve']);
 Route::post('return-orders/{returnOrder}/reject', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reject']);
 
+Route::post('salesman-debts/{salesmanDebt}/collect', [\App\Http\Controllers\Api\Sales\SalesmanDebtController::class, 'collect']);
+
 Route::post('distribution-plans/{plan}/calculate', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'calculate']);
 Route::post('distribution-plans/{plan}/approve', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'approve']);
 Route::post('distribution-plans/{plan}/reopen', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'reopen']);
@@ -1080,7 +1093,7 @@ $softDeleteResources = [
     'customer-visits', 'route-visits', 'sales-incentives', 'sales-incentive-conditions',
     'sales-incentive-condition-items', 'sales-incentive-rewards',
     'sales-invoices', 'sales-invoice-items', 'sales-invoice-discounts', 'sales-invoice-taxes', 'sales-invoice-incentives',
-    'collections', 'salesman-settlements', 'customer-returns', 'customer-return-items',
+    'collections', 'salesman-settlements', 'salesman-debts', 'customer-debts', 'customer-returns', 'customer-return-items',
     'account-types', 'account-groups', 'accounts', 'journal-entry-types',
     'journal-entries', 'journal-entry-lines', 'fiscal-years', 'accounting-periods',
     'opening-balances', 'opening-balance-documents', 'manual-journal-entries', 'manual-journal-entry-lines',
@@ -1339,6 +1352,8 @@ Route::get('stock-balances', function (\Illuminate\Http\Request $request) {
         ->with(['transactionType', 'items'])
         ->get();
 
+    $unitService = app(\App\Services\UnitConversionService::class);
+
     $stockQty = [];
     foreach ($transactions as $txn) {
         foreach ($txn->items as $txnItem) {
@@ -1357,12 +1372,7 @@ Route::get('stock-balances', function (\Illuminate\Http\Request $request) {
             $whId = $obItem->warehouse_id;
             if (!isset($stockQty[$itemId])) $stockQty[$itemId] = [];
             if (!isset($stockQty[$itemId][$whId])) $stockQty[$itemId][$whId] = 0;
-            $conversionFactor = 1;
-            if (!empty($obItem->unit_id)) {
-                $iu = \App\Models\ItemUnit::where('item_id', $itemId)
-                    ->where('unit_id', $obItem->unit_id)->first();
-                if ($iu && $iu->conversion_factor > 0) $conversionFactor = $iu->conversion_factor;
-            }
+            $conversionFactor = $unitService->getConversionFactor($itemId, $obItem->unit_id);
             $stockQty[$itemId][$whId] += (float)$obItem->qty * $conversionFactor;
         }
     }
@@ -1371,7 +1381,7 @@ Route::get('stock-balances', function (\Illuminate\Http\Request $request) {
         $stockQty = array_filter($stockQty, fn($whStocks) => isset($whStocks[$warehouseId]));
     }
 
-    $result = $items->map(function ($item) use ($stockQty, $warehouses, $transactions) {
+    $result = $items->map(function ($item) use ($stockQty, $warehouses, $transactions, $unitService) {
         $itemStock = [];
         $totalQty = 0;
         foreach ($warehouses as $wh) {
@@ -1380,26 +1390,7 @@ Route::get('stock-balances', function (\Illuminate\Http\Request $request) {
             $totalQty += $qty;
         }
 
-        $allItemUnits = \App\Models\ItemUnit::where('item_id', $item->id)
-            ->whereNull('deleted_at')
-            ->with('unit')
-            ->get();
-
-        $sortedUnits = $allItemUnits->sortByDesc('conversion_factor')->values();
-
-        $unitBreakdown = [];
-        $remaining = (int)floor($totalQty);
-        foreach ($sortedUnits as $iu) {
-            $cf = (int)floor((float)$iu->conversion_factor);
-            $count = $cf > 0 ? intdiv($remaining, $cf) : 0;
-            $remaining -= $count * $cf;
-            $unitBreakdown[] = [
-                'unit_id' => $iu->unit_id,
-                'unit_name' => $iu->unit?->name_ar ?? '',
-                'conversion_factor' => $cf,
-                'stock' => $count,
-            ];
-        }
+        $unitBreakdown = $unitService->breakdownQuantity($item->id, $totalQty);
 
         $lastMovement = $transactions->filter(fn($txn) => $txn->items->contains('item_id', $item->id))
             ->sortByDesc('transaction_date')
@@ -1437,13 +1428,24 @@ Route::get('loading-products', function (\Illuminate\Http\Request $request) {
         return response()->json(['message' => 'warehouse_id Ù…Ø·Ù„ÙˆØ¨'], 400);
     }
 
-    $openingBalances = \App\Models\InventoryOpeningBalance::query()
+    $openingBalanceRecords = \App\Models\InventoryOpeningBalance::query()
         ->where('warehouse_id', $warehouseId)
         ->when($companyId, fn($q) => $q->where('company_id', $companyId))
-        ->get()
-        ->groupBy('item_id')
-        ->map(fn($group) => $group->sum(fn($i) => (float)$i->qty))
-        ->toArray();
+        ->get();
+
+    $openingBalances = [];
+    foreach ($openingBalanceRecords as $ob) {
+        $itemId = $ob->item_id;
+        $conversionFactor = 1;
+        if (!empty($ob->unit_id)) {
+            $iu = \App\Models\ItemUnit::where('item_id', $itemId)
+                ->where('unit_id', $ob->unit_id)
+                ->whereNull('deleted_at')
+                ->first();
+            if ($iu && $iu->conversion_factor > 0) $conversionFactor = $iu->conversion_factor;
+        }
+        $openingBalances[$itemId] = ($openingBalances[$itemId] ?? 0) + (float)$ob->qty * $conversionFactor;
+    }
 
     $transactions = \App\Models\InventoryTransaction::query()
         ->where('warehouse_id', $warehouseId)
@@ -1626,6 +1628,16 @@ Route::post('monitoring/tasks/{command}/run', [$mc, 'taskRun']);
 Route::get('monitoring/health', [$mc, 'health']);
 Route::get('monitoring/activity', [$mc, 'activity']);
 Route::get('monitoring/activity/stats', [$mc, 'activityStats']);
+
+// ============================================================
+// REP DAILY SETTLEMENTS (تسويات المندوبين اليومية)
+// ============================================================
+$rdsc = \App\Http\Controllers\Api\Sales\RepDailySettlementController::class;
+Route::get('rep-daily-settlements', [$rdsc, 'index']);
+Route::get('rep-daily-settlements/{repDailySettlement}', [$rdsc, 'show']);
+Route::post('rep-daily-settlements/{repDailySettlement}/approve', [$rdsc, 'approve']);
+Route::post('rep-daily-settlements/{repDailySettlement}/cancel', [$rdsc, 'cancel']);
+Route::post('rep-daily-settlements/{repDailySettlement}/reopen', [$rdsc, 'reopen']);
 
 // ============================================================
 // PHASE 10: SUPER ADMIN PANEL
