@@ -17,7 +17,7 @@ class SalesInvoiceController extends Controller
 {
     public function index(Request $request)
     {
-        $query = SalesInvoice::with(['customer', 'warehouse', 'createdBy']);
+        $query = SalesInvoice::with(['customer', 'warehouse', 'salesRep', 'createdBy']);
 
         if ($request->filled('company_id')) $query->where('company_id', $request->company_id);
         if ($request->filled('branch_id')) $query->where('branch_id', $request->branch_id);
@@ -87,7 +87,7 @@ class SalesInvoiceController extends Controller
 
     public function show(SalesInvoice $salesInvoice)
     {
-        $salesInvoice->load(['customer', 'warehouse', 'items.item', 'items.unit', 'createdBy']);
+        $salesInvoice->load(['customer', 'warehouse', 'salesRep', 'items.item', 'items.unit', 'createdBy']);
 
         return response()->json($salesInvoice);
     }

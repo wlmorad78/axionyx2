@@ -255,6 +255,33 @@ class SalesInvoice extends Document
 
     // ─── Auto-generate Invoice Number ───────────────────────
 
+    public function generateNumber(): string
+    {
+        $companyId = $this->getAttribute('company_id');
+        $documentType = $this->documentType();
+
+        $branchId = $this->getAttribute('branch_id') ?? null;
+        $branchCode = null;
+
+        if ($branchId && method_exists($this, 'branch')) {
+            $branch = $this->branch;
+            $branchCode = $branch?->code ?? null;
+        }
+
+        $salesRepCode = null;
+        if ($this->sales_rep_id) {
+            $employee = \App\Models\HR\Employee::find($this->sales_rep_id);
+            $salesRepCode = $employee?->employee_code ?? null;
+        }
+
+        return \App\Models\NumberSeries::nextNumber(
+            companyId: (int) $companyId,
+            documentType: $documentType,
+            branchId: $branchId !== null ? (int) $branchId : null,
+            branchCode: $salesRepCode ?? $branchCode,
+        );
+    }
+
     protected static function booted(): void
     {
         static::creating(function (SalesInvoice $model) {
