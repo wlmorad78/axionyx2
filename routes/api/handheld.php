@@ -14,6 +14,11 @@ use App\Models\RouteAssignment;
 use App\Models\Employee;
 use App\Models\Representative;
 use App\Models\Item;
+
+RouteFacade::get('handheld/health', function () {
+    return response()->json(['success' => true, 'service' => 'api']);
+});
+
 use App\Models\ReturnOrder;
 use App\Models\ReturnOrderItem;
 use App\Models\Warehouse;
@@ -930,18 +935,18 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         'invoices.*.customer_id' => 'required|exists:customers,id',
         'invoices.*.temp_invoice_no' => 'nullable|string',
         'invoices.*.invoice_no' => 'nullable|string',
-        'invoices.*.device_id' => 'nullable|exists:devices,id',
+        'invoices.*.device_id' => 'nullable|integer',
         'invoices.*.invoice_date' => 'required|date',
         'invoices.*.items' => 'required|array|min:1',
         'invoices.*.items.*.item_id' => 'required|exists:items,id',
         'invoices.*.items.*.qty' => 'required|numeric|min:1',
         'invoices.*.items.*.price' => 'required|numeric|min:0',
-        'invoices.*.items.*.unit_id' => 'nullable|exists:units,id',
-        'invoices.*.items.*.issue_order_id' => 'nullable|exists:issue_orders,id',
-        'invoices.*.branch_id' => 'nullable|exists:branches,id',
+        'invoices.*.items.*.unit_id' => 'nullable|integer',
+        'invoices.*.items.*.issue_order_id' => 'nullable|integer',
+        'invoices.*.branch_id' => 'nullable|integer',
         'invoices.*.paid_amount' => 'nullable|numeric|min:0',
         'invoices.*.cash_received' => 'nullable|numeric|min:0',
-        'invoices.*.sales_territory_id' => 'nullable|exists:sales_territories,id',
+        'invoices.*.sales_territory_id' => 'nullable|integer',
     ]);
 
     $employee = resolveEmployee($request);
@@ -1537,6 +1542,16 @@ RouteFacade::post('handheld/pay-from-balance', function (\Illuminate\Http\Reques
         'amount' => 'required|numeric|min:0.01',
     ]);
 
+    $uuid = $request->input('uuid');
+    if ($uuid) {
+        $existing = \App\Models\Sales\Collection::where('company_id', $user->company_id)
+            ->where('notes', 'like', "%uuid:$uuid%")
+            ->first();
+        if ($existing) {
+            return response()->json(['message' => 'تم بالفعل', 'data' => ['collection_id' => $existing->id]], 200);
+        }
+    }
+
     $employee = resolveEmployee($request);
 
     $customer = \App\Models\Customer::where('id', $request->customer_id)
@@ -1553,6 +1568,8 @@ RouteFacade::post('handheld/pay-from-balance', function (\Illuminate\Http\Reques
         return response()->json(['message' => 'المبلغ أكبر من الرصيد المتاح'], 422);
     }
 
+    $notes = 'الدفع من رصيد سابق';
+    if ($uuid) $notes .= " uuid:$uuid";
     $collection = \App\Models\Sales\Collection::create([
         'company_id' => $user->company_id,
         'branch_id' => $request->input('branch_id'),
@@ -1561,7 +1578,7 @@ RouteFacade::post('handheld/pay-from-balance', function (\Illuminate\Http\Reques
         'sales_rep_id' => $employee?->id,
         'customer_id' => $request->customer_id,
         'amount' => $request->amount,
-        'notes' => 'الدفع من رصيد سابق',
+        'notes' => $notes,
         'status' => 'approved',
         'created_by' => $employee?->id,
     ]);
@@ -2039,6 +2056,17 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         return response()->json(['message' => 'المندوب غير موجود'], 404);
     }
 
+    $uuid = $request->input('uuid');
+    if ($uuid) {
+        $existing = \App\Models\Sales\RepDailySettlement::where('company_id', $user->company_id)
+            ->where('sales_rep_id', $employee->id)
+            ->where('notes', 'like', "%uuid:$uuid%")
+            ->first();
+        if ($existing) {
+            return response()->json(['message' => 'تم بالفعل', 'data' => ['settlement_id' => $existing->id]], 200);
+        }
+    }
+
     $request->validate([
         'actual_cash' => 'required|numeric|min:0',
         'expenses' => 'nullable|array',
@@ -2101,6 +2129,8 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
     $salesmanDebtId = null;
 
     if ($existingSettlement) {
+        $notes = $request->notes;
+        if ($uuid) $notes = ($notes ? "$notes " : '') . "uuid:$uuid";
         $existingSettlement->update([
             'total_sales_value' => round($totalSales, 2),
             'total_collections_value' => round($totalPaid, 2),
@@ -2111,7 +2141,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             'cash_difference' => round($cashDifference, 2),
             'shortage' => round($shortage, 2),
             'shortage_status' => $shortageStatus,
-            'notes' => $request->notes,
+            'notes' => $notes,
             'status' => 'submitted',
             'branch_id' => $branchId,
             'created_by' => $employee->id,
@@ -2120,6 +2150,8 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         $existingSettlement->expenses()->delete();
         $settlement = $existingSettlement;
     } else {
+        $notes = $request->notes;
+        if ($uuid) $notes = ($notes ? "$notes " : '') . "uuid:$uuid";
         $settlement = \App\Models\Sales\RepDailySettlement::create([
             'company_id' => $user->company_id,
             'branch_id' => $branchId,
@@ -2134,7 +2166,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             'cash_difference' => round($cashDifference, 2),
             'shortage' => round($shortage, 2),
             'shortage_status' => $shortageStatus,
-            'notes' => $request->notes,
+            'notes' => $notes,
             'status' => 'submitted',
             'created_by' => $employee->id,
         ]);
@@ -2391,6 +2423,17 @@ RouteFacade::post('handheld/sync-car-expenses', function (\Illuminate\Http\Reque
 
     foreach ($expenses as $exp) {
         try {
+            $uuid = $exp['uuid'] ?? null;
+            if ($uuid) {
+                $existing = \App\Models\VehicleDailyExpense::where('company_id', $user->company_id)
+                    ->where('notes', 'like', "%uuid:$uuid%")
+                    ->first();
+                if ($existing) {
+                    $results['synced']++;
+                    continue;
+                }
+            }
+
             $vehicleId = null;
             if ($employee) {
                 $assignment = DB::table('vehicle_assignments')
@@ -2402,12 +2445,14 @@ RouteFacade::post('handheld/sync-car-expenses', function (\Illuminate\Http\Reque
                 }
             }
 
+            $notes = $exp['notes'] ?? null;
+            if ($uuid) $notes = ($notes ? "$notes " : '') . "uuid:$uuid";
             \App\Models\VehicleDailyExpense::create([
                 'vehicle_id' => $vehicleId,
                 'expense_date' => $exp['expense_date'] ?? now()->toDateString(),
                 'expense_type' => strtoupper($exp['expense_type'] ?? 'OTHER'),
                 'amount' => $exp['amount'] ?? 0,
-                'notes' => $exp['notes'] ?? null,
+                'notes' => $notes,
                 'created_by' => $user->id,
             ]);
             $results['synced']++;
