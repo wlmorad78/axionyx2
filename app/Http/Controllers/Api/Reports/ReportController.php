@@ -153,6 +153,80 @@ class ReportController extends Controller
     }
 
     /**
+     * GET /api/reports/sales
+     * Sales report summary.
+     */
+    public function sales(Request $request)
+    {
+        $companyId = $request->user()->company_id;
+
+        $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
+        $endDate = $request->input('end_date', now()->endOfMonth()->toDateString());
+
+        $invoices = \App\Models\SalesInvoice::where('company_id', $companyId)
+            ->whereBetween('invoice_date', [$startDate, $endDate])
+            ->selectRaw('
+                COUNT(*) as total_invoices,
+                COALESCE(SUM(net_total), 0) as total_amount,
+                COALESCE(SUM(paid_amount), 0) as total_paid,
+                COALESCE(SUM(net_total - paid_amount), 0) as total_remaining
+            ')
+            ->first();
+
+        return response()->json([
+            'data' => [
+                'period' => ['start_date' => $startDate, 'end_date' => $endDate],
+                'summary' => $invoices,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/reports/reports/sales
+     * Sales report summary (alias).
+     */
+    public function purchases(Request $request)
+    {
+        $companyId = $request->user()->company_id;
+
+        $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
+        $endDate = $request->input('end_date', now()->endOfMonth()->toDateString());
+
+        $invoices = \App\Models\PurchaseInvoice::where('company_id', $companyId)
+            ->whereBetween('invoice_date', [$startDate, $endDate])
+            ->selectRaw('
+                COUNT(*) as total_invoices,
+                COALESCE(SUM(net_total), 0) as total_amount,
+                COALESCE(SUM(paid_amount), 0) as total_paid,
+                COALESCE(SUM(net_total - paid_amount), 0) as total_remaining
+            ')
+            ->first();
+
+        return response()->json([
+            'data' => [
+                'period' => ['start_date' => $startDate, 'end_date' => $endDate],
+                'summary' => $invoices,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/reports/inventory
+     * Inventory report summary.
+     */
+    public function inventory(Request $request)
+    {
+        $companyId = $request->user()->company_id;
+
+        $items = \App\Models\Item::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->selectRaw('COUNT(*) as total_items')
+            ->first();
+
+        return response()->json(['data' => $items]);
+    }
+
+    /**
      * GET /api/reports/templates
      * Get all template reports.
      */

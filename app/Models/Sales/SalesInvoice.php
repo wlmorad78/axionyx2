@@ -26,7 +26,7 @@ class SalesInvoice extends Document
     protected $fillable = [
         'company_id', 'branch_id', 'warehouse_id', 'treasury_id', 'load_request_id', 'issue_order_id',
         'route_id', 'sales_rep_id', 'customer_id', 'payment_term_id', 'currency_id',
-        'exchange_rate', 'invoice_no', 'temp_invoice_no', 'source', 'mode', 'device_id',
+        'exchange_rate', 'uuid', 'invoice_no', 'temp_invoice_no', 'source', 'mode', 'device_id',
         'sync_status', 'synced_at', 'number_series_id',
         'invoice_date', 'invoice_time',
         'subtotal', 'item_discount_total', 'invoice_discount_total', 'tax_total',

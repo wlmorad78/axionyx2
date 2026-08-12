@@ -1077,13 +1077,17 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
 
             if ($cashReceived < $paidAmount) {
                 $inv->update(['paid_amount' => $cashReceived]);
-                $inv->post();
+                try { $inv->post(); } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning('sync-invoices post failed', ['invoice_id' => $inv->id, 'error' => $e->getMessage()]);
+                }
                 $inv->update([
                     'paid_amount' => $paidAmount,
                     'remaining_amount' => $remainingAmount,
                 ]);
             } else {
-                $inv->post();
+                try { $inv->post(); } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning('sync-invoices post failed', ['invoice_id' => $inv->id, 'error' => $e->getMessage()]);
+                }
             }
 
             foreach ($itemsData as $itemData) {
