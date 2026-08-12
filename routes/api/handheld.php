@@ -15,10 +15,6 @@ use App\Models\Employee;
 use App\Models\Representative;
 use App\Models\Item;
 
-RouteFacade::get('handheld/health', function () {
-    return response()->json(['success' => true, 'service' => 'api']);
-});
-
 use App\Models\ReturnOrder;
 use App\Models\ReturnOrderItem;
 use App\Models\Warehouse;

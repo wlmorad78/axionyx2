@@ -23,6 +23,11 @@ Route::get('postman-collection', function () {
 // Public: Login (no auth required)
 Route::post('login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
 
+// Health check - no auth required
+Route::get('handheld/health', function () {
+    return response()->json(['success' => true, 'service' => 'api']);
+});
+
 // Protected: require auth for all non-login routes below
 Route::middleware('auth:sanctum')->group(function () {
 
