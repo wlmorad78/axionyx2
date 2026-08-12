@@ -806,28 +806,7 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
 
         $invoiceNo = $request->input('invoice_no');
         if (empty($invoiceNo)) {
-            $yy = $now->format('y');
-            $mm = $now->format('m');
-            $dd = $now->format('d');
-            $salesCode = $employee->national_id ?? $employee->id;
-
-            $todayPrefix = "{$yy}{$mm}{$dd}-{$salesCode}-";
-            $lastToday = SalesInvoice::where('company_id', $user->company_id)
-                ->where('invoice_no', 'LIKE', "{$todayPrefix}%")
-                ->orderByDesc('invoice_no')
-                ->first();
-
-            $seq = 1;
-            if ($lastToday && preg_match('/-(\d+)$/', $lastToday->invoice_no, $m)) {
-                $seq = intval($m[1]) + 1;
-            }
-
-            do {
-                $invoiceNo = $todayPrefix . str_pad($seq, 3, '0', STR_PAD_LEFT);
-                $exists = SalesInvoice::where('company_id', $user->company_id)
-                    ->where('invoice_no', $invoiceNo)->exists();
-                $seq++;
-            } while ($exists);
+            return response()->json(['message' => 'invoice_no مطلوب من التطبيق'], 422);
         }
 
         $warehouse = \App\Models\Warehouse::where('company_id', $user->company_id)
@@ -927,6 +906,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
     $user = $request->user();
     $request->validate([
         'invoices' => 'required|array|min:1',
+        'branch_id' => 'nullable|integer',
         'invoices.*.uuid' => 'required|string',
         'invoices.*.customer_id' => 'required|exists:customers,id',
         'invoices.*.temp_invoice_no' => 'nullable|string',
@@ -997,28 +977,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
 
             $invoiceNo = $invoiceData['invoice_no'] ?? null;
             if (empty($invoiceNo)) {
-                $yy = $now->format('y');
-                $mm = $now->format('m');
-                $dd = $now->format('d');
-                $salesCode = $employee->national_id ?? $employee->id;
-
-                $todayPrefix = "{$yy}{$mm}{$dd}-{$salesCode}-";
-                $lastToday = SalesInvoice::where('company_id', $user->company_id)
-                    ->where('invoice_no', 'LIKE', "{$todayPrefix}%")
-                    ->orderByDesc('invoice_no')
-                    ->first();
-
-                $seq = 1;
-                if ($lastToday && preg_match('/-(\d+)$/', $lastToday->invoice_no, $m)) {
-                    $seq = intval($m[1]) + 1;
-                }
-
-                do {
-                    $invoiceNo = $todayPrefix . str_pad($seq, 3, '0', STR_PAD_LEFT);
-                    $exists = SalesInvoice::where('company_id', $user->company_id)
-                        ->where('invoice_no', $invoiceNo)->exists();
-                    $seq++;
-                } while ($exists);
+                return response()->json(['message' => 'invoice_no مطلوب من التطبيق'], 422);
             }
 
             $warehouse = \App\Models\Warehouse::where('company_id', $user->company_id)
@@ -1026,7 +985,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
 
             $inv = SalesInvoice::create([
                 'company_id' => $user->company_id,
-                'branch_id' => $invoiceData['branch_id'] ?? null,
+                'branch_id' => $invoiceData['branch_id'] ?? $request->input('branch_id'),
                 'warehouse_id' => $warehouse?->id,
                 'invoice_no' => $invoiceNo,
                 'temp_invoice_no' => $invoiceData['temp_invoice_no'] ?? null,
@@ -2074,6 +2033,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         'expenses.*.amount' => 'required|numeric|min:0.01',
         'expenses.*.notes' => 'nullable|string',
         'notes' => 'nullable|string',
+        'branch_id' => 'nullable|integer',
     ]);
 
     $today = now()->toDateString();
@@ -2091,6 +2051,9 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         if ($territory) {
             $branchId = $territory->branch_id;
         }
+    }
+    if (!$branchId) {
+        $branchId = $request->input('branch_id');
     }
 
     $existingSettlement = \App\Models\Sales\RepDailySettlement::where('sales_rep_id', $employee->id)
@@ -2418,7 +2381,13 @@ RouteFacade::post('handheld/sync-car-expenses', function (\Illuminate\Http\Reque
     $user = $request->user();
     $employee = resolveEmployee($request);
 
+    $request->validate([
+        'expenses' => 'required|array|min:1',
+        'branch_id' => 'nullable|integer',
+    ]);
+
     $expenses = $request->input('expenses', []);
+    $requestBranchId = $request->input('branch_id');
     $results = ['synced' => 0, 'failed' => 0, 'errors' => []];
 
     foreach ($expenses as $exp) {
