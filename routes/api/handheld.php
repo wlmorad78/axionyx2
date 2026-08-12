@@ -39,7 +39,11 @@ if (!function_exists('resolveEmployee')) {
             $salesmanUser = \App\Models\User::find($salesmanUserId);
 
             if ($salesmanUser) {
-                $employee = Employee::where('email', $salesmanUser->email)->first();
+                $employee = $salesmanUser->employee;
+
+                if (!$employee) {
+                    $employee = Employee::where('email', $salesmanUser->email)->first();
+                }
 
                 if (!$employee) {
                     $representative = Representative::where('user_id', $salesmanUser->id)->first();
@@ -567,8 +571,8 @@ RouteFacade::get('handheld/products', function (\Illuminate\Http\Request $reques
 
 RouteFacade::get('handheld/customers', function (\Illuminate\Http\Request $request) {
     $user = $request->user();
-    $today = now()->format('l');
-    $todayNumber = DayOfWeekHelper::todayNumber();
+    $today = $request->input('day', now()->format('l'));
+    $todayNumber = DayOfWeekHelper::nameToNumber($today) ?? DayOfWeekHelper::todayNumber();
 
     $employee = resolveEmployee($request);
     $delegatePhone = $employee?->mobile ?? $employee?->phone ?? null;

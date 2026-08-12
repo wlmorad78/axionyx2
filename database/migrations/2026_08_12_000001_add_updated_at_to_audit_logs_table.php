@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('audit_logs', function (Blueprint $table) {
-            $table->timestamp('updated_at')->nullable()->after('created_at');
+            $table->timestamp('updated_at')->nullable();
         });
 
         DB::table('audit_logs')
