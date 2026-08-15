@@ -382,6 +382,11 @@ RouteFacade::post('handheld/return-orders/{id}/approve', function (\Illuminate\H
             'approved_at' => now(),
         ]);
 
+        if ($returnOrder->load_request_id) {
+            \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
+                ->update(['status' => 'closed']);
+        }
+
         $type = InventoryTransactionType::firstOrCreate(
             ['code' => 'RETURN'],
             ['name' => 'Return Order', 'effect' => 'addition', 'is_active' => true]
@@ -948,7 +953,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             continue;
         }
 
-        $invoice = DB::transaction(function () use ($invoiceData, $user, $employee) {
+        $invoice = DB::transaction(function () use ($invoiceData, $user, $employee, $request) {
             $subtotal = 0;
             $taxTotal = 0;
             $itemsData = [];

@@ -9,9 +9,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('audit_logs', function (Blueprint $table) {
-            $table->timestamp('updated_at')->nullable();
-        });
+        if (!Schema::hasColumn('audit_logs', 'updated_at')) {
+            Schema::table('audit_logs', function (Blueprint $table) {
+                $table->timestamp('updated_at')->nullable();
+            });
+        }
 
         DB::table('audit_logs')
             ->whereNull('updated_at')
@@ -20,8 +22,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('audit_logs', function (Blueprint $table) {
-            $table->dropColumn('updated_at');
-        });
+        if (Schema::hasColumn('audit_logs', 'updated_at')) {
+            Schema::table('audit_logs', function (Blueprint $table) {
+                $table->dropColumn('updated_at');
+            });
+        }
     }
 };

@@ -12,7 +12,9 @@ class SalesmanAssignmentController extends Controller
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
-        $query = SalesmanAssignment::with($with);
+        $defaultWith = ['employee.user', 'salesTerritory', 'warehouse', 'treasury'];
+        $mergedWith = array_unique(array_merge($defaultWith, $with));
+        $query = SalesmanAssignment::with($mergedWith);
 
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
@@ -44,7 +46,9 @@ class SalesmanAssignmentController extends Controller
     {
         $data = $request->validate(ValidationRules::for('salesman_assignment', 'store'));
 
-        return response()->json(SalesmanAssignment::create($data), 201);
+        $assignment = SalesmanAssignment::create($data);
+
+        return response()->json($assignment->load(['employee.user', 'salesTerritory', 'warehouse', 'treasury']), 201);
     }
 
     public function show(SalesmanAssignment $salesman_assignment)
@@ -52,6 +56,8 @@ class SalesmanAssignmentController extends Controller
         return $salesman_assignment->load([
             'employee.user',
             'salesTerritory',
+            'warehouse',
+            'treasury',
             'parentAssignment',
             'children.employee.user',
         ]);
@@ -63,7 +69,7 @@ class SalesmanAssignmentController extends Controller
 
         $salesman_assignment->update($data);
 
-        return response()->json($salesman_assignment);
+        return response()->json($salesman_assignment->load(['employee.user', 'salesTerritory', 'warehouse', 'treasury']));
     }
 
     public function destroy(SalesmanAssignment $salesman_assignment)

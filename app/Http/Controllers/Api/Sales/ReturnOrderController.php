@@ -84,8 +84,13 @@ class ReturnOrderController extends Controller
                 'status_id' => 'approved',
                 'approved_by' => $employee?->id,
                 'approved_at' => now(),
-                'notes' => $request->notes ?? 'ØªÙ…Øª Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø© Ù…Ù† Ø£Ù…ÙŠÙ† Ø§Ù„Ù…Ø®Ø²Ù†',
+                'notes' => $request->notes ?? 'تمت الموافقة من أمين المخزن',
             ]);
+
+            if ($returnOrder->load_request_id) {
+                \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
+                    ->update(['status' => 'closed']);
+            }
 
             $type = InventoryTransactionType::firstOrCreate(
                 ['code' => 'RETURN'],

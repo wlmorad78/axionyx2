@@ -32,3 +32,13 @@ testproduct/
 
 database.sqlite-shm
 database.sqlite-wal
+/database.sqlite
+/database2.sqlite
+/tests/database.sqlite
+/customer.csv
+/test_api.php
+/test_login.json
+/test_movement.php
+/test_report.php
+/distribution_tables_schema.txt
+/vehicle_tables_schema.txt

@@ -43,6 +43,19 @@ class LoadRequestWebController extends Controller
 
     public function create()
     {
+        $user = Auth::user();
+        $employee = Employee::where('email', $user->email)->first();
+
+        $existingOpenOrder = LoadRequest::where('employee_id', $employee?->id)
+            ->whereIn('status', ['draft', 'pending', 'approved', 'loading'])
+            ->first();
+
+        if ($existingOpenOrder) {
+            return redirect()
+                ->route('load-requests.index')
+                ->with('error', "المندوب مينفعش يكون عنده اتنين أوامر تحميل مفتوحين - عندك أمر تحميل رقم {$existingOpenOrder->request_no} لسه مفتوح ({$existingOpenOrder->status}). لازم تغلق/تسلم الأمر الأول.");
+        }
+
         $items = Item::with(['prices', 'itemUnits.unit'])->where('is_active', true)->orderBy('name_ar')->get();
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
 
@@ -67,17 +80,12 @@ class LoadRequestWebController extends Controller
         $unitService = app(\App\Services\UnitConversionService::class);
 
         $repEmployeeId = $employee?->id;
-        $today = now()->toDateString();
         $existingOpenOrder = LoadRequest::where('employee_id', $repEmployeeId)
-            ->where('request_date', $today)
-            ->whereIn('status', ['pending', 'approved', 'loading', 'loaded'])
-            ->whereDoesntHave('returnOrder', function ($q) {
-                $q->whereNotNull('approved_by');
-            })
+            ->whereIn('status', ['draft', 'pending', 'approved', 'loading'])
             ->first();
 
         if ($existingOpenOrder) {
-            return back()->with('error', "المندوب مينفعش يكون عنده اتنين أوامر تحميل مفتوحين في نفس اليوم - عندك أمر تحميل رقم {$existingOpenOrder->request_no} لسه مرجعهوش. لازم ترجع/تغلق الأمر الأول.");
+            return back()->with('error', "المندوب مينفعش يكون عنده اتنين أوامر تحميل مفتوحين - عندك أمر تحميل رقم {$existingOpenOrder->request_no} لسه مفتوح ({$existingOpenOrder->status}). لازم تغلق/تسلم الأمر الأول.");
         }
 
         $result = DB::transaction(function () use ($request, $user, $employee, $unitService) {

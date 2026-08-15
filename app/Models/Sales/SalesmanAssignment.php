@@ -15,6 +15,8 @@ class SalesmanAssignment extends Model
     protected $fillable = [
         'employee_id',
         'sales_territory_id',
+        'warehouse_id',
+        'treasury_id',
         'job_role',
         'parent_assignment_id',
         'start_date',
@@ -37,6 +39,16 @@ class SalesmanAssignment extends Model
     public function salesTerritory(): BelongsTo
     {
         return $this->belongsTo(SalesTerritory::class);
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Inventory\Warehouse::class);
+    }
+
+    public function treasury(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Treasury\Treasury::class);
     }
 
     public function parentAssignment(): BelongsTo

@@ -23,6 +23,9 @@ Route::get('postman-collection', function () {
 // Public: Login (no auth required)
 Route::post('login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
 
+// Handheld2 API
+require __DIR__.'/api/handheld2.php';
+
 // Health check - no auth required
 Route::get('handheld/health', function () {
     return response()->json(['success' => true, 'service' => 'api']);

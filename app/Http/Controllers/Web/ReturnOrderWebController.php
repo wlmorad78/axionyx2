@@ -96,6 +96,11 @@ class ReturnOrderWebController extends Controller
                 'notes' => $request->notes ?? 'تمت الموافقة من أمين المخزن',
             ]);
 
+            if ($returnOrder->load_request_id) {
+                \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
+                    ->update(['status' => 'closed']);
+            }
+
             $type = \App\Models\InventoryTransactionType::firstOrCreate(
                 ['code' => 'RETURN'],
                 ['name' => 'Return Order', 'effect' => 'addition', 'is_active' => true]

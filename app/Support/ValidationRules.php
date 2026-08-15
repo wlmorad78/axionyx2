@@ -1459,6 +1459,8 @@ class ValidationRules
             'salesman_assignment' => [
                 'employee_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:employees,id'],
                 'sales_territory_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:sales_territories,id'],
+                'warehouse_id' => ['nullable', 'exists:warehouses,id'],
+                'treasury_id' => ['nullable', 'exists:treasuries,id'],
                 'job_role' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:50', Rule::in(['salesman', 'SalesMan', 'supervisor', 'area_manager', 'sales_manager', 'merchandiser'])],
                 'parent_assignment_id' => ['nullable', 'exists:salesman_assignments,id'],
                 'start_date' => [$isUpdate ? 'sometimes' : 'required', 'date'],
@@ -1522,7 +1524,7 @@ class ValidationRules
                 'load_type' => ['sometimes', 'string', 'max:50', Rule::in(['standard', 'express', 'priority'])],
                 'priority' => ['sometimes', 'string', 'max:20', Rule::in(['low', 'normal', 'high', 'urgent'])],
                 'request_date' => [$isUpdate ? 'sometimes' : 'required', 'date'],
-                'status' => ['sometimes', 'string', 'max:20', Rule::in(['draft', 'pending', 'approved', 'rejected', 'loading', 'completed', 'cancelled'])],
+                'status' => ['sometimes', 'string', 'max:20', Rule::in(['draft', 'pending', 'approved', 'rejected', 'loading', 'completed', 'cancelled', 'closed'])],
                 'total_items_count' => ['sometimes', 'integer', 'min:0'],
                 'total_quantity' => ['sometimes', 'numeric', 'min:0'],
                 'total_amount' => ['sometimes', 'numeric', 'min:0'],

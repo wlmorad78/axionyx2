@@ -47,18 +47,13 @@ class LoadRequestController extends Controller
         $unitService = app(\App\Services\UnitConversionService::class);
 
         $repEmployeeId = $data['employee_id'];
-        $today = now()->toDateString();
         $existingOpenOrder = LoadRequest::where('employee_id', $repEmployeeId)
-            ->where('request_date', $today)
-            ->whereIn('status', ['pending', 'approved', 'loading', 'loaded'])
-            ->whereDoesntHave('returnOrder', function ($q) {
-                $q->whereNotNull('approved_by');
-            })
+            ->whereIn('status', ['draft', 'pending', 'approved', 'loading'])
             ->first();
 
         if ($existingOpenOrder) {
             return response()->json([
-                'message' => "المندوب مينفعش يكون عنده اتنين أوامر تحميل مفتوحين في نفس اليوم - عندك أمر تحميل رقم {$existingOpenOrder->request_no} لسه مرجعهوش. لازم ترجع/تغلق الأمر الأول.",
+                'message' => "المندوب مينفعش يكون عنده اتنين أوامر تحميل مفتوحين - عندك أمر تحميل رقم {$existingOpenOrder->request_no} لسه مفتوح ({$existingOpenOrder->status}). لازم تغلق/تسلم الأمر الأول.",
             ], 422);
         }
 
@@ -217,7 +212,7 @@ class LoadRequestController extends Controller
     public function updateStatus(Request $request, LoadRequest $loadRequest)
     {
         $data = $request->validate([
-            'status' => 'required|in:draft,pending,approved,loading,loaded,dispatched,delivered,cancelled',
+            'status' => 'required|in:draft,pending,approved,rejected,loading,completed,cancelled,closed',
         ]);
         $loadRequest->update($data);
         return response()->json($loadRequest);

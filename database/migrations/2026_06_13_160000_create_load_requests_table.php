@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->string('load_type', 50)->default('standard'); // standard, express, priority
             $table->string('priority', 20)->default('normal'); // low, normal, high, urgent
             $table->date('request_date');
-            $table->string('status', 20)->default('draft'); // draft, pending, approved, rejected, loading, completed, cancelled
+            $table->string('status', 20)->default('draft'); // draft, pending, approved, rejected, loading, completed, cancelled, closed
             $table->integer('total_items_count')->default(0);
             $table->decimal('total_quantity', 12, 2)->default(0);
             $table->decimal('total_amount', 12, 2)->default(0);
