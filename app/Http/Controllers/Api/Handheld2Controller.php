@@ -6,8 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
+use App\Models\Sales\SalesInvoice;
+use App\Models\Sales\SalesInvoiceItem;
+use App\Models\Inventory\RepItemDistribution;
+use App\Models\Inventory\Device;
+use App\Models\Warehouse;
 
 class Handheld2Controller extends Controller
 {
@@ -604,16 +610,225 @@ class Handheld2Controller extends Controller
             'records.*.payload' => 'required|array',
         ]);
 
+        $user = $request->user();
+        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+
+        if (!$employee) {
+            return response()->json(['message' => 'الموظف غير موجود'], 404);
+        }
+
         $results = [];
+
         foreach ($request->records as $record) {
-            $results[] = [
-                'uuid' => $record['uuid'],
-                'status' => 'success',
-                'server_id' => rand(1000, 9999),
-            ];
+            try {
+                if ($record['entity_type'] === 'sale' && $record['action'] === 'create') {
+                    $results[] = $this->syncCreateSale($user, $employee, $record);
+                } elseif ($record['entity_type'] === 'sale' && $record['action'] === 'delete') {
+                    $results[] = $this->syncCancelSale($user, $employee, $record);
+                } else {
+                    $results[] = [
+                        'uuid' => $record['uuid'],
+                        'status' => 'skipped',
+                        'message' => 'نوع غير مدعوم: ' . $record['entity_type'] . '/' . $record['action'],
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::error('syncPush failed', ['uuid' => $record['uuid'], 'error' => $e->getMessage()]);
+                $results[] = [
+                    'uuid' => $record['uuid'],
+                    'status' => 'error',
+                    'message' => $e->getMessage(),
+                ];
+            }
         }
 
         return response()->json(['results' => $results]);
+    }
+
+    private function syncCreateSale($user, $employee, $record)
+    {
+        $payload = $record['payload'];
+
+        $existing = SalesInvoice::where('uuid', $record['uuid'])->first();
+        if ($existing) {
+            return [
+                'uuid' => $record['uuid'],
+                'status' => 'already_synced',
+                'invoice_no' => $existing->invoice_no,
+            ];
+        }
+
+        $customer_id = $payload['customer_id'] ?? null;
+        $items = $payload['items'] ?? [];
+        $invoice_no = $payload['invoice_no'] ?? null;
+
+        if (!$customer_id || empty($items) || !$invoice_no) {
+            return [
+                'uuid' => $record['uuid'],
+                'status' => 'error',
+                'message' => 'بيانات ناقصة: customer_id/items/invoice_no مطلوبة',
+            ];
+        }
+
+        return DB::transaction(function () use ($user, $employee, $payload, $record, $customer_id, $items, $invoice_no) {
+            $subtotal = 0;
+            $taxTotal = 0;
+            $itemsData = [];
+
+            foreach ($items as $item) {
+                $qty = $item['quantity'] ?? $item['qty'] ?? 0;
+                $price = $item['unit_price'] ?? $item['price'] ?? 0;
+                $taxPercent = $item['tax_percent'] ?? 0;
+                $lineTotal = $qty * $price;
+                $taxAmount = $lineTotal * ($taxPercent / 100);
+                $subtotal += $lineTotal;
+                $taxTotal += $taxAmount;
+
+                $itemsData[] = [
+                    'item_id' => $item['item_id'],
+                    'qty' => $qty,
+                    'price' => $price,
+                    'tax_percent' => $taxPercent,
+                    'tax_amount' => $taxAmount,
+                    'gross_amount' => $lineTotal,
+                    'net_amount' => $lineTotal + $taxAmount,
+                    'unit_id' => $item['unit_id'] ?? null,
+                    'issue_order_id' => $item['issue_order_id'] ?? null,
+                ];
+            }
+
+            $netTotal = $payload['net_total'] ?? ($subtotal + $taxTotal);
+            $paidAmount = $payload['paid_amount'] ?? $netTotal;
+            $remainingAmount = $payload['remaining_amount'] ?? max(0, $netTotal - $paidAmount);
+
+            $warehouse = Warehouse::where('company_id', $user->company_id)
+                ->where('is_active', true)->first();
+
+            $invoice = SalesInvoice::create([
+                'company_id' => $payload['company_id'] ?? $user->company_id,
+                'branch_id' => $payload['branch_id'] ?? null,
+                'warehouse_id' => $warehouse?->id,
+                'treasury_id' => $payload['treasury_id'] ?? null,
+                'load_request_id' => $payload['load_request_id'] ?? null,
+                'issue_order_id' => $payload['issue_order_id'] ?? ($itemsData[0]['issue_order_id'] ?? null),
+                'route_id' => $payload['route_id'] ?? null,
+                'sales_territory_id' => $payload['sales_territory_id'] ?? null,
+                'sales_rep_id' => $payload['sales_rep_id'] ?? $employee->id,
+                'customer_id' => $customer_id,
+                'invoice_no' => $invoice_no,
+                'temp_invoice_no' => $payload['temp_invoice_no'] ?? null,
+                'source' => $payload['source'] ?? 'mobile',
+                'mode' => $payload['mode'] ?? 'offline',
+                'device_id' => $payload['device_id'] ?? null,
+                'sync_status' => 'synced',
+                'synced_at' => now(),
+                'number_series_id' => $payload['number_series_id'] ?? null,
+                'invoice_date' => $payload['invoice_date'] ?? now()->toDateString(),
+                'invoice_time' => $payload['invoice_time'] ?? now()->format('H:i:s'),
+                'subtotal' => $payload['subtotal'] ?? $subtotal,
+                'item_discount_total' => $payload['item_discount_total'] ?? 0,
+                'invoice_discount_total' => $payload['invoice_discount_total'] ?? 0,
+                'tax_total' => $payload['tax_total'] ?? $taxTotal,
+                'incentive_total' => $payload['incentive_total'] ?? 0,
+                'net_total' => $netTotal,
+                'paid_amount' => $paidAmount,
+                'remaining_amount' => $remainingAmount,
+                'status' => $payload['status'] ?? 'approved',
+                'notes' => $payload['notes'] ?? '',
+                'created_by' => $employee->id,
+            ]);
+
+            foreach ($itemsData as $itemData) {
+                SalesInvoiceItem::create([
+                    'sales_invoice_id' => $invoice->id,
+                    'item_id' => $itemData['item_id'],
+                    'unit_id' => $itemData['unit_id'] ?? null,
+                    'qty' => $itemData['qty'],
+                    'bonus_qty' => 0,
+                    'price' => $itemData['price'],
+                    'gross_amount' => $itemData['gross_amount'],
+                    'discount_type' => null,
+                    'discount_value' => 0,
+                    'discount_amount' => 0,
+                    'tax_percent' => $itemData['tax_percent'],
+                    'tax_amount' => $itemData['tax_amount'],
+                    'net_amount' => $itemData['net_amount'],
+                ]);
+            }
+
+            try { $invoice->post(); } catch (\Exception $e) {
+                Log::warning('syncPush post failed', ['invoice_id' => $invoice->id, 'error' => $e->getMessage()]);
+            }
+
+            foreach ($itemsData as $itemData) {
+                $distribution = RepItemDistribution::where('company_id', $user->company_id)
+                    ->where('employee_id', $employee->id)
+                    ->where('item_id', $itemData['item_id'])
+                    ->where('status', 'active')
+                    ->latest('id')
+                    ->first();
+
+                if ($distribution) {
+                    $distribution->update([
+                        'sold_qty' => $distribution->sold_qty + $itemData['qty'],
+                        'remaining_qty' => max(0, $distribution->remaining_qty - $itemData['qty']),
+                    ]);
+                }
+            }
+
+            return [
+                'uuid' => $record['uuid'],
+                'status' => 'synced',
+                'invoice_id' => $invoice->id,
+                'invoice_no' => $invoice->invoice_no,
+            ];
+        });
+    }
+
+    private function syncCancelSale($user, $employee, $record)
+    {
+        $payload = $record['payload'];
+        $invoice_no = $payload['invoice_no'] ?? null;
+
+        $invoice = null;
+        if ($invoice_no) {
+            $invoice = SalesInvoice::where('invoice_no', $invoice_no)
+                ->where('company_id', $user->company_id)
+                ->first();
+        }
+        if (!$invoice) {
+            $invoice = SalesInvoice::where('uuid', $record['uuid'])
+                ->where('company_id', $user->company_id)
+                ->first();
+        }
+
+        if (!$invoice) {
+            return [
+                'uuid' => $record['uuid'],
+                'status' => 'not_found',
+                'message' => 'الفاتورة غير موجودة على السيرفر',
+            ];
+        }
+
+        if ($invoice->status === 'cancelled') {
+            return [
+                'uuid' => $record['uuid'],
+                'status' => 'already_cancelled',
+                'invoice_no' => $invoice->invoice_no,
+            ];
+        }
+
+        try {
+            $invoice->cancel();
+        } catch (\Exception $e) {
+            Log::warning('syncCancelSale failed', ['invoice_id' => $invoice->id, 'error' => $e->getMessage()]);
+        }
+
+        return [
+            'uuid' => $record['uuid'],
+            'status' => 'synced',
+            'invoice_no' => $invoice->invoice_no,
+        ];
     }
 
     public function syncPull(Request $request)
