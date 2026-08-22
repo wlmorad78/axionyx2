@@ -28,7 +28,7 @@ class RepDailySettlementController extends Controller
      */
     public function index(Request $request)
     {
-        $query = RepDailySettlement::with(['salesRep', 'expenses', 'createdBy', 'approvedBy', 'salesmanDebt']);
+        $query = RepDailySettlement::with(['salesRep', 'expenses', 'createdBy', 'approvedBy', 'salesmanDebt', 'issueOrder.loadRequest']);
 
         if ($request->company_id) {
             $query->where('company_id', $request->company_id);
@@ -63,7 +63,7 @@ class RepDailySettlementController extends Controller
      */
     public function show(RepDailySettlement $repDailySettlement)
     {
-        return $repDailySettlement->load(['salesRep', 'expenses', 'issueOrder', 'createdBy', 'approvedBy', 'salesmanDebt']);
+        return $repDailySettlement->load(['salesRep', 'expenses', 'issueOrder.loadRequest', 'createdBy', 'approvedBy', 'salesmanDebt']);
     }
 
     /**

@@ -1082,6 +1082,14 @@ Route::post('return-orders/{returnOrder}/reject', [\App\Http\Controllers\Api\Sal
 
 Route::post('salesman-debts/{salesmanDebt}/collect', [\App\Http\Controllers\Api\Sales\SalesmanDebtController::class, 'collect']);
 
+// Return Order Settlements
+Route::get('return-order-settlements/create', [\App\Http\Controllers\Api\ReturnOrderSettlementController::class, 'create']);
+Route::get('return-order-settlements', [\App\Http\Controllers\Api\ReturnOrderSettlementController::class, 'index']);
+Route::post('return-order-settlements', [\App\Http\Controllers\Api\ReturnOrderSettlementController::class, 'store']);
+Route::get('return-order-settlements/{settlement}', [\App\Http\Controllers\Api\ReturnOrderSettlementController::class, 'show']);
+Route::post('return-order-settlements/{settlement}/approve', [\App\Http\Controllers\Api\ReturnOrderSettlementController::class, 'approve']);
+Route::post('return-order-settlements/{settlement}/cancel', [\App\Http\Controllers\Api\ReturnOrderSettlementController::class, 'cancel']);
+
 Route::post('distribution-plans/{plan}/calculate', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'calculate']);
 Route::post('distribution-plans/{plan}/approve', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'approve']);
 Route::post('distribution-plans/{plan}/reopen', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'reopen']);

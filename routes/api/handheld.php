@@ -239,6 +239,7 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
         $totalQuantity = 0;
         $totalAmount = 0;
 
+        $loadRequestId = null;
         foreach ($items as $item) {
             $loadedQtyCalc = (float) ($item['loaded_qty'] ?? 0);
             $soldQtyCalc = (float) ($item['sold_qty'] ?? 0);
@@ -247,6 +248,10 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             $totalItemsCount++;
             $totalQuantity += $returnedQtyCalc;
             $totalAmount += $returnedQtyCalc * $price;
+
+            if (!$loadRequestId && !empty($item['load_request_id'])) {
+                $loadRequestId = (int) $item['load_request_id'];
+            }
         }
 
         $activeIssueOrder = \App\Models\IssueOrder::where('employee_id', $employee->id)
@@ -259,6 +264,7 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             'company_id' => $user->company_id,
             'branch_id' => $branchId,
             'warehouse_id' => $warehouse->id,
+            'load_request_id' => $loadRequestId,
             'issue_order_id' => $activeIssueOrder?->id,
             'return_type' => 'excess',
             'return_date' => now()->toDateString(),
@@ -2387,6 +2393,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         'expenses.*.notes' => 'nullable|string',
         'notes' => 'nullable|string',
         'branch_id' => 'nullable|integer',
+        'issue_order_id' => 'nullable|integer',
     ]);
 
     $today = now()->toDateString();
@@ -2407,6 +2414,21 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
     }
     if (!$branchId) {
         $branchId = $request->input('branch_id');
+    }
+
+    $requestIssueOrderId = $request->input('issue_order_id');
+    $activeIssueOrder = null;
+    if ($requestIssueOrderId) {
+        $activeIssueOrder = \App\Models\IssueOrder::where('id', $requestIssueOrderId)
+            ->where('employee_id', $employee->id)
+            ->first();
+    }
+    if (!$activeIssueOrder) {
+        $activeIssueOrder = \App\Models\IssueOrder::where('employee_id', $employee->id)
+            ->whereIn('status', ['delivered'])
+            ->where('received_by', $employee->id)
+            ->latest('id')
+            ->first();
     }
 
     $existingSettlement = \App\Models\Sales\RepDailySettlement::where('sales_rep_id', $employee->id)
@@ -2446,6 +2468,10 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
 
     if ($existingSettlement) {
         $updateData = [
+            'company_id' => $user->company_id,
+            'branch_id' => $branchId,
+            'sales_rep_id' => $employee->id,
+            'issue_order_id' => $activeIssueOrder?->id,
             'total_sales_value' => round($totalSales, 2),
             'total_collections_value' => round($totalPaid, 2),
             'total_expenses' => round($totalExpenses, 2),
@@ -2457,7 +2483,6 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             'shortage_status' => $shortageStatus,
             'notes' => $request->notes,
             'status' => 'submitted',
-            'branch_id' => $branchId,
             'created_by' => $employee->id,
         ];
         $newFields = $hasNewColumns ? array_filter([
@@ -2478,6 +2503,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             'settlement_uuid' => $uuid,
             'settlement_date' => $today,
             'sales_rep_id' => $employee->id,
+            'issue_order_id' => $activeIssueOrder?->id,
             'total_sales_value' => round($totalSales, 2),
             'total_collections_value' => round($totalPaid, 2),
             'total_expenses' => round($totalExpenses, 2),
