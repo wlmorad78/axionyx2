@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CustomerController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Customer
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Customer" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -13,11 +25,15 @@ use App\Models\CustomerType;
 use App\Models\CustomerAccountType;
 use App\Models\TradeProgramType;
 use App\Support\ValidationRules;
+use App\Models\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CustomerController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Customer) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -55,6 +71,9 @@ class CustomerController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * دالة معالجة: accounts — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Customer).
+     */
     public function accounts(Request $request)
     {
         $companyId = $request->header('X-Company-Id') ?? $request->user()?->company_id;
@@ -130,6 +149,9 @@ class CustomerController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: ledger — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Customer).
+     */
     public function ledger(Request $request, int $id)
     {
         $customer = Customer::withoutGlobalScope(\App\Scopes\BranchIsolationScope::class)->findOrFail($id);
@@ -157,7 +179,7 @@ class CustomerController extends Controller
         if ($from) {
             $beforeInvoices = $allInvoices->filter(fn($inv) => $inv->invoice_date < $from);
             foreach ($beforeInvoices as $inv) {
-                $openingBalance += $inv->net_total - $inv->paid_amount;
+                $openingBalance += $inv->net_total;
             }
             $periodInvoices = $allInvoices->filter(fn($inv) => $inv->invoice_date >= $from);
 
@@ -169,6 +191,16 @@ class CustomerController extends Controller
             foreach ($beforeReceipts as $receipt) {
                 $openingBalance -= (float) $receipt->amount;
             }
+
+            // Include collections before from date
+            $beforeCollections = Collection::withoutGlobalScope(\App\Scopes\BranchIsolationScope::class)
+                ->where('customer_id', $id)
+                ->where('status', '!=', 'cancelled')
+                ->where('collection_date', '<', $from)
+                ->get(['amount']);
+            foreach ($beforeCollections as $col) {
+                $openingBalance -= (float) $col->amount;
+            }
         }
 
         if ($to) {
@@ -179,19 +211,40 @@ class CustomerController extends Controller
         $transactions = [];
 
         foreach ($periodInvoices as $invoice) {
-            $runningBalance += $invoice->net_total - $invoice->paid_amount;
+            $runningBalance += $invoice->net_total;
             $transactions[] = [
                 'date' => $invoice->invoice_date,
                 'description' => 'فاتورة بيع ' . $invoice->invoice_no,
                 'reference_no' => $invoice->invoice_no,
                 'debit' => (float) $invoice->net_total,
-                'credit' => (float) $invoice->paid_amount,
+                'credit' => 0,
                 'balance' => (float) $runningBalance,
             ];
         }
 
+        $collectionsQuery = Collection::withoutGlobalScope(\App\Scopes\BranchIsolationScope::class)
+            ->where('customer_id', $id)
+            ->where('status', '!=', 'cancelled');
+        if ($from) $collectionsQuery->where('collection_date', '>=', $from);
+        if ($to) $collectionsQuery->where('collection_date', '<=', $to);
+        $collections = $collectionsQuery->get(['id', 'collection_no', 'collection_date', 'amount', 'sales_invoice_id']);
+
+        foreach ($collections as $col) {
+            $runningBalance -= (float) $col->amount;
+            $transactions[] = [
+                'date' => $col->collection_date,
+                'description' => 'سند سداد ' . $col->collection_no,
+                'reference_no' => $col->collection_no,
+                'debit' => 0,
+                'credit' => (float) $col->amount,
+                'balance' => (float) $runningBalance,
+            ];
+        }
+
+        $transactions = collect($transactions)->sortBy('date')->values()->toArray();
+
         $totalDebit = $periodInvoices->sum('net_total');
-        $totalCredit = $periodInvoices->sum('paid_amount');
+        $totalCredit = $collections->sum('amount');
 
         return response()->json([
             'customer' => [
@@ -208,17 +261,26 @@ class CustomerController extends Controller
         ]);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Customer) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('customer', 'store'));
         return response()->json(Customer::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Customer) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Customer $customer)
     {
         return $customer->load(['company', 'customerGroup', 'customerClass', 'customerType', 'customerAccountType', 'tradeProgramType', 'governorate', 'city', 'area', 'addresses', 'contacts']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Customer) بناءً على المعرّف.
+     */
     public function update(Request $request, Customer $customer)
     {
         $data = $request->validate(ValidationRules::for('customer', 'update', $customer));
@@ -226,12 +288,18 @@ class CustomerController extends Controller
         return response()->json($customer);
     }
 
+    /**
+     * حذف سجل من (Customer) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Customer $customer)
     {
         $customer->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Customer) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = Customer::onlyTrashed()->findOrFail($id);
@@ -239,17 +307,26 @@ class CustomerController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Customer) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         Customer::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Customer).
+     */
     public function schema()
     {
         return ValidationRules::for('customer', 'store');
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Customer).
+     */
     public function nextCode(Request $request)
     {
         $companyId = $request->company_id;
@@ -275,6 +352,9 @@ class CustomerController extends Controller
         ]);
     }
 
+    /**
+     * استيراد بيانات (Customer) من مصدر خارجي.
+     */
     public function import(Request $request)
     {
         $request->validate([
@@ -466,6 +546,9 @@ class CustomerController extends Controller
         ]);
     }
 
+    /**
+     * استيراد بيانات (Customer) من مصدر خارجي.
+     */
     public function importJson(Request $request)
     {
         $request->validate([
@@ -558,6 +641,9 @@ class CustomerController extends Controller
         ]);
     }
 
+    /**
+     * استيراد بيانات (Customer) من مصدر خارجي.
+     */
     public function importTemplate(Request $request)
     {
         $header = [
@@ -590,6 +676,9 @@ class CustomerController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
+    /**
+     * تصدير بيانات (Customer) بصيغة خارجية.
+     */
     public function export(Request $request)
     {
         $companyId = $request->header('X-Company-Id') ?? $request->user()?->company_id;
@@ -670,6 +759,9 @@ class CustomerController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
+    /**
+     * دالة معالجة: lastInvoices — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Customer).
+     */
     public function lastInvoices(Request $request)
     {
         $customerIds = $request->input('customer_ids', []);

@@ -18,3 +18,58 @@ if (!function_exists('hasActiveFilters')) {
                request()->filled('max_balance');
     }
 }
+
+if (!function_exists('resolveEmployee')) {
+    function resolveEmployee(\Illuminate\Http\Request $request) {
+        $salesmanUserId = $request->input('_salesman_id') ?? $request->header('X-Salesman-Id');
+
+        if ($salesmanUserId) {
+            $salesmanUser = \App\Models\User::find($salesmanUserId);
+
+            if ($salesmanUser) {
+                $employee = $salesmanUser->employee;
+
+                if (!$employee) {
+                    $employee = \App\Models\Employee::where('email', $salesmanUser->email)->first();
+                }
+
+                if (!$employee) {
+                    $representative = \App\Models\Representative::where('user_id', $salesmanUser->id)->first();
+
+                    if ($representative) {
+                        $employee = \App\Models\Employee::where(
+                            'national_id',
+                            $representative->code
+                        )->first();
+                    }
+                }
+
+                return $employee;
+            }
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('calculateCustomerBalance')) {
+    function calculateCustomerBalance($customerId, $companyId) {
+        $allInvoices = \App\Models\SalesInvoice::where('customer_id', $customerId)
+            ->where('company_id', $companyId)
+            ->whereNull('deleted_at')
+            ->selectRaw('COALESCE(SUM(net_total), 0) as total_invoiced, COALESCE(SUM(paid_amount), 0) as total_paid')
+            ->first();
+
+        $collectionsBalance = \App\Models\Sales\Collection::where('customer_id', $customerId)
+            ->where('company_id', $companyId)
+            ->where('status', 'approved')
+            ->whereNull('deleted_at')
+            ->selectRaw('COALESCE(SUM(amount), 0) as total_collections')
+            ->first();
+
+        $invoiceBalance = (float) $allInvoices->total_paid - (float) $allInvoices->total_invoiced;
+        $collectionsEffect = -1 * (float) $collectionsBalance->total_collections;
+
+        return round($invoiceBalance + $collectionsEffect, 2);
+    }
+}

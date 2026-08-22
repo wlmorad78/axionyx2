@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SalesTerritoryController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Sales Territory
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Sales Territory" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class SalesTerritoryController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Sales Territory) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : ['territoryType', 'governorate', 'branch', 'warehouse', 'treasury'];
@@ -33,6 +48,9 @@ class SalesTerritoryController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Sales Territory) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('sales_territory', 'store'));
@@ -43,11 +61,17 @@ class SalesTerritoryController extends Controller
         return response()->json($territory->load(['territoryType', 'governorate', 'branch', 'warehouse', 'treasury']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Sales Territory) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SalesTerritory $salesTerritory)
     {
         return $salesTerritory->load(['company', 'branch', 'territoryType', 'governorate', 'children', 'warehouse', 'treasury']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Sales Territory) بناءً على المعرّف.
+     */
     public function update(Request $request, SalesTerritory $salesTerritory)
     {
         $data = $request->validate(ValidationRules::for('sales_territory', 'update', $salesTerritory));
@@ -55,12 +79,18 @@ class SalesTerritoryController extends Controller
         return response()->json($salesTerritory);
     }
 
+    /**
+     * حذف سجل من (Sales Territory) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SalesTerritory $salesTerritory)
     {
         $salesTerritory->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Sales Territory) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $territory = SalesTerritory::onlyTrashed()->findOrFail($id);
@@ -68,6 +98,9 @@ class SalesTerritoryController extends Controller
         return response()->json($territory);
     }
 
+    /**
+     * حذف نهائي للسجل من (Sales Territory) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         $territory = SalesTerritory::onlyTrashed()->findOrFail($id);
@@ -75,6 +108,9 @@ class SalesTerritoryController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Sales Territory).
+     */
     public function nextCode(Request $request)
     {
         $last = SalesTerritory::withTrashed()->orderBy('id', 'desc')->first();
@@ -86,6 +122,9 @@ class SalesTerritoryController extends Controller
         return response()->json(['code' => 'ST-' . str_pad($next, 4, '0', STR_PAD_LEFT)]);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Sales Territory).
+     */
     public function schema()
     {
         return ValidationRules::for('sales_territory', 'store');

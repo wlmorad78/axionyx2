@@ -13,6 +13,7 @@ class VehicleFuelTransaction extends Model
     protected $fillable = [
         'vehicle_id',
         'transaction_date',
+        'transaction_time',
         'odometer',
         'fuel_qty',
         'fuel_cost',
@@ -21,6 +22,7 @@ class VehicleFuelTransaction extends Model
 
     protected $casts = [
         'transaction_date' => 'date',
+        'transaction_time' => 'datetime:H:i',
     ];
 
     public function vehicle()

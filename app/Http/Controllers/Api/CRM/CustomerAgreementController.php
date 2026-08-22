@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CustomerAgreementController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Customer Agreement
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Customer Agreement" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class CustomerAgreementController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Customer Agreement) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -46,12 +61,18 @@ class CustomerAgreementController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Customer Agreement) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('customer_agreement', 'store'));
         return response()->json(CustomerAgreement::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Customer Agreement) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(CustomerAgreement $customerAgreement)
     {
         return $customerAgreement->load([
@@ -60,6 +81,9 @@ class CustomerAgreementController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Customer Agreement) بناءً على المعرّف.
+     */
     public function update(Request $request, CustomerAgreement $customerAgreement)
     {
         $data = $request->validate(ValidationRules::for('customer_agreement', 'update', $customerAgreement));
@@ -67,12 +91,18 @@ class CustomerAgreementController extends Controller
         return response()->json($customerAgreement);
     }
 
+    /**
+     * حذف سجل من (Customer Agreement) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(CustomerAgreement $customerAgreement)
     {
         $customerAgreement->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Customer Agreement) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = CustomerAgreement::onlyTrashed()->findOrFail($id);
@@ -80,12 +110,18 @@ class CustomerAgreementController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Customer Agreement) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         CustomerAgreement::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Customer Agreement).
+     */
     public function schema()
     {
         return ValidationRules::for('customer_agreement', 'store');

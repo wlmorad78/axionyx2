@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): WorkflowNotificationController
+ * الوحدة (Module): سير العمل والموافقات (Workflows)
+ * المورد (Resource): Workflow Notification
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Workflow Notification" ضمن وحدة "سير العمل والموافقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Workflows;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class WorkflowNotificationController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Workflow Notification) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = WorkflowNotification::query()->with(['workflowInstance', 'user']);
@@ -22,6 +37,9 @@ class WorkflowNotificationController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Workflow Notification) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('workflow_notification', 'create'));
@@ -29,11 +47,17 @@ class WorkflowNotificationController extends Controller
         return response()->json($workflowNotification, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Workflow Notification) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return WorkflowNotification::with(['workflowInstance', 'user'])->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Workflow Notification) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $workflowNotification = WorkflowNotification::findOrFail($id);
@@ -42,6 +66,9 @@ class WorkflowNotificationController extends Controller
         return $workflowNotification;
     }
 
+    /**
+     * حذف سجل من (Workflow Notification) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $workflowNotification = WorkflowNotification::findOrFail($id);

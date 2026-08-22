@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleInventoryTransactionController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Inventory Transaction
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Inventory Transaction" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class VehicleInventoryTransactionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Inventory Transaction) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = VehicleInventoryTransaction::with(['items', 'vehicleWarehouse']);
@@ -33,6 +48,9 @@ class VehicleInventoryTransactionController extends Controller
         return response()->json($transactions);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Inventory Transaction) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -53,6 +71,9 @@ class VehicleInventoryTransactionController extends Controller
         return response()->json($transaction->load(['items', 'vehicleWarehouse']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Vehicle Inventory Transaction) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $transaction = VehicleInventoryTransaction::with(['items', 'vehicleWarehouse'])->findOrFail($id);
@@ -60,6 +81,9 @@ class VehicleInventoryTransactionController extends Controller
         return response()->json($transaction);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Vehicle Inventory Transaction) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $transaction = VehicleInventoryTransaction::findOrFail($id);
@@ -82,6 +106,9 @@ class VehicleInventoryTransactionController extends Controller
         return response()->json($transaction->load(['items', 'vehicleWarehouse']));
     }
 
+    /**
+     * حذف سجل من (Vehicle Inventory Transaction) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $transaction = VehicleInventoryTransaction::findOrFail($id);
@@ -90,6 +117,9 @@ class VehicleInventoryTransactionController extends Controller
         return response()->json(['message' => 'Vehicle inventory transaction deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Vehicle Inventory Transaction) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $transaction = VehicleInventoryTransaction::onlyTrashed()->findOrFail($id);
@@ -98,6 +128,9 @@ class VehicleInventoryTransactionController extends Controller
         return response()->json($transaction->load(['items', 'vehicleWarehouse']));
     }
 
+    /**
+     * حذف نهائي للسجل من (Vehicle Inventory Transaction) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $transaction = VehicleInventoryTransaction::onlyTrashed()->findOrFail($id);

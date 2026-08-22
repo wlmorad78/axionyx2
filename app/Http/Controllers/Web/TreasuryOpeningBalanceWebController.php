@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryOpeningBalanceWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Treasury Opening Balance Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Opening Balance Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -15,6 +27,9 @@ use Illuminate\Support\Facades\DB;
 
 class TreasuryOpeningBalanceWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Opening Balance Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $companyId = CompanyContext::id();
@@ -71,6 +86,9 @@ class TreasuryOpeningBalanceWebController extends Controller
         return view('treasury-opening-balances.index', compact('openingBalances', 'treasuries', 'fiscalYears', 'stats'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Treasury Opening Balance Web).
+     */
     public function create(Request $request)
     {
         $companyId = CompanyContext::id();
@@ -86,6 +104,9 @@ class TreasuryOpeningBalanceWebController extends Controller
         return view('treasury-opening-balances.create', compact('treasuries', 'fiscalYears', 'selectedTreasury'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Opening Balance Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -115,6 +136,9 @@ class TreasuryOpeningBalanceWebController extends Controller
             ->with('success', 'تم إنشاء الرصيد الافتتاحي للخزنة بنجاح');
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Opening Balance Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(TreasuryOpeningBalance $treasuryOpeningBalance)
     {
         $treasuryOpeningBalance->load(['treasury', 'fiscalYear']);
@@ -122,6 +146,9 @@ class TreasuryOpeningBalanceWebController extends Controller
         return view('treasury-opening-balances.show', compact('treasuryOpeningBalance'));
     }
 
+    /**
+     * عرض نموذج تعديل سجل موجود من (Treasury Opening Balance Web).
+     */
     public function edit(TreasuryOpeningBalance $treasuryOpeningBalance)
     {
         $companyId = CompanyContext::id();
@@ -135,6 +162,9 @@ class TreasuryOpeningBalanceWebController extends Controller
         return view('treasury-opening-balances.edit', compact('treasuryOpeningBalance', 'treasuries', 'fiscalYears'));
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury Opening Balance Web) بناءً على المعرّف.
+     */
     public function update(Request $request, TreasuryOpeningBalance $treasuryOpeningBalance)
     {
         $data = $request->validate([
@@ -161,6 +191,9 @@ class TreasuryOpeningBalanceWebController extends Controller
             ->with('success', 'تم تحديث الرصيد الافتتاحي بنجاح');
     }
 
+    /**
+     * حذف سجل من (Treasury Opening Balance Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(TreasuryOpeningBalance $treasuryOpeningBalance)
     {
         DB::transaction(function () use ($treasuryOpeningBalance) {

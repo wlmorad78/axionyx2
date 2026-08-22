@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryShiftController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury Shift
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Shift" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TreasuryShiftController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Shift) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : ['treasury', 'cashier'];
@@ -32,6 +47,9 @@ class TreasuryShiftController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Shift) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -53,12 +71,18 @@ class TreasuryShiftController extends Controller
         return response()->json($treasuryShift, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Shift) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $treasuryShift = TreasuryShift::with(['treasury', 'cashier', 'transactions'])->findOrFail($id);
         return response()->json($treasuryShift);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury Shift) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $treasuryShift = TreasuryShift::findOrFail($id);
@@ -82,6 +106,9 @@ class TreasuryShiftController extends Controller
         return response()->json($treasuryShift);
     }
 
+    /**
+     * حذف سجل من (Treasury Shift) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $treasuryShift = TreasuryShift::findOrFail($id);
@@ -89,6 +116,9 @@ class TreasuryShiftController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Treasury Shift) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $treasuryShift = TreasuryShift::onlyTrashed()->findOrFail($id);
@@ -96,6 +126,9 @@ class TreasuryShiftController extends Controller
         return response()->json($treasuryShift);
     }
 
+    /**
+     * حذف نهائي للسجل من (Treasury Shift) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $treasuryShift = TreasuryShift::onlyTrashed()->findOrFail($id);

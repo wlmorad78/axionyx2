@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleFuelCardController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Fuel Card
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Fuel Card" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class VehicleFuelCardController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Fuel Card) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = VehicleFuelCard::query();
@@ -33,6 +48,9 @@ class VehicleFuelCardController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
         return $query->orderByDesc('id')->paginate($perPage);
     }
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Fuel Card) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('vehicle_fuel_card', 'create'));
@@ -47,18 +65,27 @@ class VehicleFuelCardController extends Controller
         $item->update($data);
         return $item;
     }
+    /**
+     * حذف سجل من (Vehicle Fuel Card) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $item = VehicleFuelCard::findOrFail($id);
         $item->delete();
         return response()->json(['message' => 'Deleted']);
     }
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Vehicle Fuel Card) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $item = VehicleFuelCard::withTrashed()->findOrFail($id);
         $item->restore();
         return $item;
     }
+    /**
+     * حذف نهائي للسجل من (Vehicle Fuel Card) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $item = VehicleFuelCard::withTrashed()->findOrFail($id);

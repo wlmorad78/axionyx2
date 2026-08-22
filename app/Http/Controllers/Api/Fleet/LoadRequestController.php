@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): LoadRequestController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Load Request
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Load Request" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class LoadRequestController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Load Request) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -29,6 +45,9 @@ class LoadRequestController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Load Request) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -98,6 +117,9 @@ class LoadRequestController extends Controller
         return response()->json($loadRequest->load('items.item'), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Load Request) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(LoadRequest $loadRequest)
     {
         $loadRequest->load([
@@ -119,6 +141,9 @@ class LoadRequestController extends Controller
         return response()->json($data);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Load Request) بناءً على المعرّف.
+     */
     public function update(Request $request, LoadRequest $loadRequest)
     {
         $data = $request->validate(ValidationRules::for('load_request', 'update', $loadRequest));
@@ -185,12 +210,18 @@ class LoadRequestController extends Controller
         return response()->json($loadRequest->load(['items.item', 'employee', 'warehouse']));
     }
 
+    /**
+     * حذف سجل من (Load Request) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(LoadRequest $loadRequest)
     {
         $loadRequest->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Load Request) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = LoadRequest::onlyTrashed()->findOrFail($id);
@@ -198,26 +229,38 @@ class LoadRequestController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Load Request) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         LoadRequest::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Load Request).
+     */
     public function schema()
     {
         return ValidationRules::for('load_request', 'store');
     }
 
+    /**
+     * دالة معالجة: updateStatus — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Load Request).
+     */
     public function updateStatus(Request $request, LoadRequest $loadRequest)
     {
         $data = $request->validate([
-            'status' => 'required|in:draft,pending,approved,rejected,loading,completed,cancelled,closed',
+            'status' => 'required|in:draft,pending,approved,rejected,loading,loaded,completed,cancelled,closed',
         ]);
         $loadRequest->update($data);
         return response()->json($loadRequest);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Load Request).
+     */
     public function approve(Request $request, LoadRequest $loadRequest)
     {
         $employee = \App\Models\HR\Employee::where('email', $request->user()->email)->first();
@@ -373,6 +416,9 @@ class LoadRequestController extends Controller
         ]);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Load Request).
+     */
     public function reject(Request $request, LoadRequest $loadRequest)
     {
         $loadRequest->update([
@@ -386,6 +432,9 @@ class LoadRequestController extends Controller
         ]);
     }
 
+    /**
+     * جلب / استعلام بيانات مخصصة لـ (Load Request) حسب الطلب.
+     */
     protected function getWarehouseStock(int $warehouseId, int $itemId): float
     {
         $txnQty = \App\Models\Inventory\InventoryTransactionItem::query()
@@ -413,6 +462,9 @@ class LoadRequestController extends Controller
         return (float) $txnQty + (float) $obQty;
     }
 
+    /**
+     * جلب / استعلام بيانات مخصصة لـ (Load Request) حسب الطلب.
+     */
     protected function getBulkWarehouseStock(int $warehouseId, array $itemIds): \Illuminate\Support\Collection
     {
         if (empty($itemIds)) {

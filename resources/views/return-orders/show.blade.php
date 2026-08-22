@@ -107,7 +107,9 @@
                         <tr>
                             <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">#</th>
                             <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">الصنف</th>
-                            <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">الكمية</th>
+                            <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">التحميل</th>
+                            <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">المبيعات</th>
+                            <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">المرتجع</th>
                             <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">سعر الوحدة</th>
                             <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">الإجمالي</th>
                         </tr>
@@ -117,7 +119,9 @@
                             <tr>
                                 <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);">{{ $idx + 1 }}</td>
                                 <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);">{{ $item->item?->name_ar ?? '—' }}</td>
-                                <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);text-align:center;font-weight:bold;color:#fff;">{{ number_format($item->returned_quantity, 2) }}</td>
+                                <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);text-align:center;font-weight:bold;color:#3b82f6;">{{ number_format($item->loaded_qty ?? 0, 2) }}</td>
+                                <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);text-align:center;font-weight:bold;color:#eab308;">{{ number_format($item->sold_quantity, 2) }}</td>
+                                <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);text-align:center;font-weight:bold;color:#ef4444;">{{ number_format($item->returned_quantity, 2) }}</td>
                                 <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);text-align:center;">{{ number_format($item->sales_price, 2) }}</td>
                                 <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);text-align:center;color:var(--primary);font-weight:bold;">{{ number_format($item->line_total, 2) }}</td>
                             </tr>

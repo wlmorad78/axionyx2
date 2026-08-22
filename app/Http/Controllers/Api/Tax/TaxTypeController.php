@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TaxTypeController
+ * الوحدة (Module): الضرائب والفواتير الإلكترونية (Tax)
+ * المورد (Resource): Tax Type
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Tax Type" ضمن وحدة "الضرائب والفواتير الإلكترونية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Tax;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TaxTypeController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Tax Type) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = TaxType::query();
@@ -32,6 +47,9 @@ class TaxTypeController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Tax Type) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -43,11 +61,17 @@ class TaxTypeController extends Controller
         return response()->json(TaxType::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Tax Type) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(TaxType $taxType)
     {
         return $taxType;
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Tax Type) بناءً على المعرّف.
+     */
     public function update(Request $request, TaxType $taxType)
     {
         $data = $request->validate([
@@ -61,6 +85,9 @@ class TaxTypeController extends Controller
         return response()->json($taxType);
     }
 
+    /**
+     * حذف سجل من (Tax Type) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(TaxType $taxType)
     {
         $taxType->delete();
@@ -68,6 +95,9 @@ class TaxTypeController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Tax Type) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $taxType = TaxType::onlyTrashed()->findOrFail($id);
@@ -76,6 +106,9 @@ class TaxTypeController extends Controller
         return response()->json($taxType);
     }
 
+    /**
+     * حذف نهائي للسجل من (Tax Type) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         TaxType::onlyTrashed()->findOrFail($id)->forceDelete();

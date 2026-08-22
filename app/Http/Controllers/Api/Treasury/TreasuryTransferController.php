@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryTransferController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury Transfer
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Transfer" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TreasuryTransferController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Transfer) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : ['fromTreasury', 'toTreasury'];
@@ -32,6 +47,9 @@ class TreasuryTransferController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Transfer) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -49,12 +67,18 @@ class TreasuryTransferController extends Controller
         return response()->json($transfer, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Transfer) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $transfer = TreasuryTransfer::with(['fromTreasury', 'toTreasury'])->findOrFail($id);
         return response()->json($transfer);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury Transfer) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $transfer = TreasuryTransfer::findOrFail($id);
@@ -74,6 +98,9 @@ class TreasuryTransferController extends Controller
         return response()->json($transfer);
     }
 
+    /**
+     * حذف سجل من (Treasury Transfer) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $transfer = TreasuryTransfer::findOrFail($id);
@@ -81,6 +108,9 @@ class TreasuryTransferController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Treasury Transfer) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $transfer = TreasuryTransfer::onlyTrashed()->findOrFail($id);
@@ -88,6 +118,9 @@ class TreasuryTransferController extends Controller
         return response()->json($transfer);
     }
 
+    /**
+     * حذف نهائي للسجل من (Treasury Transfer) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $transfer = TreasuryTransfer::onlyTrashed()->findOrFail($id);

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): HandheldController
+ * الوحدة (Module): واجهة برمجة التطبيقات (Api)
+ * المورد (Resource): Handheld
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Handheld" ضمن وحدة "واجهة برمجة التطبيقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api;
 
 use App\Models\Device;
@@ -261,6 +273,8 @@ class HandheldController extends BaseApiController
                     'expense_date'   => $expense['expense_date'] ?? now()->toDateString(),
                     'expense_type'   => $expense['expense_type'] ?? 'OTHER',
                     'amount'         => $expense['amount'] ?? 0,
+                    'km'             => $expense['km'] ?? null,
+                    'quantity'       => $expense['quantity'] ?? null,
                     'notes'          => $expense['notes'] ?? null,
                     'created_by'     => $user->id,
                     'created_at'     => now(),
@@ -274,6 +288,76 @@ class HandheldController extends BaseApiController
                 $pushResults[] = [
                     'type'   => 'vehicle_expense',
                     'uuid'   => $expense['uuid'] ?? null,
+                    'status' => 'already_exists',
+                ];
+            }
+        }
+
+        // Push returns (ارتجاعات)
+        $localReturns = $request->input('local_returns', []);
+        foreach ($localReturns as $return) {
+            $existing = DB::table('return_orders')
+                ->where('uuid', $return['uuid'] ?? '')
+                ->first();
+
+            if (!$existing) {
+                $returnId = DB::table('return_orders')->insertGetId([
+                    'uuid'               => $return['uuid'] ?? \Illuminate\Support\Str::uuid(),
+                    'company_id'         => $user->company_id,
+                    'branch_id'          => $return['branch_id'] ?? null,
+                    'warehouse_id'       => $return['warehouse_id'] ?? null,
+                    'load_request_id'    => $return['load_request_id'] ?? null,
+                    'issue_order_id'     => $return['issue_order_id'] ?? null,
+                    'return_no'          => $return['return_no'] ?? ('RTN-' . time()),
+                    'return_type'        => $return['return_type'] ?? 'excess',
+                    'return_date'        => $return['return_date'] ?? now()->toDateString(),
+                    'employee_id'        => $return['employee_id'] ?? $request->input('_salesman_id'),
+                    'sales_territory_id' => $return['sales_territory_id'] ?? null,
+                    'status_id'          => 'pending',
+                    'total_items_count'  => $return['total_items_count'] ?? 0,
+                    'total_quantity'     => $return['total_quantity'] ?? 0,
+                    'total_amount'       => $return['total_amount'] ?? 0,
+                    'notes'              => $return['notes'] ?? null,
+                    'created_at'         => now(),
+                    'updated_at'         => now(),
+                ]);
+
+                // Insert return items
+                $returnItems = $return['items'] ?? [];
+                foreach ($returnItems as $item) {
+                    DB::table('return_order_items')->insert([
+                        'return_order_id' => $returnId,
+                        'item_id'         => $item['item_id'],
+                        'unit_id'         => $item['unit_id'] ?? null,
+                        'qty'             => $item['qty'] ?? 0,
+                        'price'           => $item['price'] ?? 0,
+                        'total'           => $item['total'] ?? 0,
+                        'notes'           => $item['notes'] ?? null,
+                        'created_at'      => now(),
+                        'updated_at'      => now(),
+                    ]);
+                }
+
+                // Close the related load_request
+                if (!empty($return['load_request_id'])) {
+                    DB::table('load_requests')
+                        ->where('id', $return['load_request_id'])
+                        ->where('status', '!=', 'closed')
+                        ->update([
+                            'status'     => 'closed',
+                            'updated_at' => now(),
+                        ]);
+                }
+
+                $pushResults[] = [
+                    'type'   => 'return',
+                    'uuid'   => $return['uuid'] ?? null,
+                    'status' => 'synced',
+                ];
+            } else {
+                $pushResults[] = [
+                    'type'   => 'return',
+                    'uuid'   => $return['uuid'] ?? null,
                     'status' => 'already_exists',
                 ];
             }

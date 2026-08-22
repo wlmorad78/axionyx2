@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): Handheld2Controller
+ * الوحدة (Module): الأجهزة المحمولة (Handheld 2) (Handheld2)
+ * المورد (Resource): Handheld2
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Handheld2" ضمن وحدة "الأجهزة المحمولة (Handheld 2)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Handheld2;
 
 use App\Http\Controllers\Controller;
@@ -14,6 +26,9 @@ use Illuminate\Validation\ValidationException;
 
 class Handheld2Controller extends Controller
 {
+    /**
+     * دالة معالجة: login — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Handheld2).
+     */
     public function login(Request $request)
     {
         $request->validate([

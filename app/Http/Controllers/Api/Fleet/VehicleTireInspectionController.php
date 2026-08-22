@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleTireInspectionController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Tire Inspection
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Tire Inspection" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class VehicleTireInspectionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Tire Inspection) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = VehicleTireInspection::query();
@@ -27,6 +42,9 @@ class VehicleTireInspectionController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
         return $query->orderByDesc('id')->paginate($perPage);
     }
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Tire Inspection) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('vehicle_tire_inspection', 'create'));
@@ -41,6 +59,9 @@ class VehicleTireInspectionController extends Controller
         $item->update($data);
         return $item;
     }
+    /**
+     * حذف سجل من (Vehicle Tire Inspection) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $item = VehicleTireInspection::findOrFail($id);

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SurveyResponseController
+ * الوحدة (Module): الاستبيانات والاستطلاعات (Surveys)
+ * المورد (Resource): Survey Response
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Survey Response" ضمن وحدة "الاستبيانات والاستطلاعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Surveys;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class SurveyResponseController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Survey Response) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = SurveyResponse::with(['survey', 'customer', 'salesRep', 'visit']);
@@ -41,6 +56,9 @@ class SurveyResponseController extends Controller
         return response()->json($responses);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Survey Response) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -59,12 +77,18 @@ class SurveyResponseController extends Controller
         return response()->json($response, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Survey Response) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SurveyResponse $surveyResponse)
     {
         $surveyResponse->load(['survey.questions.options', 'customer', 'salesRep', 'visit', 'answers.question', 'answers.selectedOptions.option', 'photos', 'scores']);
         return response()->json($surveyResponse);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Survey Response) بناءً على المعرّف.
+     */
     public function update(Request $request, SurveyResponse $surveyResponse)
     {
         $validated = $request->validate([
@@ -82,12 +106,18 @@ class SurveyResponseController extends Controller
         return response()->json($surveyResponse);
     }
 
+    /**
+     * حذف سجل من (Survey Response) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SurveyResponse $surveyResponse)
     {
         $surveyResponse->delete();
         return response()->json(['message' => 'Response deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Survey Response) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $response = SurveyResponse::withTrashed()->findOrFail($id);
@@ -95,6 +125,9 @@ class SurveyResponseController extends Controller
         return response()->json(['message' => 'Response restored successfully']);
     }
 
+    /**
+     * حذف نهائي للسجل من (Survey Response) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $response = SurveyResponse::withTrashed()->findOrFail($id);

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ItemController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Item
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Item" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Support\Facades\DB;
 
 class ItemController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Item) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -68,6 +83,9 @@ class ItemController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Item) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('item', 'store'));
@@ -75,6 +93,9 @@ class ItemController extends Controller
         return response()->json(Item::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Item) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Request $request, $id)
     {
         $model = Item::withoutTrashed()->findOrFail($id);
@@ -89,6 +110,9 @@ class ItemController extends Controller
         return response()->json($model->load($with));
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Item) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $model = Item::withoutTrashed()->findOrFail($id);
@@ -100,6 +124,9 @@ class ItemController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف سجل من (Item) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $model = Item::withoutTrashed()->findOrFail($id);
@@ -108,6 +135,9 @@ class ItemController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Item) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = Item::onlyTrashed()->findOrFail($id);
@@ -116,6 +146,9 @@ class ItemController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Item) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         Item::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -123,6 +156,9 @@ class ItemController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Item).
+     */
     public function nextCode(Request $request)
     {
         $maxNum = Item::withTrashed()
@@ -137,6 +173,9 @@ class ItemController extends Controller
         return response()->json(['code' => 'ITM-' . str_pad($next, 5, '0', STR_PAD_LEFT)]);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Item).
+     */
     public function schema()
     {
         return ValidationRules::for('item', 'store');

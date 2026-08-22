@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): WorkflowStepController
+ * الوحدة (Module): سير العمل والموافقات (Workflows)
+ * المورد (Resource): Workflow Step
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Workflow Step" ضمن وحدة "سير العمل والموافقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Workflows;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class WorkflowStepController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Workflow Step) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = WorkflowStep::query();
@@ -31,6 +46,9 @@ class WorkflowStepController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Workflow Step) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('workflow_step', 'create'));
@@ -38,11 +56,17 @@ class WorkflowStepController extends Controller
         return response()->json($workflowStep, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Workflow Step) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return WorkflowStep::findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Workflow Step) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $workflowStep = WorkflowStep::findOrFail($id);
@@ -51,6 +75,9 @@ class WorkflowStepController extends Controller
         return $workflowStep;
     }
 
+    /**
+     * حذف سجل من (Workflow Step) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $workflowStep = WorkflowStep::findOrFail($id);
@@ -58,6 +85,9 @@ class WorkflowStepController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Workflow Step) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $workflowStep = WorkflowStep::withTrashed()->findOrFail($id);
@@ -65,6 +95,9 @@ class WorkflowStepController extends Controller
         return $workflowStep;
     }
 
+    /**
+     * حذف نهائي للسجل من (Workflow Step) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $workflowStep = WorkflowStep::withTrashed()->findOrFail($id);

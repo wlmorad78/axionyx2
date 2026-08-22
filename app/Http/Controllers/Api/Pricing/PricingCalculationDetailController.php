@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): PricingCalculationDetailController
+ * الوحدة (Module): التسعير والأسعار (Pricing)
+ * المورد (Resource): Pricing Calculation Detail
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Pricing Calculation Detail" ضمن وحدة "التسعير والأسعار".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Pricing;
 
 use App\Http\Controllers\Controller;

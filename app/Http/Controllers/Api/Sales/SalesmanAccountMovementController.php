@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SalesmanAccountMovementController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Salesman Account Movement
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Salesman Account Movement" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class SalesmanAccountMovementController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Salesman Account Movement) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -48,17 +63,26 @@ class SalesmanAccountMovementController extends Controller
         return $query->orderByDesc('movement_date')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Salesman Account Movement) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SalesmanAccountMovement $salesmanAccountMovement)
     {
         return $salesmanAccountMovement->load(['salesmanAccount', 'salesman', 'createdByEmployee']);
     }
 
+    /**
+     * حذف سجل من (Salesman Account Movement) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SalesmanAccountMovement $salesmanAccountMovement)
     {
         $salesmanAccountMovement->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Salesman Account Movement).
+     */
     public function schema()
     {
         return ValidationRules::for('salesman_account_movement', 'store');

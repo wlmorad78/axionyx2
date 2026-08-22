@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): DriverBehaviorScoreController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Driver Behavior Score
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Driver Behavior Score" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class DriverBehaviorScoreController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Driver Behavior Score) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = DriverBehaviorScore::query();
@@ -20,6 +35,9 @@ class DriverBehaviorScoreController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
         return $query->orderByDesc('id')->paginate($perPage);
     }
+    /**
+     * إنشاء سجل جديد لـ (Driver Behavior Score) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('driver_behavior_score', 'create'));
@@ -34,6 +52,9 @@ class DriverBehaviorScoreController extends Controller
         $item->update($data);
         return $item;
     }
+    /**
+     * حذف سجل من (Driver Behavior Score) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $item = DriverBehaviorScore::findOrFail($id);

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ApiClientController
+ * الوحدة (Module): التكامل والربط مع الأنظمة الخارجية (Integration)
+ * المورد (Resource): Api Client
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Api Client" ضمن وحدة "التكامل والربط مع الأنظمة الخارجية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Integration;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class ApiClientController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Api Client) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = ApiClient::query()->with('tokens', 'permissions');
@@ -23,6 +38,9 @@ class ApiClientController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Api Client) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('api_client', 'create'));

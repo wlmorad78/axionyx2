@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): BaseApiController
+ * الوحدة (Module): واجهة برمجة التطبيقات (Api)
+ * المورد (Resource): Base Api
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Base Api" ضمن وحدة "واجهة برمجة التطبيقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Support\Facades\DB;
 
 abstract class BaseApiController extends Controller
 {
+    /**
+     * دالة معالجة: successResponse — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Base Api).
+     */
     protected function successResponse($data = null, string $message = 'Success', int $code = 200): JsonResponse
     {
         return response()->json([
@@ -18,6 +33,9 @@ abstract class BaseApiController extends Controller
         ], $code);
     }
 
+    /**
+     * دالة معالجة: errorResponse — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Base Api).
+     */
     protected function errorResponse(string $message = 'Error', int $code = 400, $errors = null): JsonResponse
     {
         $response = [
@@ -32,6 +50,9 @@ abstract class BaseApiController extends Controller
         return response()->json($response, $code);
     }
 
+    /**
+     * دالة معالجة: paginatedResponse — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Base Api).
+     */
     protected function paginatedResponse($paginator, string $message = 'Success'): JsonResponse
     {
         return response()->json([
@@ -47,6 +68,9 @@ abstract class BaseApiController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: applySearch — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Base Api).
+     */
     protected function applySearch($query, Request $request, array $searchableFields): mixed
     {
         if ($search = $request->input('search')) {
@@ -60,6 +84,9 @@ abstract class BaseApiController extends Controller
         return $query;
     }
 
+    /**
+     * دالة معالجة: applySorting — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Base Api).
+     */
     protected function applySorting($query, Request $request, array $allowedSorts = []): mixed
     {
         $sortField = $request->input('sort_field', 'created_at');
@@ -74,12 +101,18 @@ abstract class BaseApiController extends Controller
         return $query;
     }
 
+    /**
+     * دالة معالجة: applyPagination — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Base Api).
+     */
     protected function applyPagination($query, Request $request, int $defaultPerPage = 25): mixed
     {
         $perPage = $request->input('per_page', $defaultPerPage);
         return $query->paginate($perPage);
     }
 
+    /**
+     * دالة معالجة: transaction — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Base Api).
+     */
     protected function transaction(callable $callback): mixed
     {
         return DB::transaction($callback);

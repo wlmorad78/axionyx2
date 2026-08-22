@@ -118,7 +118,7 @@ class VehicleInventoryFullSeeder extends Seeder
                 'transaction_type' => 'EXPENSE',
                 'amount' => 500,
                 'notes' => 'مصروفات وقود',
-                'reference_type' => 'VehicleExpense',
+                'reference_type' => 'VehicleDailyExpense',
                 'reference_id' => 1,
             ]);
 

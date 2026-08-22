@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): OpeningBalanceDocumentController
+ * الوحدة (Module): المحاسبة (Accounting)
+ * المورد (Resource): Opening Balance Document
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Opening Balance Document" ضمن وحدة "المحاسبة".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Accounting;
 
 use App\Http\Controllers\Controller;
@@ -12,6 +25,9 @@ use Illuminate\Support\Facades\DB;
 
 class OpeningBalanceDocumentController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Opening Balance Document) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $companyId = CompanyContext::id();
@@ -50,6 +66,9 @@ class OpeningBalanceDocumentController extends Controller
         return $query->latest()->paginate($request->get('per_page', 15));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Opening Balance Document) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate(ValidationRules::for('opening_balance_document', 'store'));
@@ -91,6 +110,9 @@ class OpeningBalanceDocumentController extends Controller
         return response()->json($document, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Opening Balance Document) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $companyId = CompanyContext::id();
@@ -110,6 +132,9 @@ class OpeningBalanceDocumentController extends Controller
         return response()->json($openingBalanceDocument);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Opening Balance Document) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $companyId = CompanyContext::id();
@@ -155,6 +180,9 @@ class OpeningBalanceDocumentController extends Controller
         return response()->json($openingBalanceDocument);
     }
 
+    /**
+     * حذف سجل من (Opening Balance Document) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $companyId = CompanyContext::id();
@@ -176,6 +204,9 @@ class OpeningBalanceDocumentController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Opening Balance Document) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $companyId = CompanyContext::id();
@@ -196,6 +227,9 @@ class OpeningBalanceDocumentController extends Controller
         return response()->json($document);
     }
 
+    /**
+     * حذف نهائي للسجل من (Opening Balance Document) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         $companyId = CompanyContext::id();
@@ -211,6 +245,9 @@ class OpeningBalanceDocumentController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * دالة معالجة: post — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Opening Balance Document).
+     */
     public function post(Request $request, $id)
     {
         $companyId = CompanyContext::id();
@@ -238,6 +275,9 @@ class OpeningBalanceDocumentController extends Controller
         return response()->json($openingBalanceDocument);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Opening Balance Document).
+     */
     public function cancel(Request $request, $id)
     {
         $companyId = CompanyContext::id();
@@ -258,6 +298,9 @@ class OpeningBalanceDocumentController extends Controller
         return response()->json($openingBalanceDocument);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Opening Balance Document).
+     */
     public function schema()
     {
         return ValidationRules::for('opening_balance_document', 'store');

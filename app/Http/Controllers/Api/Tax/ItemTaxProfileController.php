@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ItemTaxProfileController
+ * الوحدة (Module): الضرائب والفواتير الإلكترونية (Tax)
+ * المورد (Resource): Item Tax Profile
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Item Tax Profile" ضمن وحدة "الضرائب والفواتير الإلكترونية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Tax;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class ItemTaxProfileController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Item Tax Profile) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = ItemTaxProfile::query();
@@ -27,6 +42,9 @@ class ItemTaxProfileController extends Controller
         return response()->json($itemTaxProfiles);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Item Tax Profile) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -39,11 +57,17 @@ class ItemTaxProfileController extends Controller
         return response()->json($itemTaxProfile, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Item Tax Profile) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(ItemTaxProfile $itemTaxProfile)
     {
         return response()->json($itemTaxProfile);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Item Tax Profile) بناءً على المعرّف.
+     */
     public function update(Request $request, ItemTaxProfile $itemTaxProfile)
     {
         $validated = $request->validate([
@@ -56,6 +80,9 @@ class ItemTaxProfileController extends Controller
         return response()->json($itemTaxProfile);
     }
 
+    /**
+     * حذف سجل من (Item Tax Profile) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(ItemTaxProfile $itemTaxProfile)
     {
         $itemTaxProfile->delete();

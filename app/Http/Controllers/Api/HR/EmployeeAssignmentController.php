@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): EmployeeAssignmentController
+ * الوحدة (Module): الموارد البشرية (HR)
+ * المورد (Resource): Employee Assignment
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Employee Assignment" ضمن وحدة "الموارد البشرية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class EmployeeAssignmentController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Employee Assignment) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -23,6 +38,9 @@ class EmployeeAssignmentController extends Controller
         return $query->orderBy('effective_from', 'desc')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Employee Assignment) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('employee_assignment', 'store'));
@@ -35,6 +53,9 @@ class EmployeeAssignmentController extends Controller
         return response()->json(EmployeeAssignment::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Employee Assignment) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(EmployeeAssignment $employeeAssignment)
     {
         return $employeeAssignment->load([
@@ -43,6 +64,9 @@ class EmployeeAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Employee Assignment) بناءً على المعرّف.
+     */
     public function update(Request $request, EmployeeAssignment $employeeAssignment)
     {
         $data = $request->validate(ValidationRules::for('employee_assignment', 'update', $employeeAssignment));

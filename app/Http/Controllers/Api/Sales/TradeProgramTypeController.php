@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TradeProgramTypeController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Trade Program Type
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Trade Program Type" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TradeProgramTypeController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Trade Program Type) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -32,6 +47,9 @@ class TradeProgramTypeController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Trade Program Type) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -45,11 +63,17 @@ class TradeProgramTypeController extends Controller
         return response()->json(TradeProgramType::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Trade Program Type) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(TradeProgramType $tradeProgramType)
     {
         return $tradeProgramType->load(['company']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Trade Program Type) بناءً على المعرّف.
+     */
     public function update(Request $request, TradeProgramType $tradeProgramType)
     {
         $data = $request->validate([
@@ -63,12 +87,18 @@ class TradeProgramTypeController extends Controller
         return response()->json($tradeProgramType);
     }
 
+    /**
+     * حذف سجل من (Trade Program Type) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(TradeProgramType $tradeProgramType)
     {
         $tradeProgramType->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Trade Program Type) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = TradeProgramType::onlyTrashed()->findOrFail($id);
@@ -76,12 +106,18 @@ class TradeProgramTypeController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Trade Program Type) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         TradeProgramType::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Trade Program Type).
+     */
     public function nextCode(Request $request)
     {
         $companyId = $request->company_id;

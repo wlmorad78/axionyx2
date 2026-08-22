@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): EInvoiceTransactionController
+ * الوحدة (Module): الضرائب والفواتير الإلكترونية (Tax)
+ * المورد (Resource): E Invoice Transaction
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "E Invoice Transaction" ضمن وحدة "الضرائب والفواتير الإلكترونية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Tax;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use App\Support\ValidationRules;
 
 class EInvoiceTransactionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (E Invoice Transaction) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = EInvoiceTransaction::query();
@@ -27,6 +42,9 @@ class EInvoiceTransactionController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (E Invoice Transaction) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('e_invoice_transaction', 'create'));
@@ -34,11 +52,17 @@ class EInvoiceTransactionController extends Controller
         return response()->json($eInvoiceTransaction, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (E Invoice Transaction) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return EInvoiceTransaction::findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (E Invoice Transaction) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $eInvoiceTransaction = EInvoiceTransaction::findOrFail($id);
@@ -47,6 +71,9 @@ class EInvoiceTransactionController extends Controller
         return $eInvoiceTransaction;
     }
 
+    /**
+     * حذف سجل من (E Invoice Transaction) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $eInvoiceTransaction = EInvoiceTransaction::findOrFail($id);
@@ -54,6 +81,9 @@ class EInvoiceTransactionController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (E Invoice Transaction) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $eInvoiceTransaction = EInvoiceTransaction::withTrashed()->findOrFail($id);
@@ -61,6 +91,9 @@ class EInvoiceTransactionController extends Controller
         return $eInvoiceTransaction;
     }
 
+    /**
+     * حذف نهائي للسجل من (E Invoice Transaction) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $eInvoiceTransaction = EInvoiceTransaction::withTrashed()->findOrFail($id);

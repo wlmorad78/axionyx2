@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CustomerOpeningBalanceController
+ * الوحدة (Module): واجهة برمجة التطبيقات (Api)
+ * المورد (Resource): Customer Opening Balance
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Customer Opening Balance" ضمن وحدة "واجهة برمجة التطبيقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Customers;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class CustomerOpeningBalanceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Customer Opening Balance) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = CustomerOpeningBalance::with(['customer', 'branch']);
@@ -24,6 +39,9 @@ class CustomerOpeningBalanceController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 50);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Customer Opening Balance) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -65,11 +83,17 @@ class CustomerOpeningBalanceController extends Controller
         return response()->json($record->load(['customer', 'branch']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Customer Opening Balance) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(CustomerOpeningBalance $customerOpeningBalance)
     {
         return $customerOpeningBalance->load(['customer', 'branch', 'createdBy']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Customer Opening Balance) بناءً على المعرّف.
+     */
     public function update(Request $request, CustomerOpeningBalance $customerOpeningBalance)
     {
         $data = $request->validate([
@@ -104,6 +128,9 @@ class CustomerOpeningBalanceController extends Controller
         return response()->json($customerOpeningBalance->load(['customer', 'branch']));
     }
 
+    /**
+     * حذف سجل من (Customer Opening Balance) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(CustomerOpeningBalance $customerOpeningBalance)
     {
         $customer = $customerOpeningBalance->customer;
@@ -118,6 +145,9 @@ class CustomerOpeningBalanceController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Customer Opening Balance) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = CustomerOpeningBalance::onlyTrashed()->findOrFail($id);

@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'auto.permission' => \App\Http\Middleware\AutoPermission::class,
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
             'plan.access' => \App\Http\Middleware\CheckPlanAccess::class,
+            'day-closing' => \App\Http\Middleware\EnforceDayClosing::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

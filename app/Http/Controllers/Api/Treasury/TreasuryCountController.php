@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryCountController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury Count
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Count" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TreasuryCountController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Count) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : ['details', 'countedByEmployee'];
@@ -23,6 +38,9 @@ class TreasuryCountController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Count) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -40,12 +58,18 @@ class TreasuryCountController extends Controller
         return response()->json($count, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Count) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $count = TreasuryCount::with(['details', 'countedByEmployee'])->findOrFail($id);
         return response()->json($count);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury Count) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $count = TreasuryCount::findOrFail($id);
@@ -65,6 +89,9 @@ class TreasuryCountController extends Controller
         return response()->json($count);
     }
 
+    /**
+     * حذف سجل من (Treasury Count) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $count = TreasuryCount::findOrFail($id);
@@ -72,6 +99,9 @@ class TreasuryCountController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Treasury Count) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $count = TreasuryCount::onlyTrashed()->findOrFail($id);
@@ -79,6 +109,9 @@ class TreasuryCountController extends Controller
         return response()->json($count);
     }
 
+    /**
+     * حذف نهائي للسجل من (Treasury Count) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $count = TreasuryCount::onlyTrashed()->findOrFail($id);

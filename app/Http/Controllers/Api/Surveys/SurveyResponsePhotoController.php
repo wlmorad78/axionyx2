@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SurveyResponsePhotoController
+ * الوحدة (Module): الاستبيانات والاستطلاعات (Surveys)
+ * المورد (Resource): Survey Response Photo
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Survey Response Photo" ضمن وحدة "الاستبيانات والاستطلاعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Surveys;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class SurveyResponsePhotoController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Survey Response Photo) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = SurveyResponsePhoto::with(['response', 'question']);
@@ -29,6 +44,9 @@ class SurveyResponsePhotoController extends Controller
         return response()->json($photos);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Survey Response Photo) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -43,12 +61,18 @@ class SurveyResponsePhotoController extends Controller
         return response()->json($photo, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Survey Response Photo) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SurveyResponsePhoto $surveyResponsePhoto)
     {
         $surveyResponsePhoto->load(['response', 'question']);
         return response()->json($surveyResponsePhoto);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Survey Response Photo) بناءً على المعرّف.
+     */
     public function update(Request $request, SurveyResponsePhoto $surveyResponsePhoto)
     {
         $validated = $request->validate([
@@ -62,12 +86,18 @@ class SurveyResponsePhotoController extends Controller
         return response()->json($surveyResponsePhoto);
     }
 
+    /**
+     * حذف سجل من (Survey Response Photo) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SurveyResponsePhoto $surveyResponsePhoto)
     {
         $surveyResponsePhoto->delete();
         return response()->json(['message' => 'Photo deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Survey Response Photo) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $photo = SurveyResponsePhoto::withTrashed()->findOrFail($id);
@@ -75,6 +105,9 @@ class SurveyResponsePhotoController extends Controller
         return response()->json(['message' => 'Photo restored successfully']);
     }
 
+    /**
+     * حذف نهائي للسجل من (Survey Response Photo) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $photo = SurveyResponsePhoto::withTrashed()->findOrFail($id);

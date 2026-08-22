@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ItemSubCategoryController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Item Sub Category
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Item Sub Category" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class ItemSubCategoryController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Item Sub Category) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -40,6 +55,9 @@ class ItemSubCategoryController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Item Sub Category) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('item_sub_category', 'store'));
@@ -53,12 +71,18 @@ class ItemSubCategoryController extends Controller
         return response()->json(ItemSubCategory::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Item Sub Category) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $model = ItemSubCategory::withoutTrashed()->findOrFail($id);
         return response()->json($model->load(['itemCategory']));
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Item Sub Category) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $model = ItemSubCategory::withoutTrashed()->findOrFail($id);
@@ -70,6 +94,9 @@ class ItemSubCategoryController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف سجل من (Item Sub Category) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $model = ItemSubCategory::withoutTrashed()->findOrFail($id);
@@ -78,6 +105,9 @@ class ItemSubCategoryController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Item Sub Category) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = ItemSubCategory::onlyTrashed()->findOrFail($id);
@@ -86,6 +116,9 @@ class ItemSubCategoryController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Item Sub Category) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         ItemSubCategory::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -93,6 +126,9 @@ class ItemSubCategoryController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Item Sub Category).
+     */
     public function nextCode(Request $request)
     {
         $query = ItemSubCategory::withTrashed()
@@ -115,6 +151,9 @@ class ItemSubCategoryController extends Controller
         return response()->json(['code' => 'SC-' . str_pad($next, 5, '0', STR_PAD_LEFT)]);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Item Sub Category).
+     */
     public function schema()
     {
         return ValidationRules::for('item_sub_category', 'store');

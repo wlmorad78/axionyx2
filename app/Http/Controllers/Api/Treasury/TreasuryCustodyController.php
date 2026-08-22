@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryCustodyController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury Custody
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Custody" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TreasuryCustodyController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Custody) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = TreasuryCustody::with(['employee', 'treasury', 'transactions']);
@@ -29,6 +44,9 @@ class TreasuryCustodyController extends Controller
         return response()->json($custodies);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Custody) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -46,6 +64,9 @@ class TreasuryCustodyController extends Controller
         return response()->json($custody->load(['employee', 'treasury', 'transactions']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Custody) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $custody = TreasuryCustody::with(['employee', 'treasury', 'transactions'])->findOrFail($id);
@@ -53,6 +74,9 @@ class TreasuryCustodyController extends Controller
         return response()->json($custody);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury Custody) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $custody = TreasuryCustody::findOrFail($id);
@@ -72,6 +96,9 @@ class TreasuryCustodyController extends Controller
         return response()->json($custody->load(['employee', 'treasury', 'transactions']));
     }
 
+    /**
+     * حذف سجل من (Treasury Custody) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $custody = TreasuryCustody::findOrFail($id);
@@ -80,6 +107,9 @@ class TreasuryCustodyController extends Controller
         return response()->json(['message' => 'Treasury custody deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Treasury Custody) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $custody = TreasuryCustody::onlyTrashed()->findOrFail($id);
@@ -88,6 +118,9 @@ class TreasuryCustodyController extends Controller
         return response()->json($custody->load(['employee', 'treasury', 'transactions']));
     }
 
+    /**
+     * حذف نهائي للسجل من (Treasury Custody) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $custody = TreasuryCustody::onlyTrashed()->findOrFail($id);

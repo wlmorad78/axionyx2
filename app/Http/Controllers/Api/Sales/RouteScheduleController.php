@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): RouteScheduleController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Route Schedule
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Route Schedule" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -11,6 +23,9 @@ use Illuminate\Support\Facades\DB;
 
 class RouteScheduleController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Route Schedule) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : ['employee', 'route.salesTerritory'];
@@ -38,6 +53,9 @@ class RouteScheduleController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Route Schedule) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('route_schedule', 'store'));
@@ -45,6 +63,9 @@ class RouteScheduleController extends Controller
         return response()->json(RouteSchedule::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Route Schedule) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(RouteSchedule $route_schedule)
     {
         return $route_schedule->load([
@@ -53,6 +74,9 @@ class RouteScheduleController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Route Schedule) بناءً على المعرّف.
+     */
     public function update(Request $request, RouteSchedule $route_schedule)
     {
         $data = $request->validate(ValidationRules::for('route_schedule', 'update', $route_schedule));
@@ -62,6 +86,9 @@ class RouteScheduleController extends Controller
         return response()->json($route_schedule);
     }
 
+    /**
+     * حذف سجل من (Route Schedule) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(RouteSchedule $route_schedule)
     {
         $route_schedule->delete();
@@ -69,6 +96,9 @@ class RouteScheduleController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Route Schedule) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = RouteSchedule::onlyTrashed()->findOrFail($id);
@@ -77,6 +107,9 @@ class RouteScheduleController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Route Schedule) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         RouteSchedule::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -84,6 +117,9 @@ class RouteScheduleController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * دالة معالجة: todayCount — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Route Schedule).
+     */
     public function todayCount(Request $request)
     {
         $day = $request->day;
@@ -194,6 +230,9 @@ class RouteScheduleController extends Controller
         ]);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Route Schedule).
+     */
     public function schema()
     {
         return ValidationRules::for('route_schedule', 'store');

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleWarehouseController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Warehouse
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Warehouse" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class VehicleWarehouseController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Warehouse) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = VehicleWarehouse::with(['vehicle', 'warehouse']);
@@ -27,6 +42,9 @@ class VehicleWarehouseController extends Controller
         return response()->json($warehouses);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Warehouse) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -42,6 +60,9 @@ class VehicleWarehouseController extends Controller
         return response()->json($warehouse->load(['vehicle', 'warehouse']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Vehicle Warehouse) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $warehouse = VehicleWarehouse::with(['vehicle', 'warehouse'])->findOrFail($id);
@@ -49,6 +70,9 @@ class VehicleWarehouseController extends Controller
         return response()->json($warehouse);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Vehicle Warehouse) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $warehouse = VehicleWarehouse::findOrFail($id);
@@ -66,6 +90,9 @@ class VehicleWarehouseController extends Controller
         return response()->json($warehouse->load(['vehicle', 'warehouse']));
     }
 
+    /**
+     * حذف سجل من (Vehicle Warehouse) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $warehouse = VehicleWarehouse::findOrFail($id);
@@ -74,6 +101,9 @@ class VehicleWarehouseController extends Controller
         return response()->json(['message' => 'Vehicle warehouse deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Vehicle Warehouse) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $warehouse = VehicleWarehouse::onlyTrashed()->findOrFail($id);
@@ -82,6 +112,9 @@ class VehicleWarehouseController extends Controller
         return response()->json($warehouse->load(['vehicle', 'warehouse']));
     }
 
+    /**
+     * حذف نهائي للسجل من (Vehicle Warehouse) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $warehouse = VehicleWarehouse::onlyTrashed()->findOrFail($id);

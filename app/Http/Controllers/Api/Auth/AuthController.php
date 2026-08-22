@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): AuthController
+ * الوحدة (Module): المصادقة وتسجيل الدخول (Auth)
+ * المورد (Resource): Auth
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Auth" ضمن وحدة "المصادقة وتسجيل الدخول".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
@@ -11,6 +23,9 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    /**
+     * دالة معالجة: login — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
+     */
     public function login(Request $request)
     {
         $request->validate([
@@ -100,6 +115,9 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: logout — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
+     */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
@@ -107,6 +125,9 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out']);
     }
 
+    /**
+     * دالة معالجة: me — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
+     */
     public function me(Request $request)
     {
         $user = $request->user()->load('companies');
@@ -114,6 +135,9 @@ class AuthController extends Controller
         return response()->json($user);
     }
 
+    /**
+     * دالة معالجة: changePassword — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
+     */
     public function changePassword(Request $request)
     {
         $request->validate([
@@ -136,6 +160,9 @@ class AuthController extends Controller
         return response()->json(['message' => 'Password changed successfully']);
     }
 
+    /**
+     * دالة معالجة: register — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
+     */
     public function register(Request $request)
     {
         $request->validate([

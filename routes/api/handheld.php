@@ -31,61 +31,6 @@ use App\Services\UnitConversionService;
 use App\Support\DayOfWeekHelper;
 use Illuminate\Support\Facades\DB;
 
-if (!function_exists('resolveEmployee')) {
-    function resolveEmployee(\Illuminate\Http\Request $request) {
-        $salesmanUserId = $request->input('_salesman_id') ?? $request->header('X-Salesman-Id');
-
-        if ($salesmanUserId) {
-            $salesmanUser = \App\Models\User::find($salesmanUserId);
-
-            if ($salesmanUser) {
-                $employee = $salesmanUser->employee;
-
-                if (!$employee) {
-                    $employee = Employee::where('email', $salesmanUser->email)->first();
-                }
-
-                if (!$employee) {
-                    $representative = Representative::where('user_id', $salesmanUser->id)->first();
-
-                    if ($representative) {
-                        $employee = Employee::where(
-                            'national_id',
-                            $representative->code
-                        )->first();
-                    }
-                }
-
-                return $employee;
-            }
-        }
-
-        return null;
-    }
-}
-
-if (!function_exists('calculateCustomerBalance')) {
-    function calculateCustomerBalance($customerId, $companyId) {
-        $allInvoices = SalesInvoice::where('customer_id', $customerId)
-            ->where('company_id', $companyId)
-            ->whereNull('deleted_at')
-            ->selectRaw('COALESCE(SUM(net_total), 0) as total_invoiced, COALESCE(SUM(paid_amount), 0) as total_paid')
-            ->first();
-
-        $collectionsBalance = \App\Models\Sales\Collection::where('customer_id', $customerId)
-            ->where('company_id', $companyId)
-            ->where('status', 'approved')
-            ->whereNull('deleted_at')
-            ->selectRaw('COALESCE(SUM(amount), 0) as total_collections')
-            ->first();
-
-        $invoiceBalance = (float) $allInvoices->total_paid - (float) $allInvoices->total_invoiced;
-        $collectionsEffect = -1 * (float) $collectionsBalance->total_collections;
-
-        return round($invoiceBalance + $collectionsEffect, 2);
-    }
-}
-
 RouteFacade::get('handheld/route-lines', function (\Illuminate\Http\Request $request) {
     $employee = resolveEmployee($request);
     $deviceDay = $request->input('day', now()->format('l'));
@@ -177,6 +122,94 @@ RouteFacade::get('handheld/route-lines', function (\Illuminate\Http\Request $req
     return response()->json(['data' => $data]);
 });
 
+RouteFacade::get('handheld/outroute-customers', function (\Illuminate\Http\Request $request) {
+    $usercode = $request->input('usercode');
+
+    if (!$usercode) {
+        return response()->json(['message' => 'يجب إدخال كود المندوب'], 422);
+    }
+
+    $targetUser = \App\Models\User::where('usercode', $usercode)->first();
+
+    if (!$targetUser) {
+        return response()->json(['message' => 'لم يتم العثور على مندوب بهذا الكود'], 404);
+    }
+
+    $targetEmployee = $targetUser->employee;
+
+    if (!$targetEmployee) {
+        $targetEmployee = Employee::where('email', $targetUser->email)->first();
+    }
+
+    if (!$targetEmployee) {
+        $representative = Representative::where('user_id', $targetUser->id)->first();
+        if ($representative) {
+            $targetEmployee = Employee::where('national_id', $representative->code)->first();
+        }
+    }
+
+    if (!$targetEmployee) {
+        return response()->json(['message' => 'لم يتم العثور على بيانات الموظف لهذا المندوب'], 404);
+    }
+
+    $delegatePhone = $targetEmployee->phone ?? $targetEmployee->mobile ?? null;
+
+    $scheduleRouteIds = RouteSchedule::where('is_active', true)
+        ->where('employee_id', $targetEmployee->id)
+        ->pluck('route_id');
+
+    $assignmentRouteIds = RouteAssignment::where('driver_id', $targetEmployee->id)
+        ->whereDate('assignment_date', now()->toDateString())
+        ->where('is_active', true)
+        ->pluck('route_id');
+
+    $routeIds = $scheduleRouteIds->merge($assignmentRouteIds)->unique();
+
+    if ($routeIds->isEmpty()) {
+        return response()->json(['data' => []]);
+    }
+
+    $routes = Route::where('is_active', true)
+        ->whereIn('id', $routeIds)
+        ->with(['customers.customer', 'salesTerritory'])
+        ->get();
+
+    $data = $routes->map(function ($route) use ($delegatePhone) {
+        $customers = $route->customers
+            ->filter(fn($rc) => $rc->customer && !$rc->customer->trashed())
+            ->sortBy('visit_order')
+            ->values();
+
+        return [
+            'id' => $route->id,
+            'name' => $route->name_ar ?? $route->name_en ?? '',
+            'code' => $route->code,
+            'territory_name' => $route->salesTerritory?->name_ar ?? '',
+            'sales_territory_id' => $route->sales_territory_id ?? 0,
+            'customers' => $customers->map(fn($rc) => [
+                'id' => $rc->customer->id,
+                'name' => $rc->customer->name_ar ?? $rc->customer->name_en ?? '',
+                'code' => $rc->customer->code,
+                'phone' => $rc->customer->phone,
+                'mobile' => $rc->customer->mobile,
+                'tax_number' => $rc->customer->tax_number ?: $rc->customer->national_id,
+                'national_id' => $rc->customer->national_id,
+                'address' => $rc->customer->address_line,
+                'address_line' => $rc->customer->address_line,
+                'governorate' => $rc->customer->governorate?->name_ar,
+                'city' => $rc->customer->city?->name_ar,
+                'area' => $rc->customer->area?->name_ar,
+                'visit_order' => $rc->visit_order,
+                'visit_frequency' => $rc->visit_frequency,
+                'delegate_phone' => $delegatePhone,
+                'customer_type_id' => $rc->customer->customer_type_id ?? 0,
+            ])->values(),
+        ];
+    });
+
+    return response()->json(['data' => $data]);
+});
+
 RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $request) {
     $user = $request->user();
     $items = $request->input('items', []);
@@ -207,12 +240,13 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
         $totalAmount = 0;
 
         foreach ($items as $item) {
-            $qty = (float) ($item['qty'] ?? 0);
+            $loadedQtyCalc = (float) ($item['loaded_qty'] ?? 0);
+            $soldQtyCalc = (float) ($item['sold_qty'] ?? 0);
+            $returnedQtyCalc = max(0, $loadedQtyCalc - $soldQtyCalc);
             $price = (float) ($item['price'] ?? 0);
-            if ($qty <= 0) continue;
             $totalItemsCount++;
-            $totalQuantity += $qty;
-            $totalAmount += $qty * $price;
+            $totalQuantity += $returnedQtyCalc;
+            $totalAmount += $returnedQtyCalc * $price;
         }
 
         $activeIssueOrder = \App\Models\IssueOrder::where('employee_id', $employee->id)
@@ -251,22 +285,36 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
         foreach ($items as $item) {
             $qty = (float) ($item['qty'] ?? 0);
             $price = (float) ($item['price'] ?? 0);
-            if ($qty <= 0) continue;
 
-            $itemId = $item['item_id'];
+            $itemId = $item['item_id'] ?? null;
+            if (!$itemId) {
+                $itemCode = $item['item_code'] ?? $item['code'] ?? null;
+                if ($itemCode) {
+                    $foundItem = \App\Models\Item::where('company_id', $user->company_id)
+                        ->where('code', $itemCode)
+                        ->first();
+                    if ($foundItem) {
+                        $itemId = $foundItem->id;
+                    }
+                }
+            }
+            if (!$itemId) continue;
+
             $issueData = $issueItemsMap[$itemId] ?? null;
             $itemUnitId = $item['unit_id'] ?? $item['item_unit_id'] ?? $issueData['item_unit_id'] ?? null;
-            $loadedQty = $issueData['issued_quantity'] ?? 0;
-            $soldQty = max(0, $loadedQty - $qty);
+            $loadedQty = (float) ($item['loaded_qty'] ?? $issueData['issued_quantity'] ?? 0);
+            $soldQty = (float) ($item['sold_qty'] ?? max(0, $loadedQty - $qty));
+            $returnedQty = max(0, $loadedQty - $soldQty);
 
             ReturnOrderItem::create([
                 'return_order_id' => $returnOrder->id,
                 'item_id' => $itemId,
                 'item_unit_id' => $itemUnitId,
-                'returned_quantity' => $qty,
+                'returned_quantity' => $returnedQty,
                 'sold_quantity' => $soldQty,
+                'loaded_qty' => $loadedQty,
                 'sales_price' => $price,
-                'line_total' => $qty * $price,
+                'line_total' => $returnedQty * $price,
                 'return_condition' => 'good',
             ]);
         }
@@ -294,7 +342,9 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
                 $returnedQty = 0;
                 $returnedPrice = (float) $issueItem->sales_price;
                 if (isset($returnItemsMap[$issueItem->item_id])) {
-                    $returnedQty = (float) $returnItemsMap[$issueItem->item_id]['qty'];
+                    $itemLoaded = (float) ($returnItemsMap[$issueItem->item_id]['loaded_qty'] ?? $issueItem->issued_quantity);
+                    $itemSold = (float) ($returnItemsMap[$issueItem->item_id]['sold_qty'] ?? 0);
+                    $returnedQty = max(0, $itemLoaded - $itemSold);
                     $returnedPrice = (float) $returnItemsMap[$issueItem->item_id]['price'];
                 }
 
@@ -753,9 +803,41 @@ RouteFacade::post('handheld/register-device', function (\Illuminate\Http\Request
 
 RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request $request) {
     $user = $request->user();
+
+    $items = $request->input('items', []);
+    foreach ($items as $index => &$item) {
+        $itemCode = $item['item_code'] ?? null;
+        if (!empty($itemCode)) {
+            $serverItem = \App\Models\Item::query()
+                ->where('company_id', $user->company_id)
+                ->where('code', $itemCode)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$serverItem) {
+                return response()->json([
+                    'message' => 'الصنف غير موجود على السيرفر',
+                    'errors' => [
+                        "items.$index.item_code" => [
+                            "الصنف بالكود {$itemCode} غير موجود أو غير فعال",
+                        ],
+                    ],
+                ], 422);
+            }
+
+            $item['item_id'] = $serverItem->id;
+        }
+    }
+    unset($item);
+
+    $allInput = $request->all();
+    $allInput['items'] = $items;
+    $request->replace($allInput);
+
     $request->validate([
         'customer_id' => 'required|exists:customers,id',
         'items' => 'required|array|min:1',
+        'items.*.item_code' => 'required|string',
         'items.*.item_id' => 'required|exists:items,id',
         'items.*.qty' => 'required|numeric|min:1',
         'items.*.price' => 'required|numeric|min:0',
@@ -913,26 +995,169 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
 
 RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $request) {
     $user = $request->user();
-    $request->validate([
-        'invoices' => 'required|array|min:1',
-        'branch_id' => 'nullable|integer',
-        'invoices.*.uuid' => 'required|string',
-        'invoices.*.customer_id' => 'required|exists:customers,id',
-        'invoices.*.temp_invoice_no' => 'nullable|string',
-        'invoices.*.invoice_no' => 'nullable|string',
-        'invoices.*.device_id' => 'nullable|integer',
-        'invoices.*.invoice_date' => 'required|date',
-        'invoices.*.items' => 'required|array|min:1',
-        'invoices.*.items.*.item_id' => 'required|exists:items,id',
-        'invoices.*.items.*.qty' => 'required|numeric|min:1',
-        'invoices.*.items.*.price' => 'required|numeric|min:0',
-        'invoices.*.items.*.unit_id' => 'nullable|integer',
-        'invoices.*.items.*.issue_order_id' => 'nullable|integer',
-        'invoices.*.branch_id' => 'nullable|integer',
-        'invoices.*.paid_amount' => 'nullable|numeric|min:0',
-        'invoices.*.cash_received' => 'nullable|numeric|min:0',
-        'invoices.*.sales_territory_id' => 'nullable|integer',
-    ]);
+
+    $toNullable = function ($value) {
+        $v = (int) ($value ?? 0);
+        return $v > 0 ? $v : null;
+    };
+
+    $invoices = $request->input('invoices', []);
+    foreach ($invoices as $invIndex => &$inv) {
+        $items = $inv['items'] ?? [];
+        foreach ($items as $itemIndex => $line) {
+            $itemCode = $line['item_code'] ?? null;
+            if (!empty($itemCode)) {
+                $serverItem = \App\Models\Item::query()
+                    ->where('company_id', $user->company_id)
+                    ->where('code', $itemCode)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$serverItem) {
+                    return response()->json([
+                        'message' => 'الصنف غير موجود على السيرفر',
+                        'errors' => [
+                            "invoices.$invIndex.items.$itemIndex.item_code" => [
+                                "الصنف بالكود {$itemCode} غير موجود أو غير فعال",
+                            ],
+                        ],
+                    ], 422);
+                }
+
+                $items[$itemIndex]['item_id'] = $serverItem->id;
+            }
+        }
+        $inv['items'] = $items;
+    }
+    unset($inv);
+
+    $allInput = $request->all();
+    $allInput['invoices'] = $invoices;
+    $request->replace($allInput);
+
+    // Resolve customer_code → customer_id for each invoice
+    foreach ($allInput['invoices'] as $invIndex => &$inv) {
+        if (($inv['action'] ?? 'create') === 'delete') continue;
+
+        $code = trim($inv['customer_code'] ?? '');
+        $customerId = $inv['customer_id'] ?? null;
+
+        // Skip if customer_id is already a valid integer
+        if ($customerId && is_numeric($customerId)) {
+            $exists = \App\Models\Customer::where('id', $customerId)->where('company_id', $user->company_id)->exists();
+            if ($exists) continue;
+        }
+
+        if (empty($code)) {
+            return response()->json([
+                'message' => 'يجب إدخال كود العميل',
+                'errors' => ["invoices.$invIndex.customer_code" => ["كود العميل مطلوب"]],
+            ], 422);
+        }
+
+        $customer = \App\Models\Customer::where('company_id', $user->company_id)
+            ->where('code', $code)
+            ->first();
+
+        if (!$customer) {
+            // Auto-create cash customers with TEMP-* codes
+            if (str_starts_with($code, 'TEMP-') || str_starts_with($code, 'CASH-')) {
+                $customer = \App\Models\Customer::create([
+                    'company_id' => $user->company_id,
+                    'code' => $code,
+                    'name_ar' => $inv['customer_name'] ?? 'عميل نقدي',
+                    'name_en' => $inv['customer_name'] ?? 'Cash Customer',
+                    'phone' => null,
+                    'is_active' => true,
+                    'customer_type_id' => $inv['customer_type_id'] ?? null,
+                ]);
+            } else {
+                return response()->json([
+                    'message' => "العميل بالكود {$code} غير موجود",
+                    'errors' => ["invoices.$invIndex.customer_code" => ["العميل بالكود {$code} غير موجود على السيرفر"]],
+                ], 422);
+            }
+        }
+
+        $inv['customer_id'] = $customer->id;
+    }
+    unset($inv);
+
+    $invoices = $allInput['invoices'];
+    $allInput['invoices'] = $invoices;
+    $request->replace($allInput);
+
+    $hasDelete = collect($invoices)->contains('action', 'delete');
+    $hasCreate = collect($invoices)->contains(fn($inv) => ($inv['action'] ?? 'create') !== 'delete');
+
+    if ($hasDelete) {
+        $request->validate([
+            'invoices' => 'required|array|min:1',
+            'invoices.*.client_uuid' => 'required|string',
+            'invoices.*.action' => 'required|in:delete',
+        ]);
+    }
+
+    if ($hasCreate) {
+        $request->validate([
+            'invoices' => 'required|array|min:1',
+            'branch_id' => 'nullable|integer',
+            'invoices.*.client_uuid' => 'required|string',
+            'invoices.*.customer_id' => 'nullable|integer',
+            'invoices.*.customer_name' => 'nullable|string',
+            'invoices.*.customer_code' => 'nullable|string',
+            'invoices.*.customer_type' => 'nullable|string',
+            'invoices.*.customer_type_id' => 'nullable|integer',
+            'invoices.*.temp_invoice_no' => 'nullable|string',
+            'invoices.*.invoice_no' => 'nullable|string',
+            'invoices.*.device_id' => 'nullable|integer',
+            'invoices.*.device_code' => 'nullable|string',
+            'invoices.*.invoice_date' => 'required|date',
+            'invoices.*.items' => 'required|array|min:1',
+            'invoices.*.items.*.item_code' => 'required|string',
+            'invoices.*.items.*.item_id' => 'required|exists:items,id',
+            'invoices.*.items.*.qty' => 'required|numeric|min:1',
+            'invoices.*.items.*.price' => 'required|numeric|min:0',
+            'invoices.*.items.*.tax_percent' => 'nullable|numeric|min:0',
+            'invoices.*.items.*.unit_id' => 'nullable|integer',
+            'invoices.*.items.*.issue_order_id' => 'nullable|integer',
+            'invoices.*.branch_id' => 'nullable|integer',
+            'invoices.*.paid_amount' => 'nullable|numeric|min:0',
+            'invoices.*.cash_received' => 'nullable|numeric|min:0',
+            'invoices.*.sales_territory_id' => 'nullable|integer',
+            'invoices.*.route_id' => 'nullable|integer',
+            'invoices.*.load_request_id' => 'nullable|integer',
+        ]);
+    }
+
+    $results = [];
+
+    foreach ($request->invoices as $invoiceData) {
+        $invoiceAction = $invoiceData['action'] ?? 'create';
+
+        if ($invoiceAction === 'delete') {
+            $deleted = SalesInvoice::where('company_id', $user->company_id)
+                ->where(function ($q) use ($invoiceData) {
+                    $q->where('client_uuid', $invoiceData['client_uuid'])->orWhere('uuid', $invoiceData['client_uuid']);
+                })
+                ->first();
+            if ($deleted) {
+                $deleted->update(['deleted_at' => now()]);
+                SalesInvoiceItem::where('sales_invoice_id', $deleted->id)->update(['deleted_at' => now()]);
+            }
+            $results[] = [
+                'client_uuid' => $invoiceData['client_uuid'],
+                'status' => 'deleted',
+                'id' => $deleted?->id,
+            ];
+            continue;
+        }
+    }
+
+    $createInvoices = array_filter($request->input('invoices', []), fn($inv) => ($inv['action'] ?? 'create') !== 'delete');
+    if (empty($createInvoices)) {
+        return response()->json(['message' => 'تم', 'data' => $results]);
+    }
 
     $employee = resolveEmployee($request);
 
@@ -940,20 +1165,132 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         return response()->json(['message' => 'الموظف غير موجود في النظام'], 404);
     }
 
-    $results = [];
+    $buildItemsData = function (array $lines) {
+        $subtotal = 0;
+        $taxTotal = 0;
+        $itemsData = [];
+        foreach ($lines as $item) {
+            $lineTotal = $item['qty'] * $item['price'];
+            $taxPercent = $item['tax_percent'] ?? 0;
+            $taxAmount = $lineTotal * ($taxPercent / 100);
+            $subtotal += $lineTotal;
+            $taxTotal += $taxAmount;
+            $itemsData[] = [
+                'item_id' => $item['item_id'],
+                'qty' => $item['qty'],
+                'price' => $item['price'],
+                'tax_percent' => $taxPercent,
+                'tax_amount' => $taxAmount,
+                'gross_amount' => $lineTotal,
+                'net_amount' => $lineTotal + $taxAmount,
+                'unit_id' => $item['unit_id'] ?? null,
+                'issue_order_id' => $item['issue_order_id'] ?? null,
+            ];
+        }
+        return [$subtotal, $taxTotal, $itemsData];
+    };
 
-    foreach ($request->invoices as $invoiceData) {
-        $existing = SalesInvoice::where('uuid', $invoiceData['uuid'])->first();
+    $applyDistribution = function (array $itemsData, int $sign) use ($user, $employee) {
+        foreach ($itemsData as $itemData) {
+            $distribution = \App\Models\RepItemDistribution::where('company_id', $user->company_id)
+                ->where('employee_id', $employee->id)
+                ->where('item_id', $itemData['item_id'])
+                ->where('status', 'active')
+                ->latest('id')
+                ->first();
+            if ($distribution) {
+                $distribution->update([
+                    'sold_qty' => max(0, $distribution->sold_qty + $sign * $itemData['qty']),
+                    'remaining_qty' => $distribution->remaining_qty - $sign * $itemData['qty'],
+                ]);
+            }
+        }
+    };
+
+    foreach ($createInvoices as $invoiceData) {
+        $clientUuid = $invoiceData['client_uuid'];
+
+        // Idempotent sync key: company_id + client_uuid. Legacy invoices may
+        // store the same value in the `uuid` column, so we check both. This
+        // makes the operation safe regardless of the `action` the client sends
+        // (sync_manager forces action='create' on retry) — a repeated
+        // client_uuid always updates the existing invoice instead of inserting.
+        $existing = SalesInvoice::where('company_id', $user->company_id)
+            ->where(function ($q) use ($clientUuid) {
+                $q->where('client_uuid', $clientUuid)->orWhere('uuid', $clientUuid);
+            })
+            ->withTrashed()
+            ->first();
         if ($existing) {
+            $invoice = DB::transaction(function () use ($existing, $invoiceData, $user, $employee, $buildItemsData, $applyDistribution, $clientUuid, $toNullable) {
+                $oldItems = \App\Models\SalesInvoiceItem::where('sales_invoice_id', $existing->id)->get();
+                foreach ($oldItems as $oldItem) {
+                    $dist = \App\Models\RepItemDistribution::where('company_id', $user->company_id)
+                        ->where('employee_id', $employee->id)
+                        ->where('item_id', $oldItem->item_id)
+                        ->where('status', 'active')->latest('id')->first();
+                    if ($dist) {
+                        $dist->update([
+                            'sold_qty' => max(0, $dist->sold_qty - $oldItem->qty),
+                            'remaining_qty' => $dist->remaining_qty + $oldItem->qty,
+                        ]);
+                    }
+                }
+
+                [$subtotal, $taxTotal, $itemsData] = $buildItemsData($invoiceData['items']);
+
+                $netTotal = $subtotal + $taxTotal;
+                $paidAmount = $invoiceData['paid_amount'] ?? $netTotal;
+                $cashReceived = $invoiceData['cash_received'] ?? $paidAmount;
+                $remainingAmount = max(0, $netTotal - $paidAmount);
+
+                $existing->update([
+                    'subtotal' => $subtotal,
+                    'tax_total' => $taxTotal,
+                    'net_total' => $netTotal,
+                    'paid_amount' => $paidAmount,
+                    'remaining_amount' => $remainingAmount,
+                    'customer_id' => $invoiceData['customer_id'],
+                    'customer_type_id' => $toNullable($invoiceData['customer_type_id'] ?? null),
+                    'route_id' => $toNullable($invoiceData['route_id'] ?? null),
+                    'sales_territory_id' => $toNullable($invoiceData['sales_territory_id'] ?? null),
+                    'client_uuid' => $clientUuid,
+                    'deleted_at' => null,
+                    'updated_at' => now(),
+                ]);
+
+                \App\Models\SalesInvoiceItem::where('sales_invoice_id', $existing->id)->delete();
+                foreach ($itemsData as $itemData) {
+                    \App\Models\SalesInvoiceItem::create([
+                        'sales_invoice_id' => $existing->id,
+                        'item_id' => $itemData['item_id'],
+                        'unit_id' => $itemData['unit_id'] ?? null,
+                        'qty' => $itemData['qty'],
+                        'bonus_qty' => 0,
+                        'price' => $itemData['price'],
+                        'gross_amount' => $itemData['gross_amount'],
+                        'discount_type' => null,
+                        'discount_value' => 0,
+                        'discount_amount' => 0,
+                        'tax_percent' => $itemData['tax_percent'],
+                        'tax_amount' => $itemData['tax_amount'],
+                        'net_amount' => $itemData['net_amount'],
+                    ]);
+                }
+
+                $applyDistribution($itemsData, 1);
+                return $existing;
+            });
             $results[] = [
-                'uuid' => $invoiceData['uuid'],
-                'status' => 'already_synced',
-                'invoice_no' => $existing->invoice_no,
+                'client_uuid' => $invoiceData['client_uuid'],
+                'status' => 'updated',
+                'invoice_no' => $invoice->invoice_no,
+                'id' => $invoice->id,
             ];
             continue;
         }
 
-        $invoice = DB::transaction(function () use ($invoiceData, $user, $employee, $request) {
+        $invoice = DB::transaction(function () use ($invoiceData, $user, $employee, $request, $clientUuid, $toNullable) {
             $subtotal = 0;
             $taxTotal = 0;
             $itemsData = [];
@@ -984,30 +1321,32 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
 
             $now = now();
 
-            $invoiceNo = $invoiceData['invoice_no'] ?? null;
-            if (empty($invoiceNo)) {
-                return response()->json(['message' => 'invoice_no مطلوب من التطبيق'], 422);
-            }
-
             $warehouse = \App\Models\Warehouse::where('company_id', $user->company_id)
                 ->where('is_active', true)->first();
+
+            // Use the invoice number supplied by Flutter as-is.
+            $invoiceNo = $invoiceData['invoice_no'] ?? $invoiceData['temp_invoice_no'] ?? null;
 
             $inv = SalesInvoice::create([
                 'company_id' => $user->company_id,
                 'branch_id' => $invoiceData['branch_id'] ?? $request->input('branch_id'),
                 'warehouse_id' => $warehouse?->id,
+                'client_uuid' => $clientUuid,
+                'uuid' => $clientUuid,
                 'invoice_no' => $invoiceNo,
-                'temp_invoice_no' => $invoiceData['temp_invoice_no'] ?? null,
-                'uuid' => $invoiceData['uuid'],
+                'temp_invoice_no' => $invoiceData['invoice_no'] ?? $invoiceData['temp_invoice_no'] ?? null,
                 'source' => 'mobile',
                 'mode' => 'offline',
                 'device_id' => $invoiceData['device_id'] ?? null,
                 'sync_status' => 'synced',
                 'synced_at' => now(),
                 'customer_id' => $invoiceData['customer_id'],
+                'customer_type_id' => $toNullable($invoiceData['customer_type_id'] ?? null),
                 'sales_rep_id' => $employee->id,
-                'sales_territory_id' => $invoiceData['sales_territory_id'] ?? null,
-                'issue_order_id' => $itemsData[0]['issue_order_id'] ?? null,
+                'sales_territory_id' => $toNullable($invoiceData['sales_territory_id'] ?? null),
+                'issue_order_id' => $toNullable($itemsData[0]['issue_order_id'] ?? null),
+                'route_id' => $toNullable($invoiceData['route_id'] ?? null),
+                'load_request_id' => $toNullable($invoiceData['load_request_id'] ?? null),
                 'invoice_date' => $invoiceData['invoice_date'],
                 'invoice_time' => now()->format('H:i:s'),
                 'subtotal' => $subtotal,
@@ -1019,9 +1358,11 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 'paid_amount' => $paidAmount,
                 'remaining_amount' => $remainingAmount,
                 'status' => 'approved',
-                'notes' => $cashReceived < $paidAmount
-                    ? 'فاتورة مبيعات - سداد من رصيد سابق'
-                    : 'فاتورة كاش اوفلاين - تم المزامنة',
+                'notes' => ($invoiceData['customer_id'] == null && ($invoiceData['customer_name'] ?? '') != '')
+                    ? 'عميل نقدي - ' . ($invoiceData['customer_name'] ?? '') . ' - كود: ' . ($invoiceData['customer_code'] ?? '')
+                    : ($cashReceived < $paidAmount
+                        ? 'فاتورة مبيعات - سداد من رصيد سابق'
+                        : 'فاتورة كاش اوفلاين - تم المزامنة'),
                 'created_by' => $employee->id,
             ]);
 
@@ -1082,9 +1423,10 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         });
 
         $results[] = [
-            'uuid' => $invoiceData['uuid'],
+            'client_uuid' => $invoiceData['client_uuid'],
             'status' => 'synced',
             'invoice_no' => $invoice->invoice_no,
+            'id' => $invoice->id,
         ];
     }
 
@@ -2024,11 +2366,13 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         return response()->json(['message' => 'المندوب غير موجود'], 404);
     }
 
+    $hasNewColumns = \Illuminate\Support\Facades\Schema::hasColumn('rep_daily_settlements', 'customer_type');
+
     $uuid = $request->input('uuid');
     if ($uuid) {
         $existing = \App\Models\Sales\RepDailySettlement::where('company_id', $user->company_id)
             ->where('sales_rep_id', $employee->id)
-            ->where('notes', 'like', "%uuid:$uuid%")
+            ->where('settlement_uuid', $uuid)
             ->first();
         if ($existing) {
             return response()->json(['message' => 'تم بالفعل', 'data' => ['settlement_id' => $existing->id]], 200);
@@ -2089,7 +2433,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         ->whereDate('collection_date', $today)
         ->where('company_id', $user->company_id)
         ->whereNull('deleted_at')
-        ->where('notes', 'like', '%الدفع من رصيد سابق%')
+        ->where('collection_type', 'balance_payment')
         ->sum('amount');
 
     $expectedCash = $totalPaid - $totalExpenses - (float) $collectionsFromBalance;
@@ -2101,9 +2445,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
     $salesmanDebtId = null;
 
     if ($existingSettlement) {
-        $notes = $request->notes;
-        if ($uuid) $notes = ($notes ? "$notes " : '') . "uuid:$uuid";
-        $existingSettlement->update([
+        $updateData = [
             'total_sales_value' => round($totalSales, 2),
             'total_collections_value' => round($totalPaid, 2),
             'total_expenses' => round($totalExpenses, 2),
@@ -2113,20 +2455,27 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             'cash_difference' => round($cashDifference, 2),
             'shortage' => round($shortage, 2),
             'shortage_status' => $shortageStatus,
-            'notes' => $notes,
+            'notes' => $request->notes,
             'status' => 'submitted',
             'branch_id' => $branchId,
             'created_by' => $employee->id,
-        ]);
+        ];
+        $newFields = $hasNewColumns ? array_filter([
+            'customer_type' => $request->input('customer_type'),
+            'counter' => $request->input('counter'),
+            'new_counter_number' => $request->input('new_counter_number'),
+            'return_notes' => $request->input('return_notes'),
+        ], fn($v) => $v !== null) : [];
+        $updateData = array_merge($updateData, $newFields);
+        $existingSettlement->update($updateData);
 
         $existingSettlement->expenses()->delete();
         $settlement = $existingSettlement;
     } else {
-        $notes = $request->notes;
-        if ($uuid) $notes = ($notes ? "$notes " : '') . "uuid:$uuid";
-        $settlement = \App\Models\Sales\RepDailySettlement::create([
+        $createData = [
             'company_id' => $user->company_id,
             'branch_id' => $branchId,
+            'settlement_uuid' => $uuid,
             'settlement_date' => $today,
             'sales_rep_id' => $employee->id,
             'total_sales_value' => round($totalSales, 2),
@@ -2138,10 +2487,18 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             'cash_difference' => round($cashDifference, 2),
             'shortage' => round($shortage, 2),
             'shortage_status' => $shortageStatus,
-            'notes' => $notes,
+            'notes' => $request->notes,
             'status' => 'submitted',
             'created_by' => $employee->id,
-        ]);
+        ];
+        $newFields = $hasNewColumns ? array_filter([
+            'customer_type' => $request->input('customer_type'),
+            'counter' => $request->input('counter'),
+            'new_counter_number' => $request->input('new_counter_number'),
+            'return_notes' => $request->input('return_notes'),
+        ], fn($v) => $v !== null) : [];
+        $createData = array_merge($createData, $newFields);
+        $settlement = \App\Models\Sales\RepDailySettlement::create($createData);
     }
 
     foreach ($request->expenses ?? [] as $expense) {
@@ -2243,6 +2600,10 @@ RouteFacade::get('handheld/my-settlements', function (\Illuminate\Http\Request $
             'cash_difference' => (float) $s->cash_difference,
             'shortage' => (float) $s->shortage,
             'shortage_status' => $s->shortage_status,
+            'customer_type' => $s->customer_type,
+            'counter' => $s->counter,
+            'new_counter_number' => $s->new_counter_number,
+            'return_notes' => $s->return_notes,
             'status' => $s->status,
         ]);
 
@@ -2323,14 +2684,18 @@ RouteFacade::post('handheld/car-expenses', function (\Illuminate\Http\Request $r
     $employee = resolveEmployee($request);
 
     $validated = $request->validate([
+        'vehicle_id' => 'nullable|integer',
         'expense_type' => 'required|string|max:50',
         'amount' => 'required|numeric|min:0',
+        'km' => 'nullable|numeric|min:0',
+        'quantity' => 'nullable|numeric|min:0',
         'notes' => 'nullable|string',
         'expense_date' => 'required|date',
+        'expense_time' => 'nullable|date_format:H:i',
     ]);
 
-    $vehicleId = null;
-    if ($employee) {
+    $vehicleId = $validated['vehicle_id'] ?? null;
+    if (!$vehicleId && $employee) {
         $assignment = DB::table('vehicle_assignments')
             ->where('sales_rep_id', $employee->id)
             ->where('status', 'active')
@@ -2342,12 +2707,29 @@ RouteFacade::post('handheld/car-expenses', function (\Illuminate\Http\Request $r
 
     $expense = \App\Models\VehicleDailyExpense::create([
         'vehicle_id' => $vehicleId,
+        'employee_id' => $employee?->id,
+        'uuid' => $validated['uuid'] ?? null,
         'expense_date' => $validated['expense_date'],
+        'expense_time' => $validated['expense_time'] ?? now()->format('H:i'),
         'expense_type' => strtoupper($validated['expense_type']),
         'amount' => $validated['amount'],
+        'km' => $validated['km'] ?? null,
+        'quantity' => $validated['quantity'] ?? null,
         'notes' => $validated['notes'] ?? null,
         'created_by' => $user->id,
     ]);
+
+    if (strtoupper($validated['expense_type']) === 'FUEL' && $vehicleId) {
+        \App\Models\VehicleFuelTransaction::create([
+            'vehicle_id' => $vehicleId,
+            'transaction_date' => $validated['expense_date'],
+            'transaction_time' => $validated['expense_time'] ?? now()->format('H:i'),
+            'odometer' => $validated['km'] ?? null,
+            'fuel_qty' => $validated['quantity'] ?? 0,
+            'fuel_cost' => $validated['amount'],
+            'notes' => $validated['notes'] ?? null,
+        ]);
+    }
 
     return response()->json([
         'message' => 'تم إضافة المصروف بنجاح',
@@ -2396,24 +2778,21 @@ RouteFacade::post('handheld/sync-car-expenses', function (\Illuminate\Http\Reque
     ]);
 
     $expenses = $request->input('expenses', []);
-    $requestBranchId = $request->input('branch_id');
     $results = ['synced' => 0, 'failed' => 0, 'errors' => []];
 
     foreach ($expenses as $exp) {
         try {
             $uuid = $exp['uuid'] ?? null;
             if ($uuid) {
-                $existing = \App\Models\VehicleDailyExpense::where('company_id', $user->company_id)
-                    ->where('notes', 'like', "%uuid:$uuid%")
-                    ->first();
+                $existing = \App\Models\VehicleDailyExpense::where('uuid', $uuid)->first();
                 if ($existing) {
                     $results['synced']++;
                     continue;
                 }
             }
 
-            $vehicleId = null;
-            if ($employee) {
+            $vehicleId = $exp['vehicle_id'] ?? null;
+            if (!$vehicleId && $employee) {
                 $assignment = DB::table('vehicle_assignments')
                     ->where('sales_rep_id', $employee->id)
                     ->where('status', 'active')
@@ -2423,16 +2802,34 @@ RouteFacade::post('handheld/sync-car-expenses', function (\Illuminate\Http\Reque
                 }
             }
 
-            $notes = $exp['notes'] ?? null;
-            if ($uuid) $notes = ($notes ? "$notes " : '') . "uuid:$uuid";
-            \App\Models\VehicleDailyExpense::create([
+            $expenseType = strtoupper($exp['expense_type'] ?? 'OTHER');
+
+            $expense = \App\Models\VehicleDailyExpense::create([
                 'vehicle_id' => $vehicleId,
+                'employee_id' => $employee?->id,
+                'uuid' => $uuid,
                 'expense_date' => $exp['expense_date'] ?? now()->toDateString(),
-                'expense_type' => strtoupper($exp['expense_type'] ?? 'OTHER'),
+                'expense_time' => $exp['expense_time'] ?? now()->format('H:i'),
+                'expense_type' => $expenseType,
                 'amount' => $exp['amount'] ?? 0,
-                'notes' => $notes,
+                'km' => $exp['km'] ?? null,
+                'quantity' => $exp['quantity'] ?? null,
+                'notes' => $exp['notes'] ?? null,
                 'created_by' => $user->id,
             ]);
+
+            if ($expenseType === 'FUEL' && $vehicleId) {
+                \App\Models\VehicleFuelTransaction::create([
+                    'vehicle_id' => $vehicleId,
+                    'transaction_date' => $exp['expense_date'] ?? now()->toDateString(),
+                    'transaction_time' => $exp['expense_time'] ?? now()->format('H:i'),
+                    'odometer' => $exp['km'] ?? null,
+                    'fuel_qty' => $exp['quantity'] ?? 0,
+                    'fuel_cost' => $exp['amount'] ?? 0,
+                    'notes' => $exp['notes'] ?? null,
+                ]);
+            }
+
             $results['synced']++;
         } catch (\Exception $e) {
             $results['failed']++;
@@ -2441,5 +2838,80 @@ RouteFacade::post('handheld/sync-car-expenses', function (\Illuminate\Http\Reque
     }
 
     return response()->json(['message' => 'تمت المزامنة', 'data' => $results]);
+});
+
+RouteFacade::post('handheld/create-customer', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+    $request->validate([
+        'code' => 'required|string|max:50',
+        'name' => 'required|string|max:255',
+        'phone' => 'nullable|string|max:50',
+        'national_id' => 'nullable|string|max:50',
+        'address' => 'nullable|string|max:500',
+    ]);
+
+    $exists = \App\Models\Customer::where('company_id', $user->company_id)
+        ->where('code', $request->code)
+        ->exists();
+
+    if ($exists) {
+        $customer = \App\Models\Customer::where('company_id', $user->company_id)
+            ->where('code', $request->code)
+            ->first();
+        return response()->json(['message' => 'العميل موجود مسبقاً', 'data' => ['id' => $customer->id, 'code' => $customer->code]]);
+    }
+
+    $employee = resolveEmployee($request);
+
+    $customer = \App\Models\Customer::create([
+        'company_id' => $user->company_id,
+        'branch_id' => $employee?->branch_id,
+        'code' => $request->code,
+        'name_ar' => $request->name,
+        'name_en' => $request->name,
+        'phone' => $request->phone,
+        'mobile' => $request->phone,
+        'national_id' => $request->national_id,
+        'address_line' => $request->address,
+        'is_active' => true,
+        'customer_type_id' => 7,
+    ]);
+
+    return response()->json([
+        'message' => 'تم إنشاء العميل بنجاح',
+        'data' => ['id' => $customer->id, 'code' => $customer->code],
+    ]);
+});
+
+RouteFacade::post('handheld/link-customer-route', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+    $request->validate([
+        'customer_id' => 'required|exists:customers,id',
+        'route_id' => 'required|exists:routes,id',
+    ]);
+
+    $exists = \App\Models\RouteCustomer::where('route_id', $request->route_id)
+        ->where('customer_id', $request->customer_id)
+        ->whereNull('deleted_at')
+        ->exists();
+
+    if ($exists) {
+        return response()->json(['message' => 'العميل مربوط بالفعل بخط السير']);
+    }
+
+    $maxOrder = \App\Models\RouteCustomer::where('route_id', $request->route_id)
+        ->whereNull('deleted_at')
+        ->max('visit_order') ?? 0;
+
+    \App\Models\RouteCustomer::create([
+        'route_id' => $request->route_id,
+        'customer_id' => $request->customer_id,
+        'visit_order' => $maxOrder + 1,
+        'visit_frequency' => 'Daily',
+        'is_mandatory' => true,
+        'is_active' => true,
+    ]);
+
+    return response()->json(['message' => 'تم ربط العميل بخط السير بنجاح']);
 });
 

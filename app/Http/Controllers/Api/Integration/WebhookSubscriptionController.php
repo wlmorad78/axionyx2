@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): WebhookSubscriptionController
+ * الوحدة (Module): التكامل والربط مع الأنظمة الخارجية (Integration)
+ * المورد (Resource): Webhook Subscription
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Webhook Subscription" ضمن وحدة "التكامل والربط مع الأنظمة الخارجية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Integration;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class WebhookSubscriptionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Webhook Subscription) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = WebhookSubscription::query()->with('endpoint', 'event');
@@ -17,6 +32,9 @@ class WebhookSubscriptionController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Webhook Subscription) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('webhook_subscription', 'create'));

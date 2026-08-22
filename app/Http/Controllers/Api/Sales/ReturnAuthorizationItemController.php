@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ReturnAuthorizationItemController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Return Authorization Item
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Return Authorization Item" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -11,12 +23,18 @@ use Illuminate\Http\Request;
 
 class ReturnAuthorizationItemController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Return Authorization Item) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request, ReturnAuthorization $returnAuthorization)
     {
         $with = $request->with ? explode(',', $request->with) : [];
         return $returnAuthorization->items()->with($with)->get();
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Return Authorization Item) بناءً على المعرّف.
+     */
     public function update(Request $request, ReturnAuthorization $returnAuthorization, ReturnAuthorizationItem $item)
     {
         if ($item->return_authorization_id !== $returnAuthorization->id) {
@@ -50,6 +68,9 @@ class ReturnAuthorizationItemController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: bulkAccept — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Return Authorization Item).
+     */
     public function bulkAccept(Request $request, ReturnAuthorization $returnAuthorization)
     {
         $data = $request->validate([
@@ -76,6 +97,9 @@ class ReturnAuthorizationItemController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: bulkReject — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Return Authorization Item).
+     */
     public function bulkReject(Request $request, ReturnAuthorization $returnAuthorization)
     {
         $data = $request->validate([

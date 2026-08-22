@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): BankAccountController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Bank Account
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Account" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +22,9 @@ use Illuminate\Support\Facades\DB;
 
 class BankAccountController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Account) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -43,6 +59,9 @@ class BankAccountController extends Controller
         return $accounts;
     }
 
+    /**
+     * حساب / تلخيص بيانات (Bank Account) وإرجاع النتيجة.
+     */
     private function calculateBalances(array $bankAccountIds): array
     {
         $results = [];
@@ -89,9 +108,25 @@ class BankAccountController extends Controller
             $results[$id] += $row->opening_balance;
         }
 
+        $collections = DB::table('collections')
+            ->whereIn('bank_account_id', $bankAccountIds)
+            ->where('status', 'approved')
+            ->select('bank_account_id', DB::raw('SUM(amount) as total'))
+            ->groupBy('bank_account_id')
+            ->get();
+
+        foreach ($collections as $row) {
+            $id = $row->bank_account_id;
+            if (!isset($results[$id])) $results[$id] = 0;
+            $results[$id] += $row->total;
+        }
+
         return $results;
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Account) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('bank_account', 'store'));
@@ -104,11 +139,17 @@ class BankAccountController extends Controller
         return response()->json(BankAccount::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Account) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankAccount $bankAccount)
     {
         return $bankAccount->load(['account', 'company', 'branch', 'bankTransfers', 'bankReconciliations']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Bank Account) بناءً على المعرّف.
+     */
     public function update(Request $request, BankAccount $bankAccount)
     {
         $data = $request->validate(ValidationRules::for('bank_account', 'update', $bankAccount));
@@ -119,12 +160,18 @@ class BankAccountController extends Controller
         return response()->json($bankAccount);
     }
 
+    /**
+     * حذف سجل من (Bank Account) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankAccount $bankAccount)
     {
         $bankAccount->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Bank Account) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = BankAccount::onlyTrashed()->findOrFail($id);
@@ -132,12 +179,18 @@ class BankAccountController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Bank Account) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         BankAccount::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Bank Account).
+     */
     public function schema()
     {
         return ValidationRules::for('bank_account', 'store');

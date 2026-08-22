@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ItemCategoryController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Item Category
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Item Category" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class ItemCategoryController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Item Category) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -34,6 +49,9 @@ class ItemCategoryController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Item Category) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('item_category', 'store'));
@@ -47,12 +65,18 @@ class ItemCategoryController extends Controller
         return response()->json(ItemCategory::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Item Category) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $model = ItemCategory::withoutTrashed()->findOrFail($id);
         return response()->json($model->load(['company', 'productCompany', 'subCategories']));
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Item Category) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $model = ItemCategory::withoutTrashed()->findOrFail($id);
@@ -64,6 +88,9 @@ class ItemCategoryController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف سجل من (Item Category) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $model = ItemCategory::withoutTrashed()->findOrFail($id);
@@ -72,6 +99,9 @@ class ItemCategoryController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Item Category) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = ItemCategory::onlyTrashed()->findOrFail($id);
@@ -80,6 +110,9 @@ class ItemCategoryController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Item Category) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         ItemCategory::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -87,6 +120,9 @@ class ItemCategoryController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Item Category).
+     */
     public function nextCode(Request $request)
     {
         $query = ItemCategory::withTrashed()
@@ -107,6 +143,9 @@ class ItemCategoryController extends Controller
         return response()->json(['code' => 'CAT-' . str_pad($next, 5, '0', STR_PAD_LEFT)]);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Item Category).
+     */
     public function schema()
     {
         return ValidationRules::for('item_category', 'store');

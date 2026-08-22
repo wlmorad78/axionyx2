@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CustomerVisitController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Customer Visit
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Customer Visit" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class CustomerVisitController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Customer Visit) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -46,6 +61,9 @@ class CustomerVisitController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Customer Visit) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('customer_visit', 'store'));
@@ -53,6 +71,9 @@ class CustomerVisitController extends Controller
         return response()->json(CustomerVisit::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Customer Visit) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(CustomerVisit $customer_visit)
     {
         return $customer_visit->load([
@@ -62,6 +83,9 @@ class CustomerVisitController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Customer Visit) بناءً على المعرّف.
+     */
     public function update(Request $request, CustomerVisit $customer_visit)
     {
         $data = $request->validate(ValidationRules::for('customer_visit', 'update', $customer_visit));
@@ -71,6 +95,9 @@ class CustomerVisitController extends Controller
         return response()->json($customer_visit);
     }
 
+    /**
+     * حذف سجل من (Customer Visit) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(CustomerVisit $customer_visit)
     {
         $customer_visit->delete();
@@ -78,6 +105,9 @@ class CustomerVisitController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Customer Visit) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = CustomerVisit::onlyTrashed()->findOrFail($id);
@@ -86,6 +116,9 @@ class CustomerVisitController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Customer Visit) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         CustomerVisit::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -93,6 +126,9 @@ class CustomerVisitController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Customer Visit).
+     */
     public function schema()
     {
         return ValidationRules::for('customer_visit', 'store');

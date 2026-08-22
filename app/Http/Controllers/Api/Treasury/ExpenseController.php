@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ExpenseController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Expense
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Expense" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Support\Facades\DB;
 
 class ExpenseController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Expense) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = Expense::with(['expenseType', 'treasury']);
@@ -46,6 +61,9 @@ class ExpenseController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Expense) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -80,11 +98,17 @@ class ExpenseController extends Controller
         return response()->json($expense, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Expense) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Expense $expense)
     {
         return $expense->load(['expenseType', 'treasury', 'branch']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Expense) بناءً على المعرّف.
+     */
     public function update(Request $request, Expense $expense)
     {
         $data = $request->validate([
@@ -103,12 +127,18 @@ class ExpenseController extends Controller
         return response()->json($expense);
     }
 
+    /**
+     * حذف سجل من (Expense) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Expense $expense)
     {
         $expense->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Expense) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = Expense::onlyTrashed()->findOrFail($id);
@@ -116,12 +146,18 @@ class ExpenseController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Expense) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         Expense::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Expense).
+     */
     public function nextCode(Request $request)
     {
         $companyId = $request->company_id;
@@ -138,6 +174,9 @@ class ExpenseController extends Controller
         return response()->json(['next_code' => 'EXP-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT)]);
     }
 
+    /**
+     * حساب / تلخيص بيانات (Expense) وإرجاع النتيجة.
+     */
     public function summary(Request $request)
     {
         $companyId = $request->company_id;

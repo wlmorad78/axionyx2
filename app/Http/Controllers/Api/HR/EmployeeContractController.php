@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): EmployeeContractController
+ * الوحدة (Module): الموارد البشرية (HR)
+ * المورد (Resource): Employee Contract
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Employee Contract" ضمن وحدة "الموارد البشرية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class EmployeeContractController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Employee Contract) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -44,6 +59,9 @@ class EmployeeContractController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Employee Contract) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('employee_contract', 'store'));
@@ -51,11 +69,17 @@ class EmployeeContractController extends Controller
         return response()->json(EmployeeContract::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Employee Contract) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(EmployeeContract $employeeContract)
     {
         return $employeeContract->load(['company', 'employee', 'contractType', 'contractStatus', 'amendments']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Employee Contract) بناءً على المعرّف.
+     */
     public function update(Request $request, EmployeeContract $employeeContract)
     {
         $data = $request->validate(ValidationRules::for('employee_contract', 'update', $employeeContract));
@@ -65,6 +89,9 @@ class EmployeeContractController extends Controller
         return response()->json($employeeContract);
     }
 
+    /**
+     * حذف سجل من (Employee Contract) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(EmployeeContract $employeeContract)
     {
         $employeeContract->delete();
@@ -72,6 +99,9 @@ class EmployeeContractController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Employee Contract) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $employeeContract = EmployeeContract::onlyTrashed()->findOrFail($id);
@@ -80,6 +110,9 @@ class EmployeeContractController extends Controller
         return response()->json($employeeContract);
     }
 
+    /**
+     * حذف نهائي للسجل من (Employee Contract) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         EmployeeContract::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -87,6 +120,9 @@ class EmployeeContractController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Employee Contract).
+     */
     public function nextCode(Request $request)
     {
         $last = EmployeeContract::orderBy('id', 'desc')->first();
@@ -95,6 +131,9 @@ class EmployeeContractController extends Controller
         return response()->json(['code' => 'CTR-' . str_pad($next, 4, '0', STR_PAD_LEFT)]);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Employee Contract).
+     */
     public function schema()
     {
         return ValidationRules::for('employee_contract', 'store');

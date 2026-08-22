@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Vehicle Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Support\Facades\Auth;
 
 class VehicleWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = Vehicle::with(['vehicleType'])->orderByDesc('id');
@@ -44,6 +59,9 @@ class VehicleWebController extends Controller
         return view('vehicles.index', compact('vehicles', 'vehicleTypes', 'stats'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Vehicle Web).
+     */
     public function create()
     {
         $vehicleTypes = VehicleType::where('is_active', true)->orderBy('name')->get();
@@ -61,6 +79,9 @@ class VehicleWebController extends Controller
         return view('vehicles.create', compact('vehicleTypes', 'nextCode'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -90,6 +111,9 @@ class VehicleWebController extends Controller
             ->with('success', "تم إنشاء المركبة {$vehicle->vehicle_code} بنجاح");
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Vehicle Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Vehicle $vehicle)
     {
         $vehicle->load(['vehicleType', 'documents', 'assignments.driver', 'maintenance', 'tires', 'batteries', 'insurance']);
@@ -97,6 +121,9 @@ class VehicleWebController extends Controller
         return view('vehicles.show', compact('vehicle'));
     }
 
+    /**
+     * عرض نموذج تعديل سجل موجود من (Vehicle Web).
+     */
     public function edit(Vehicle $vehicle)
     {
         $vehicleTypes = VehicleType::where('is_active', true)->orderBy('name')->get();
@@ -104,6 +131,9 @@ class VehicleWebController extends Controller
         return view('vehicles.edit', compact('vehicle', 'vehicleTypes'));
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Vehicle Web) بناءً على المعرّف.
+     */
     public function update(Request $request, Vehicle $vehicle)
     {
         $request->validate([
@@ -131,6 +161,9 @@ class VehicleWebController extends Controller
             ->with('success', "تم تحديث بيانات المركبة {$vehicle->vehicle_code} بنجاح");
     }
 
+    /**
+     * حذف سجل من (Vehicle Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Vehicle $vehicle)
     {
         $vehicle->delete();
@@ -139,6 +172,9 @@ class VehicleWebController extends Controller
             ->with('success', "تم حذف المركبة {$vehicle->vehicle_code} بنجاح");
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Vehicle Web) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $vehicle = Vehicle::onlyTrashed()->findOrFail($id);

@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): SalesInvoiceController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Sales Invoice
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Sales Invoice" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -15,6 +28,9 @@ use Illuminate\Support\Facades\DB;
 
 class SalesInvoiceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Sales Invoice) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = SalesInvoice::with(['customer', 'warehouse', 'salesRep', 'createdBy']);
@@ -22,6 +38,7 @@ class SalesInvoiceController extends Controller
         if ($request->filled('company_id')) $query->where('company_id', $request->company_id);
         if ($request->filled('branch_id')) $query->where('branch_id', $request->branch_id);
         if ($request->filled('customer_id')) $query->where('customer_id', $request->customer_id);
+        if ($request->filled('sales_rep_id')) $query->where('sales_rep_id', $request->sales_rep_id);
         if ($request->filled('status')) $query->where('status', $request->status);
         if ($request->filled('search')) {
             $s = $request->search;
@@ -29,13 +46,16 @@ class SalesInvoiceController extends Controller
                 $q->where('invoice_no', 'like', "%$s%")->orWhere('notes', 'like', "%$s%");
             });
         }
-        if ($request->filled('date_from')) $query->where('invoice_date', '>=', $request->date_from);
-        if ($request->filled('date_to')) $query->where('invoice_date', '<=', $request->date_to);
+        if ($request->filled('date_from')) $query->whereRaw('DATE(invoice_date) >= ?', [$request->date_from]);
+        if ($request->filled('date_to')) $query->whereRaw('DATE(invoice_date) <= ?', [$request->date_to]);
         if ($request->trashed) $query->onlyTrashed();
 
         return $query->latest()->paginate($request->get('per_page', 15));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Sales Invoice) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate(ValidationRules::for('sales_invoice', 'store'));
@@ -85,6 +105,9 @@ class SalesInvoiceController extends Controller
         return response()->json($invoice, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Sales Invoice) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SalesInvoice $salesInvoice)
     {
         $salesInvoice->load(['customer', 'warehouse', 'salesRep', 'items.item', 'items.unit', 'createdBy']);
@@ -92,6 +115,9 @@ class SalesInvoiceController extends Controller
         return response()->json($salesInvoice);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Sales Invoice) بناءً على المعرّف.
+     */
     public function update(Request $request, SalesInvoice $salesInvoice)
     {
         $validated = $request->validate(ValidationRules::for('sales_invoice', 'update', $salesInvoice));
@@ -144,6 +170,9 @@ class SalesInvoiceController extends Controller
         return response()->json($salesInvoice);
     }
 
+    /**
+     * دالة معالجة: post — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Sales Invoice).
+     */
     public function post(SalesInvoice $salesInvoice)
     {
         try {
@@ -155,6 +184,9 @@ class SalesInvoiceController extends Controller
         return response()->json($salesInvoice->fresh());
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Sales Invoice).
+     */
     public function cancel(SalesInvoice $salesInvoice)
     {
         try {
@@ -166,6 +198,9 @@ class SalesInvoiceController extends Controller
         return response()->json($salesInvoice->fresh());
     }
 
+    /**
+     * حذف سجل من (Sales Invoice) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SalesInvoice $salesInvoice)
     {
         DB::transaction(function () use ($salesInvoice) {
@@ -178,6 +213,9 @@ class SalesInvoiceController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Sales Invoice) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = SalesInvoice::onlyTrashed()->findOrFail($id);
@@ -192,6 +230,9 @@ class SalesInvoiceController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Sales Invoice) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         SalesInvoice::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -199,17 +240,26 @@ class SalesInvoiceController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Sales Invoice).
+     */
     public function schema()
     {
         return ValidationRules::for('sales_invoice', 'store');
     }
 
+    /**
+     * دالة معالجة: syncTreasury — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Sales Invoice).
+     */
     private static function syncTreasury(SalesInvoice $invoice): void
     {
         Log::info('SalesInvoiceController::syncTreasury called but deprecated; use model lifecycle', ['invoice_id' => $invoice->id]);
         return;
     }
 
+    /**
+     * دالة معالجة: syncStock — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Sales Invoice).
+     */
     private static function syncStock(SalesInvoice $invoice, array $items): void
     {
         Log::info('SalesInvoiceController::syncStock called but deprecated; use model lifecycle', ['invoice_id' => $invoice->id]);

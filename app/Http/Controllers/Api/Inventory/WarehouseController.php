@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): WarehouseController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Warehouse
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Warehouse" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class WarehouseController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Warehouse) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -25,6 +40,9 @@ class WarehouseController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Warehouse) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('warehouse', 'store'));
@@ -32,11 +50,17 @@ class WarehouseController extends Controller
         return response()->json($warehouse, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Warehouse) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Warehouse $warehouse)
     {
         return $warehouse->load(['company', 'branch', 'warehouseType', 'manager']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Warehouse) بناءً على المعرّف.
+     */
     public function update(Request $request, Warehouse $warehouse)
     {
         $data = $request->validate(ValidationRules::for('warehouse', 'update', $warehouse));
@@ -44,12 +68,18 @@ class WarehouseController extends Controller
         return response()->json($warehouse);
     }
 
+    /**
+     * حذف سجل من (Warehouse) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Warehouse $warehouse)
     {
         $warehouse->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Warehouse) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $warehouse = Warehouse::onlyTrashed()->findOrFail($id);
@@ -57,6 +87,9 @@ class WarehouseController extends Controller
         return response()->json($warehouse);
     }
 
+    /**
+     * حذف نهائي للسجل من (Warehouse) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         $warehouse = Warehouse::onlyTrashed()->findOrFail($id);
@@ -64,11 +97,17 @@ class WarehouseController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Warehouse).
+     */
     public function schema()
     {
         return ValidationRules::for('warehouse', 'store');
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Warehouse).
+     */
     public function nextCode(Request $request)
     {
         $companyId = $request->company_id;

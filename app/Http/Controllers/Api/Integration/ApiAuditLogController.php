@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ApiAuditLogController
+ * الوحدة (Module): التكامل والربط مع الأنظمة الخارجية (Integration)
+ * المورد (Resource): Api Audit Log
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Api Audit Log" ضمن وحدة "التكامل والربط مع الأنظمة الخارجية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Integration;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class ApiAuditLogController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Api Audit Log) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = ApiAuditLog::query()->with('client');

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): DisplayLocationController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Display Location
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Display Location" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class DisplayLocationController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Display Location) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = DisplayLocation::query();
@@ -29,6 +44,9 @@ class DisplayLocationController extends Controller
         return response()->json($locations);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Display Location) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -43,6 +61,9 @@ class DisplayLocationController extends Controller
         return response()->json($location, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Display Location) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $location = DisplayLocation::findOrFail($id);
@@ -50,6 +71,9 @@ class DisplayLocationController extends Controller
         return response()->json($location);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Display Location) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $location = DisplayLocation::findOrFail($id);
@@ -66,6 +90,9 @@ class DisplayLocationController extends Controller
         return response()->json($location);
     }
 
+    /**
+     * حذف سجل من (Display Location) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $location = DisplayLocation::findOrFail($id);
@@ -74,6 +101,9 @@ class DisplayLocationController extends Controller
         return response()->json(['message' => 'Deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Display Location) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $location = DisplayLocation::onlyTrashed()->findOrFail($id);
@@ -82,6 +112,9 @@ class DisplayLocationController extends Controller
         return response()->json($location);
     }
 
+    /**
+     * حذف نهائي للسجل من (Display Location) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $location = DisplayLocation::onlyTrashed()->findOrFail($id);

@@ -13,6 +13,7 @@ return new class extends Migration {
             $table->date('effective_from')->nullable();
             $table->date('effective_to')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
     public function down(): void { Schema::dropIfExists('customer_price_lists'); }

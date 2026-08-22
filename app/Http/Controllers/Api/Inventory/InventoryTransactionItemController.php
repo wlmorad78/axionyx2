@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): InventoryTransactionItemController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Inventory Transaction Item
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Inventory Transaction Item" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class InventoryTransactionItemController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Inventory Transaction Item) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -25,12 +41,18 @@ class InventoryTransactionItemController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Inventory Transaction Item) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('inventory_transaction_item', 'store'));
         return response()->json(InventoryTransactionItem::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Inventory Transaction Item) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(InventoryTransactionItem $inventoryTransactionItem)
     {
         return $inventoryTransactionItem->load([
@@ -38,6 +60,9 @@ class InventoryTransactionItemController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Inventory Transaction Item) بناءً على المعرّف.
+     */
     public function update(Request $request, InventoryTransactionItem $inventoryTransactionItem)
     {
         $data = $request->validate(ValidationRules::for('inventory_transaction_item', 'update', $inventoryTransactionItem));
@@ -45,12 +70,18 @@ class InventoryTransactionItemController extends Controller
         return response()->json($inventoryTransactionItem);
     }
 
+    /**
+     * حذف سجل من (Inventory Transaction Item) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(InventoryTransactionItem $inventoryTransactionItem)
     {
         $inventoryTransactionItem->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Inventory Transaction Item) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = InventoryTransactionItem::onlyTrashed()->findOrFail($id);
@@ -58,12 +89,18 @@ class InventoryTransactionItemController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Inventory Transaction Item) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         InventoryTransactionItem::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Inventory Transaction Item).
+     */
     public function schema()
     {
         return ValidationRules::for('inventory_transaction_item', 'store');

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): AttendanceRecordController
+ * الوحدة (Module): الموارد البشرية (HR)
+ * المورد (Resource): Attendance Record
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Attendance Record" ضمن وحدة "الموارد البشرية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class AttendanceRecordController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Attendance Record) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -32,6 +47,9 @@ class AttendanceRecordController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Attendance Record) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('attendance_record', 'store'));
@@ -39,11 +57,17 @@ class AttendanceRecordController extends Controller
         return response()->json(AttendanceRecord::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Attendance Record) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(AttendanceRecord $attendanceRecord)
     {
         return $attendanceRecord->load(['employee', 'shift', 'attendanceStatus']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Attendance Record) بناءً على المعرّف.
+     */
     public function update(Request $request, AttendanceRecord $attendanceRecord)
     {
         $data = $request->validate(ValidationRules::for('attendance_record', 'update', $attendanceRecord));
@@ -53,6 +77,9 @@ class AttendanceRecordController extends Controller
         return response()->json($attendanceRecord);
     }
 
+    /**
+     * حذف سجل من (Attendance Record) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(AttendanceRecord $attendanceRecord)
     {
         $attendanceRecord->delete();
@@ -60,6 +87,9 @@ class AttendanceRecordController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Attendance Record) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $attendanceRecord = AttendanceRecord::onlyTrashed()->findOrFail($id);
@@ -68,6 +98,9 @@ class AttendanceRecordController extends Controller
         return response()->json($attendanceRecord);
     }
 
+    /**
+     * حذف نهائي للسجل من (Attendance Record) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         AttendanceRecord::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -75,6 +108,9 @@ class AttendanceRecordController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Attendance Record).
+     */
     public function schema()
     {
         return ValidationRules::for('attendance_record', 'store');

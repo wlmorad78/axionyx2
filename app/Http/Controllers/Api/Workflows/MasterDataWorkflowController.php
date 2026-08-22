@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MasterDataWorkflowController
+ * الوحدة (Module): سير العمل والموافقات (Workflows)
+ * المورد (Resource): Master Data Workflow
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Master Data Workflow" ضمن وحدة "سير العمل والموافقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Workflows;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class MasterDataWorkflowController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Master Data Workflow) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MasterDataWorkflow::query();
@@ -32,6 +47,9 @@ class MasterDataWorkflowController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Master Data Workflow) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('master_data_workflow', 'create'));
@@ -39,11 +57,17 @@ class MasterDataWorkflowController extends Controller
         return response()->json($masterDataWorkflow, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Master Data Workflow) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return MasterDataWorkflow::with('steps')->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Master Data Workflow) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $masterDataWorkflow = MasterDataWorkflow::findOrFail($id);
@@ -52,6 +76,9 @@ class MasterDataWorkflowController extends Controller
         return $masterDataWorkflow;
     }
 
+    /**
+     * حذف سجل من (Master Data Workflow) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $masterDataWorkflow = MasterDataWorkflow::findOrFail($id);
@@ -59,6 +86,9 @@ class MasterDataWorkflowController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Master Data Workflow) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $masterDataWorkflow = MasterDataWorkflow::withTrashed()->findOrFail($id);
@@ -66,6 +96,9 @@ class MasterDataWorkflowController extends Controller
         return $masterDataWorkflow;
     }
 
+    /**
+     * حذف نهائي للسجل من (Master Data Workflow) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $masterDataWorkflow = MasterDataWorkflow::withTrashed()->findOrFail($id);

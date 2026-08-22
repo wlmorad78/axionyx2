@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): BankOpeningBalanceWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Bank Opening Balance Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Opening Balance Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -13,6 +25,9 @@ use Illuminate\Support\Facades\DB;
 
 class BankOpeningBalanceWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Opening Balance Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $companyId = CompanyContext::id();
@@ -69,6 +84,9 @@ class BankOpeningBalanceWebController extends Controller
         return view('bank-opening-balances.index', compact('openingBalances', 'bankAccounts', 'fiscalYears', 'stats'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Bank Opening Balance Web).
+     */
     public function create(Request $request)
     {
         $companyId = CompanyContext::id();
@@ -84,6 +102,9 @@ class BankOpeningBalanceWebController extends Controller
         return view('bank-opening-balances.create', compact('bankAccounts', 'fiscalYears', 'selectedBankAccount'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Opening Balance Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -118,6 +139,9 @@ class BankOpeningBalanceWebController extends Controller
             ->with('success', 'تم إنشاء الرصيد الافتتاحي للبنك بنجاح');
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Opening Balance Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankOpeningBalance $bankOpeningBalance)
     {
         $bankOpeningBalance->load(['bankAccount', 'fiscalYear']);
@@ -125,6 +149,9 @@ class BankOpeningBalanceWebController extends Controller
         return view('bank-opening-balances.show', compact('bankOpeningBalance'));
     }
 
+    /**
+     * عرض نموذج تعديل سجل موجود من (Bank Opening Balance Web).
+     */
     public function edit(BankOpeningBalance $bankOpeningBalance)
     {
         $companyId = CompanyContext::id();
@@ -138,6 +165,9 @@ class BankOpeningBalanceWebController extends Controller
         return view('bank-opening-balances.edit', compact('bankOpeningBalance', 'bankAccounts', 'fiscalYears'));
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Bank Opening Balance Web) بناءً على المعرّف.
+     */
     public function update(Request $request, BankOpeningBalance $bankOpeningBalance)
     {
         $data = $request->validate([
@@ -169,6 +199,9 @@ class BankOpeningBalanceWebController extends Controller
             ->with('success', 'تم تحديث الرصيد الافتتاحي بنجاح');
     }
 
+    /**
+     * حذف سجل من (Bank Opening Balance Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankOpeningBalance $bankOpeningBalance)
     {
         DB::transaction(function () use ($bankOpeningBalance) {

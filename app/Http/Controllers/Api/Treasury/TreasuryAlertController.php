@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryAlertController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury Alert
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Alert" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TreasuryAlertController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Alert) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = TreasuryAlert::with(['treasury']);
@@ -29,6 +44,9 @@ class TreasuryAlertController extends Controller
         return response()->json($alerts);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Alert) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -44,6 +62,9 @@ class TreasuryAlertController extends Controller
         return response()->json($alert->load('treasury'), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Alert) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $alert = TreasuryAlert::with(['treasury'])->findOrFail($id);
@@ -51,6 +72,9 @@ class TreasuryAlertController extends Controller
         return response()->json($alert);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury Alert) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $alert = TreasuryAlert::findOrFail($id);
@@ -68,6 +92,9 @@ class TreasuryAlertController extends Controller
         return response()->json($alert->load('treasury'));
     }
 
+    /**
+     * حذف سجل من (Treasury Alert) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $alert = TreasuryAlert::findOrFail($id);
@@ -76,6 +103,9 @@ class TreasuryAlertController extends Controller
         return response()->json(['message' => 'Treasury alert deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Treasury Alert) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $alert = TreasuryAlert::onlyTrashed()->findOrFail($id);
@@ -84,6 +114,9 @@ class TreasuryAlertController extends Controller
         return response()->json($alert->load('treasury'));
     }
 
+    /**
+     * حذف نهائي للسجل من (Treasury Alert) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $alert = TreasuryAlert::onlyTrashed()->findOrFail($id);

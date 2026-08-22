@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): PurchaseInvoiceController
+ * الوحدة (Module): المشتريات (Purchase)
+ * المورد (Resource): Purchase Invoice
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Purchase Invoice" ضمن وحدة "المشتريات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Purchase;
 
 use App\Http\Controllers\Controller;
@@ -14,6 +27,9 @@ use Illuminate\Support\Facades\DB;
 
 class PurchaseInvoiceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Purchase Invoice) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = PurchaseInvoice::with(['supplier', 'purchaseReceipt', 'createdByEmployee']);
@@ -34,10 +50,10 @@ class PurchaseInvoiceController extends Controller
             $query->where('invoice_no', 'like', '%' . $request->search . '%');
         }
         if ($request->filled('date_from')) {
-            $query->where('invoice_date', '>=', $request->date_from);
+            $query->whereRaw('DATE(invoice_date) >= ?', [$request->date_from]);
         }
         if ($request->filled('date_to')) {
-            $query->where('invoice_date', '<=', $request->date_to);
+            $query->whereRaw('DATE(invoice_date) <= ?', [$request->date_to]);
         }
         if ($request->trashed) {
             $query->onlyTrashed();
@@ -46,6 +62,9 @@ class PurchaseInvoiceController extends Controller
         return $query->latest()->paginate($request->get('per_page', 15));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Purchase Invoice) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate(ValidationRules::for('purchase_invoice', 'store'));
@@ -90,6 +109,9 @@ class PurchaseInvoiceController extends Controller
         return response()->json($invoice, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Purchase Invoice) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(PurchaseInvoice $purchaseInvoice)
     {
         $purchaseInvoice->load(['supplier', 'purchaseReceipt', 'items.item', 'items.unit', 'createdByEmployee']);
@@ -97,6 +119,9 @@ class PurchaseInvoiceController extends Controller
         return response()->json($purchaseInvoice);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Purchase Invoice) بناءً على المعرّف.
+     */
     public function update(Request $request, PurchaseInvoice $purchaseInvoice)
     {
         $validated = $request->validate(ValidationRules::for('purchase_invoice', 'update', $purchaseInvoice));
@@ -146,6 +171,9 @@ class PurchaseInvoiceController extends Controller
         return response()->json($purchaseInvoice);
     }
 
+    /**
+     * حذف سجل من (Purchase Invoice) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(PurchaseInvoice $purchaseInvoice)
     {
         DB::transaction(function () use ($purchaseInvoice) {
@@ -158,6 +186,9 @@ class PurchaseInvoiceController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Purchase Invoice) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = PurchaseInvoice::onlyTrashed()->findOrFail($id);
@@ -172,6 +203,9 @@ class PurchaseInvoiceController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Purchase Invoice) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         PurchaseInvoice::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -179,6 +213,9 @@ class PurchaseInvoiceController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * دالة معالجة: post — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Purchase Invoice).
+     */
     public function post(PurchaseInvoice $purchaseInvoice)
     {
         try {
@@ -190,6 +227,9 @@ class PurchaseInvoiceController extends Controller
         return response()->json($purchaseInvoice->fresh());
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Purchase Invoice).
+     */
     public function cancel(PurchaseInvoice $purchaseInvoice)
     {
         try {
@@ -201,11 +241,17 @@ class PurchaseInvoiceController extends Controller
         return response()->json($purchaseInvoice->fresh());
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Purchase Invoice).
+     */
     public function schema()
     {
         return ValidationRules::for('purchase_invoice', 'store');
     }
 
+    /**
+     * دالة معالجة: syncStock — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Purchase Invoice).
+     */
     private static function syncStock(PurchaseInvoice $invoice, array $items): void
     {
         if (empty($items)) return;

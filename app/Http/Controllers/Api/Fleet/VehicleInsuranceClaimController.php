@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleInsuranceClaimController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Insurance Claim
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Insurance Claim" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class VehicleInsuranceClaimController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Insurance Claim) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = VehicleInsuranceClaim::query();
@@ -28,6 +43,9 @@ class VehicleInsuranceClaimController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Insurance Claim) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('vehicle_insurance_claim', 'create'));
@@ -45,6 +63,9 @@ class VehicleInsuranceClaimController extends Controller
         return $item;
     }
 
+    /**
+     * حذف سجل من (Vehicle Insurance Claim) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $item = VehicleInsuranceClaim::findOrFail($id);
@@ -52,6 +73,9 @@ class VehicleInsuranceClaimController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Vehicle Insurance Claim) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $item = VehicleInsuranceClaim::withTrashed()->findOrFail($id);
@@ -59,6 +83,9 @@ class VehicleInsuranceClaimController extends Controller
         return $item;
     }
 
+    /**
+     * حذف نهائي للسجل من (Vehicle Insurance Claim) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $item = VehicleInsuranceClaim::withTrashed()->findOrFail($id);

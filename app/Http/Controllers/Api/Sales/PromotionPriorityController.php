@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): PromotionPriorityController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Promotion Priority
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Promotion Priority" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use App\Support\ValidationRules;
 
 class PromotionPriorityController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Promotion Priority) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = PromotionPriority::query();
@@ -26,6 +41,9 @@ class PromotionPriorityController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Promotion Priority) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('promotion_priority', 'create'));
@@ -33,11 +51,17 @@ class PromotionPriorityController extends Controller
         return response()->json($promotionPriority, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Promotion Priority) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return PromotionPriority::findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Promotion Priority) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $promotionPriority = PromotionPriority::findOrFail($id);
@@ -46,6 +70,9 @@ class PromotionPriorityController extends Controller
         return $promotionPriority;
     }
 
+    /**
+     * حذف سجل من (Promotion Priority) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $promotionPriority = PromotionPriority::findOrFail($id);
@@ -53,6 +80,9 @@ class PromotionPriorityController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Promotion Priority) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $promotionPriority = PromotionPriority::withTrashed()->findOrFail($id);
@@ -60,6 +90,9 @@ class PromotionPriorityController extends Controller
         return $promotionPriority;
     }
 
+    /**
+     * حذف نهائي للسجل من (Promotion Priority) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $promotionPriority = PromotionPriority::withTrashed()->findOrFail($id);

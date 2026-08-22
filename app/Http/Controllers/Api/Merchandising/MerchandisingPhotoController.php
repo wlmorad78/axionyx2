@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MerchandisingPhotoController
+ * الوحدة (Module): الترتيب والتنسيق التجاري (Merchandising) (Merchandising)
+ * المورد (Resource): Merchandising Photo
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Merchandising Photo" ضمن وحدة "الترتيب والتنسيق التجاري (Merchandising)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Merchandising;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MerchandisingPhotoController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Merchandising Photo) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MerchandisingPhoto::with('visit');
@@ -26,6 +41,9 @@ class MerchandisingPhotoController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Merchandising Photo) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -39,11 +57,17 @@ class MerchandisingPhotoController extends Controller
         return response()->json($photo, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Merchandising Photo) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return MerchandisingPhoto::with('visit')->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Merchandising Photo) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $photo = MerchandisingPhoto::findOrFail($id);
@@ -59,6 +83,9 @@ class MerchandisingPhotoController extends Controller
         return $photo;
     }
 
+    /**
+     * حذف سجل من (Merchandising Photo) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $photo = MerchandisingPhoto::findOrFail($id);
@@ -66,6 +93,9 @@ class MerchandisingPhotoController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Merchandising Photo) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $photo = MerchandisingPhoto::withTrashed()->findOrFail($id);
@@ -73,6 +103,9 @@ class MerchandisingPhotoController extends Controller
         return $photo;
     }
 
+    /**
+     * حذف نهائي للسجل من (Merchandising Photo) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $photo = MerchandisingPhoto::withTrashed()->findOrFail($id);

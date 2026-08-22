@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): OpeningBalanceDocumentWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Opening Balance Document Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Opening Balance Document Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -21,6 +33,9 @@ use Illuminate\Support\Facades\DB;
 
 class OpeningBalanceDocumentWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Opening Balance Document Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $companyId = CompanyContext::id();
@@ -122,6 +137,9 @@ class OpeningBalanceDocumentWebController extends Controller
         return view('opening-balances.index', compact('documents', 'stats', 'branches', 'accounts', 'inventoryBalances'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Opening Balance Document Web).
+     */
     public function create(Request $request)
     {
         $branches = Branch::where('is_active', true)->orderBy('name_ar')->get();
@@ -140,6 +158,9 @@ class OpeningBalanceDocumentWebController extends Controller
         ));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Opening Balance Document Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -196,6 +217,9 @@ class OpeningBalanceDocumentWebController extends Controller
             ->with('success', 'تم إنشاء قيد الأرصدة الافتتاحية بنجاح');
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Opening Balance Document Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(OpeningBalanceDocument $openingBalance)
     {
         $openingBalance->load([
@@ -207,6 +231,9 @@ class OpeningBalanceDocumentWebController extends Controller
         return view('opening-balances.show', compact('openingBalance'));
     }
 
+    /**
+     * عرض نموذج تعديل سجل موجود من (Opening Balance Document Web).
+     */
     public function edit(OpeningBalanceDocument $openingBalance)
     {
         if ($openingBalance->status === 'posted') {
@@ -229,6 +256,9 @@ class OpeningBalanceDocumentWebController extends Controller
         ));
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Opening Balance Document Web) بناءً على المعرّف.
+     */
     public function update(Request $request, OpeningBalanceDocument $openingBalance)
     {
         if ($openingBalance->status === 'posted') {
@@ -287,6 +317,9 @@ class OpeningBalanceDocumentWebController extends Controller
             ->with('success', 'تم تحديث قيد الأرصدة الافتتاحية بنجاح');
     }
 
+    /**
+     * حذف سجل من (Opening Balance Document Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(OpeningBalanceDocument $openingBalance)
     {
         if ($openingBalance->status === 'posted') {
@@ -300,6 +333,9 @@ class OpeningBalanceDocumentWebController extends Controller
             ->with('success', 'تم حذف قيد الأرصدة الافتتاحية بنجاح');
     }
 
+    /**
+     * دالة معالجة: post — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Opening Balance Document Web).
+     */
     public function post(OpeningBalanceDocument $openingBalance)
     {
         if ($openingBalance->status === 'posted') {
@@ -320,6 +356,9 @@ class OpeningBalanceDocumentWebController extends Controller
             ->with('success', 'تم اعتماد قيد الأرصدة الافتتاحية بنجاح');
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Opening Balance Document Web).
+     */
     public function cancel(OpeningBalanceDocument $openingBalance)
     {
         if ($openingBalance->status !== 'posted') {
@@ -335,6 +374,9 @@ class OpeningBalanceDocumentWebController extends Controller
             ->with('success', 'تم إلغاء اعتماد القيد بنجاح');
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Opening Balance Document Web) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $document = OpeningBalanceDocument::onlyTrashed()->findOrFail($id);

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MerchandisingAuditDetailController
+ * الوحدة (Module): الترتيب والتنسيق التجاري (Merchandising) (Merchandising)
+ * المورد (Resource): Merchandising Audit Detail
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Merchandising Audit Detail" ضمن وحدة "الترتيب والتنسيق التجاري (Merchandising)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Merchandising;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MerchandisingAuditDetailController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Merchandising Audit Detail) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MerchandisingAuditDetail::query();
@@ -25,6 +40,9 @@ class MerchandisingAuditDetailController extends Controller
         return response()->json($details);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Merchandising Audit Detail) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -39,6 +57,9 @@ class MerchandisingAuditDetailController extends Controller
         return response()->json($detail, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Merchandising Audit Detail) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $detail = MerchandisingAuditDetail::findOrFail($id);
@@ -46,6 +67,9 @@ class MerchandisingAuditDetailController extends Controller
         return response()->json($detail);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Merchandising Audit Detail) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $detail = MerchandisingAuditDetail::findOrFail($id);
@@ -62,6 +86,9 @@ class MerchandisingAuditDetailController extends Controller
         return response()->json($detail);
     }
 
+    /**
+     * حذف سجل من (Merchandising Audit Detail) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $detail = MerchandisingAuditDetail::findOrFail($id);
@@ -70,6 +97,9 @@ class MerchandisingAuditDetailController extends Controller
         return response()->json(['message' => 'Deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Merchandising Audit Detail) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $detail = MerchandisingAuditDetail::onlyTrashed()->findOrFail($id);
@@ -78,6 +108,9 @@ class MerchandisingAuditDetailController extends Controller
         return response()->json($detail);
     }
 
+    /**
+     * حذف نهائي للسجل من (Merchandising Audit Detail) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $detail = MerchandisingAuditDetail::onlyTrashed()->findOrFail($id);

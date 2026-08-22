@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MarketingCampaignCustomerController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Marketing Campaign Customer
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Marketing Campaign Customer" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MarketingCampaignCustomerController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Marketing Campaign Customer) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MarketingCampaignCustomer::with(['campaign', 'customer']);
@@ -26,6 +41,9 @@ class MarketingCampaignCustomerController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Marketing Campaign Customer) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -39,11 +57,17 @@ class MarketingCampaignCustomerController extends Controller
         return response()->json($record, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Marketing Campaign Customer) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return MarketingCampaignCustomer::with(['campaign', 'customer'])->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Marketing Campaign Customer) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $record = MarketingCampaignCustomer::findOrFail($id);
@@ -59,6 +83,9 @@ class MarketingCampaignCustomerController extends Controller
         return $record;
     }
 
+    /**
+     * حذف سجل من (Marketing Campaign Customer) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $record = MarketingCampaignCustomer::findOrFail($id);
@@ -66,6 +93,9 @@ class MarketingCampaignCustomerController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Marketing Campaign Customer) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $record = MarketingCampaignCustomer::withTrashed()->findOrFail($id);
@@ -73,6 +103,9 @@ class MarketingCampaignCustomerController extends Controller
         return $record;
     }
 
+    /**
+     * حذف نهائي للسجل من (Marketing Campaign Customer) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $record = MarketingCampaignCustomer::withTrashed()->findOrFail($id);

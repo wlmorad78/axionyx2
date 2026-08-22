@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CompanySidebarController
+ * الوحدة (Module): واجهة برمجة التطبيقات (Api)
+ * المورد (Resource): Company Sidebar
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Company Sidebar" ضمن وحدة "واجهة برمجة التطبيقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Http\Request;
 
 class CompanySidebarController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Company Sidebar) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $companyId = $request->query('company_id');
@@ -99,6 +114,9 @@ class CompanySidebarController extends Controller
         return response()->json(['data' => $result]);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Company Sidebar) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -121,6 +139,9 @@ class CompanySidebarController extends Controller
         return response()->json(['message' => 'Sidebar settings updated successfully']);
     }
 
+    /**
+     * حذف سجل من (Company Sidebar) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Request $request)
     {
         $request->validate([
@@ -132,6 +153,9 @@ class CompanySidebarController extends Controller
         return response()->json(['message' => 'Sidebar settings reset to defaults']);
     }
 
+    /**
+     * جلب / استعلام بيانات مخصصة لـ (Company Sidebar) حسب الطلب.
+     */
     public function getEffectiveMenu(Request $request)
     {
         $companyId = $request->query('company_id');
@@ -163,6 +187,9 @@ class CompanySidebarController extends Controller
         return response()->json(['data' => $menu]);
     }
 
+    /**
+     * جلب / استعلام بيانات مخصصة لـ (Company Sidebar) حسب الطلب.
+     */
     private function getAllMenuKeys(): array
     {
         $base = config('menu.items', []);

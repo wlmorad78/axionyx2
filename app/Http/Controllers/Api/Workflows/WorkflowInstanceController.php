@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): WorkflowInstanceController
+ * الوحدة (Module): سير العمل والموافقات (Workflows)
+ * المورد (Resource): Workflow Instance
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Workflow Instance" ضمن وحدة "سير العمل والموافقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Workflows;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class WorkflowInstanceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Workflow Instance) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = WorkflowInstance::query()->with(['workflow', 'startedBy']);
@@ -29,6 +44,9 @@ class WorkflowInstanceController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Workflow Instance) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('workflow_instance', 'create'));
@@ -43,11 +61,17 @@ class WorkflowInstanceController extends Controller
         return response()->json($workflowInstance, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Workflow Instance) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return WorkflowInstance::with(['workflow', 'startedBy'])->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Workflow Instance) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $workflowInstance = WorkflowInstance::findOrFail($id);
@@ -56,6 +80,9 @@ class WorkflowInstanceController extends Controller
         return $workflowInstance;
     }
 
+    /**
+     * حذف سجل من (Workflow Instance) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $workflowInstance = WorkflowInstance::findOrFail($id);
@@ -63,6 +90,9 @@ class WorkflowInstanceController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Workflow Instance) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $workflowInstance = WorkflowInstance::withTrashed()->findOrFail($id);
@@ -70,6 +100,9 @@ class WorkflowInstanceController extends Controller
         return $workflowInstance;
     }
 
+    /**
+     * حذف نهائي للسجل من (Workflow Instance) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $workflowInstance = WorkflowInstance::withTrashed()->findOrFail($id);

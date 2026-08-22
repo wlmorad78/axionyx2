@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MarketingAssetMovementController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Marketing Asset Movement
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Marketing Asset Movement" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MarketingAssetMovementController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Marketing Asset Movement) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MarketingAssetMovement::with(['marketingAsset', 'fromCustomer', 'toCustomer', 'createdBy']);
@@ -26,6 +41,9 @@ class MarketingAssetMovementController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Marketing Asset Movement) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -42,11 +60,17 @@ class MarketingAssetMovementController extends Controller
         return response()->json($movement, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Marketing Asset Movement) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return MarketingAssetMovement::with(['marketingAsset', 'fromCustomer', 'toCustomer', 'createdBy'])->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Marketing Asset Movement) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $movement = MarketingAssetMovement::findOrFail($id);
@@ -65,6 +89,9 @@ class MarketingAssetMovementController extends Controller
         return $movement;
     }
 
+    /**
+     * حذف سجل من (Marketing Asset Movement) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $movement = MarketingAssetMovement::findOrFail($id);
@@ -72,6 +99,9 @@ class MarketingAssetMovementController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Marketing Asset Movement) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $movement = MarketingAssetMovement::withTrashed()->findOrFail($id);
@@ -79,6 +109,9 @@ class MarketingAssetMovementController extends Controller
         return $movement;
     }
 
+    /**
+     * حذف نهائي للسجل من (Marketing Asset Movement) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $movement = MarketingAssetMovement::withTrashed()->findOrFail($id);

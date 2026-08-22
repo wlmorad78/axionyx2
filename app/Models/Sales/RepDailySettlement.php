@@ -16,7 +16,8 @@ class RepDailySettlement extends Model
     protected $table = 'rep_daily_settlements';
 
     protected $fillable = [
-        'company_id', 'branch_id', 'settlement_no', 'settlement_date', 'sales_rep_id',
+        'company_id', 'branch_id', 'settlement_no', 'settlement_uuid', 'settlement_date', 'sales_rep_id',
+        'customer_type', 'counter', 'new_counter_number', 'return_notes',
         'issue_order_id', 'total_sales_value', 'total_collections_value',
         'total_expenses', 'total_from_balance', 'expected_cash', 'actual_cash',
         'cash_difference', 'shortage', 'shortage_status', 'salesman_debt_id',

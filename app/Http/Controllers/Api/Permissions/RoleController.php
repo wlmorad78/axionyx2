@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): RoleController
+ * الوحدة (Module): الصلاحيات والأدوار (Permissions)
+ * المورد (Resource): Role
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Role" ضمن وحدة "الصلاحيات والأدوار".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Permissions;
 
 use App\Http\Controllers\Controller;
@@ -12,6 +24,9 @@ use Illuminate\Support\Facades\DB;
 
 class RoleController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Role) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = Role::with('permissions');
@@ -34,6 +49,9 @@ class RoleController extends Controller
         ]);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Role) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('role', 'store'));
@@ -45,11 +63,17 @@ class RoleController extends Controller
         return response()->json($role->load(['permissions']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Role) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Role $role)
     {
         return $role->load(['permissions']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Role) بناءً على المعرّف.
+     */
     public function update(Request $request, Role $role)
     {
         $data = $request->validate(ValidationRules::for('role', 'update', $role));
@@ -61,6 +85,9 @@ class RoleController extends Controller
         return response()->json($role->load(['permissions']));
     }
 
+    /**
+     * حذف سجل من (Role) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Role $role)
     {
         $role->delete();
@@ -126,11 +153,17 @@ class RoleController extends Controller
         ]);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Role).
+     */
     public function schema()
     {
         return ValidationRules::for('role', 'store');
     }
 
+    /**
+     * دالة معالجة: syncRolePermissions — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Role).
+     */
     private function syncRolePermissions(Role $role, Request $request): void
     {
         if ($request->has('permission_ids')) {
@@ -153,6 +186,9 @@ class RoleController extends Controller
         }
     }
 
+    /**
+     * دالة معالجة: matchesPermission — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Role).
+     */
     private function matchesPermission(string $permission, string $pattern): bool
     {
         if ($pattern === '*') return true;

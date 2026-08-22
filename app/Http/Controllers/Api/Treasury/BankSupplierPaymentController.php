@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): BankSupplierPaymentController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Bank Supplier Payment
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Supplier Payment" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -13,6 +25,9 @@ use Illuminate\Support\Facades\DB;
 
 class BankSupplierPaymentController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Supplier Payment) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : ['bankAccount', 'supplier'];
@@ -36,6 +51,9 @@ class BankSupplierPaymentController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Supplier Payment) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('bank_supplier_payment', 'store'));
@@ -57,6 +75,9 @@ class BankSupplierPaymentController extends Controller
         return response()->json($payment->load(['bankAccount', 'supplier']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Supplier Payment) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankSupplierPayment $bankSupplierPayment)
     {
         return $bankSupplierPayment->load([
@@ -65,6 +86,9 @@ class BankSupplierPaymentController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Bank Supplier Payment) بناءً على المعرّف.
+     */
     public function update(Request $request, BankSupplierPayment $bankSupplierPayment)
     {
         $data = $request->validate(ValidationRules::for('bank_supplier_payment', 'update', $bankSupplierPayment));
@@ -72,6 +96,9 @@ class BankSupplierPaymentController extends Controller
         return response()->json($bankSupplierPayment);
     }
 
+    /**
+     * حذف سجل من (Bank Supplier Payment) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankSupplierPayment $bankSupplierPayment)
     {
         DB::transaction(function () use ($bankSupplierPayment) {
@@ -84,6 +111,9 @@ class BankSupplierPaymentController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Bank Supplier Payment).
+     */
     public function approve(BankSupplierPayment $bankSupplierPayment)
     {
         if ($bankSupplierPayment->status !== 'draft') {
@@ -102,6 +132,9 @@ class BankSupplierPaymentController extends Controller
         return response()->json($bankSupplierPayment->load(['bankAccount', 'supplier']));
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Bank Supplier Payment).
+     */
     public function cancel(BankSupplierPayment $bankSupplierPayment)
     {
         if ($bankSupplierPayment->status === 'cancelled') {
@@ -118,11 +151,17 @@ class BankSupplierPaymentController extends Controller
         return response()->json($bankSupplierPayment->load(['bankAccount', 'supplier']));
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Bank Supplier Payment).
+     */
     public function nextCode()
     {
         return response()->json(['payment_no' => self::generateNextCode()]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Bank Supplier Payment) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = BankSupplierPayment::onlyTrashed()->findOrFail($id);
@@ -137,6 +176,9 @@ class BankSupplierPaymentController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Bank Supplier Payment) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         $m = BankSupplierPayment::onlyTrashed()->findOrFail($id);
@@ -151,11 +193,17 @@ class BankSupplierPaymentController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Bank Supplier Payment).
+     */
     public function schema()
     {
         return ValidationRules::for('bank_supplier_payment', 'store');
     }
 
+    /**
+     * دالة معالجة: executePayment — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Bank Supplier Payment).
+     */
     private static function executePayment(BankSupplierPayment $payment): void
     {
         $amount = (float) $payment->amount;
@@ -184,6 +232,9 @@ class BankSupplierPaymentController extends Controller
         }
     }
 
+    /**
+     * دالة معالجة: reversePayment — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Bank Supplier Payment).
+     */
     private static function reversePayment(BankSupplierPayment $payment): void
     {
         $amount = (float) $payment->amount;
@@ -206,6 +257,9 @@ class BankSupplierPaymentController extends Controller
         }
     }
 
+    /**
+     * جلب / استعلام بيانات مخصصة لـ (Bank Supplier Payment) حسب الطلب.
+     */
     private static function getSupplierBalance(int $supplierId): float
     {
         $last = SupplierLedger::where('supplier_id', $supplierId)
@@ -214,6 +268,9 @@ class BankSupplierPaymentController extends Controller
         return $last ? (float) $last->balance : 0;
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Bank Supplier Payment).
+     */
     private static function generateNextCode(): string
     {
         $last = BankSupplierPayment::withTrashed()

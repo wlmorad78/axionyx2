@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ReturnAuthorizationController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Return Authorization
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Return Authorization" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -13,7 +25,7 @@ use App\Models\Sales\SalesmanDebt;
 use App\Models\Sales\SalesmanAccountMovement;
 use App\Models\HR\Employee;
 use App\Models\Inventory\Item;
-use App\Models\Unit;
+use App\Models\Inventory\Unit;
 use App\Models\Sales\SalesInvoice;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
@@ -21,6 +33,9 @@ use Illuminate\Support\Facades\DB;
 
 class ReturnAuthorizationController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Return Authorization) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -72,6 +87,9 @@ class ReturnAuthorizationController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Return Authorization) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('return_authorization', 'store'));
@@ -91,6 +109,9 @@ class ReturnAuthorizationController extends Controller
         });
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Return Authorization) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(ReturnAuthorization $returnAuthorization)
     {
         return $returnAuthorization->load([
@@ -100,6 +121,9 @@ class ReturnAuthorizationController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Return Authorization) بناءً على المعرّف.
+     */
     public function update(Request $request, ReturnAuthorization $returnAuthorization)
     {
         $data = $request->validate(ValidationRules::for('return_authorization', 'update', $returnAuthorization));
@@ -121,12 +145,18 @@ class ReturnAuthorizationController extends Controller
         });
     }
 
+    /**
+     * حذف سجل من (Return Authorization) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(ReturnAuthorization $returnAuthorization)
     {
         $returnAuthorization->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Return Authorization).
+     */
     public function approve(Request $request, ReturnAuthorization $returnAuthorization)
     {
         if ($returnAuthorization->status !== 'draft' && $returnAuthorization->status !== 'pending') {
@@ -285,6 +315,9 @@ class ReturnAuthorizationController extends Controller
         });
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Return Authorization).
+     */
     public function reject(Request $request, ReturnAuthorization $returnAuthorization)
     {
         if ($returnAuthorization->status !== 'draft' && $returnAuthorization->status !== 'pending') {
@@ -302,6 +335,9 @@ class ReturnAuthorizationController extends Controller
         ]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Return Authorization) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = ReturnAuthorization::onlyTrashed()->findOrFail($id);
@@ -309,17 +345,26 @@ class ReturnAuthorizationController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Return Authorization) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         ReturnAuthorization::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Return Authorization).
+     */
     public function schema()
     {
         return ValidationRules::for('return_authorization', 'store');
     }
 
+    /**
+     * دالة معالجة: updateRepItemDistribution — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Return Authorization).
+     */
     private function updateRepItemDistribution(ReturnAuthorizationItem $authItem): void
     {
         if (!$authItem->sales_invoice_item_id) return;

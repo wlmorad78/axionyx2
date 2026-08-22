@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SalesRouteController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Sales Route
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Sales Route" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class SalesRouteController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Sales Route) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -45,6 +60,9 @@ class SalesRouteController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Sales Route) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('route', 'store'));
@@ -56,11 +74,17 @@ class SalesRouteController extends Controller
         return response()->json(SalesRoute::create($data), 201);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Sales Route).
+     */
     public function nextCode(Request $request)
     {
         return response()->json(['code' => $this->generateNextCode()]);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Sales Route) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $sales_route = SalesRoute::withTrashed()->findOrFail($id);
@@ -75,6 +99,9 @@ class SalesRouteController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Sales Route) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $sales_route = SalesRoute::withTrashed()->findOrFail($id);
@@ -86,6 +113,9 @@ class SalesRouteController extends Controller
         return response()->json($sales_route);
     }
 
+    /**
+     * حذف سجل من (Sales Route) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $sales_route = SalesRoute::withTrashed()->findOrFail($id);
@@ -99,6 +129,9 @@ class SalesRouteController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Sales Route) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = SalesRoute::onlyTrashed()->findOrFail($id);
@@ -107,6 +140,9 @@ class SalesRouteController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Sales Route) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         SalesRoute::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -114,11 +150,17 @@ class SalesRouteController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Sales Route).
+     */
     public function schema()
     {
         return ValidationRules::for('route', 'store');
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Sales Route).
+     */
     protected function generateNextCode(): string
     {
         $last = SalesRoute::withTrashed()->where('code', 'like', 'RT-%')

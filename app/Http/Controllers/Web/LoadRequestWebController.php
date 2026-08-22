@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): LoadRequestWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Load Request Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Load Request Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -18,6 +30,9 @@ use Illuminate\Support\Facades\Auth;
 
 class LoadRequestWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Load Request Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -41,6 +56,9 @@ class LoadRequestWebController extends Controller
         return view('load-requests.index', compact('loadRequests'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Load Request Web).
+     */
     public function create()
     {
         $user = Auth::user();
@@ -62,6 +80,9 @@ class LoadRequestWebController extends Controller
         return view('load-requests.create', compact('items', 'warehouses'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Load Request Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -129,6 +150,9 @@ class LoadRequestWebController extends Controller
             ->with('success', "تم إنشاء أمر التحميل {$result->request_no} بنجاح");
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Load Request Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(LoadRequest $loadRequest)
     {
         $loadRequest->load([
@@ -140,6 +164,9 @@ class LoadRequestWebController extends Controller
         return view('load-requests.show', compact('loadRequest'));
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Load Request Web).
+     */
     public function approve(LoadRequest $loadRequest)
     {
         $user = Auth::user();
@@ -155,6 +182,9 @@ class LoadRequestWebController extends Controller
         return view('load-requests.approve', compact('loadRequest'));
     }
 
+    /**
+     * دالة معالجة: processApproval — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Load Request Web).
+     */
     public function processApproval(Request $request, LoadRequest $loadRequest)
     {
         $user = Auth::user();
@@ -325,6 +355,9 @@ class LoadRequestWebController extends Controller
             ->with('success', 'تمت الموافقة على الطلب وإنشاء إذن الصرف بنجاح');
     }
 
+    /**
+     * حذف سجل من (Load Request Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(LoadRequest $loadRequest)
     {
         if (!in_array($loadRequest->status, ['draft', 'pending'])) {
@@ -337,6 +370,9 @@ class LoadRequestWebController extends Controller
             ->with('success', 'تم حذف طلب التحميل بنجاح');
     }
 
+    /**
+     * جلب / استعلام بيانات مخصصة لـ (Load Request Web) حسب الطلب.
+     */
     protected function getWarehouseStock(int $warehouseId, int $itemId): float
     {
         $txnQty = \App\Models\Inventory\InventoryTransactionItem::query()

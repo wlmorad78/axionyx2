@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TaxCalculationController
+ * الوحدة (Module): الضرائب والفواتير الإلكترونية (Tax)
+ * المورد (Resource): Tax Calculation
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Tax Calculation" ضمن وحدة "الضرائب والفواتير الإلكترونية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Tax;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\JsonResponse;
 
 class TaxCalculationController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Tax Calculation) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request): JsonResponse
     {
         $query = TaxCalculation::query();
@@ -31,6 +46,9 @@ class TaxCalculationController extends Controller
         return response()->json($taxCalculations);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Tax Calculation) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -47,6 +65,9 @@ class TaxCalculationController extends Controller
         return response()->json($taxCalculation, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Tax Calculation) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(TaxCalculation $taxCalculation): JsonResponse
     {
         $taxCalculation->load('details');
@@ -54,6 +75,9 @@ class TaxCalculationController extends Controller
         return response()->json($taxCalculation);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Tax Calculation) بناءً على المعرّف.
+     */
     public function update(Request $request, TaxCalculation $taxCalculation): JsonResponse
     {
         $validated = $request->validate([
@@ -70,6 +94,9 @@ class TaxCalculationController extends Controller
         return response()->json($taxCalculation);
     }
 
+    /**
+     * حذف سجل من (Tax Calculation) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(TaxCalculation $taxCalculation): JsonResponse
     {
         $taxCalculation->delete();

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CustomerAccountTypeController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Customer Account Type
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Customer Account Type" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class CustomerAccountTypeController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Customer Account Type) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -32,6 +47,9 @@ class CustomerAccountTypeController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Customer Account Type) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -45,11 +63,17 @@ class CustomerAccountTypeController extends Controller
         return response()->json(CustomerAccountType::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Customer Account Type) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(CustomerAccountType $customerAccountType)
     {
         return $customerAccountType->load(['company']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Customer Account Type) بناءً على المعرّف.
+     */
     public function update(Request $request, CustomerAccountType $customerAccountType)
     {
         $data = $request->validate([
@@ -63,12 +87,18 @@ class CustomerAccountTypeController extends Controller
         return response()->json($customerAccountType);
     }
 
+    /**
+     * حذف سجل من (Customer Account Type) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(CustomerAccountType $customerAccountType)
     {
         $customerAccountType->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Customer Account Type) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = CustomerAccountType::onlyTrashed()->findOrFail($id);
@@ -76,12 +106,18 @@ class CustomerAccountTypeController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Customer Account Type) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         CustomerAccountType::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Customer Account Type).
+     */
     public function nextCode(Request $request)
     {
         $companyId = $request->company_id;

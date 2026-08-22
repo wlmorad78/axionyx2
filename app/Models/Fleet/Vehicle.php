@@ -47,9 +47,9 @@ class Vehicle extends Model
         return $this->hasMany(VehicleMaintenance::class);
     }
 
-    public function expenses()
+    public function dailyExpenses()
     {
-        return $this->hasMany(VehicleExpense::class);
+        return $this->hasMany(VehicleDailyExpense::class);
     }
 
     public function loadings()

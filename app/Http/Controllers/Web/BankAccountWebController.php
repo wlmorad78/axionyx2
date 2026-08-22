@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): BankAccountWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Bank Account Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Account Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -12,6 +24,9 @@ use Illuminate\Support\Facades\Auth;
 
 class BankAccountWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Account Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = BankAccount::with(['company', 'currency'])
@@ -35,6 +50,9 @@ class BankAccountWebController extends Controller
         return view('bank-accounts.index', compact('bankAccounts'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Bank Account Web).
+     */
     public function create()
     {
         $branches = Branch::where('is_active', true)->orderBy('name')->get();
@@ -44,6 +62,9 @@ class BankAccountWebController extends Controller
         return view('bank-accounts.create', compact('branches', 'accounts', 'currencies'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Account Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -71,6 +92,9 @@ class BankAccountWebController extends Controller
             ->with('success', "تم إنشاء حساب البنك {$bankAccount->bank_name} بنجاح");
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Account Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankAccount $bankAccount)
     {
         $bankAccount->load(['company', 'currency', 'branch', 'account']);
@@ -78,6 +102,9 @@ class BankAccountWebController extends Controller
         return view('bank-accounts.show', compact('bankAccount'));
     }
 
+    /**
+     * عرض نموذج تعديل سجل موجود من (Bank Account Web).
+     */
     public function edit(BankAccount $bankAccount)
     {
         $branches = Branch::where('is_active', true)->orderBy('name')->get();
@@ -87,6 +114,9 @@ class BankAccountWebController extends Controller
         return view('bank-accounts.edit', compact('bankAccount', 'branches', 'accounts', 'currencies'));
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Bank Account Web) بناءً على المعرّف.
+     */
     public function update(Request $request, BankAccount $bankAccount)
     {
         $data = $request->validate([
@@ -112,6 +142,9 @@ class BankAccountWebController extends Controller
             ->with('success', 'تم تحديث حساب البنك بنجاح');
     }
 
+    /**
+     * حذف سجل من (Bank Account Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankAccount $bankAccount)
     {
         $bankAccount->delete();

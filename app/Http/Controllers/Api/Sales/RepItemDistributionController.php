@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): RepItemDistributionController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Rep Item Distribution
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Rep Item Distribution" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Support\Facades\DB;
 
 class RepItemDistributionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Rep Item Distribution) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = RepItemDistribution::with(['item', 'issueOrder', 'returnOrder', 'employee'])
@@ -31,6 +46,9 @@ class RepItemDistributionController extends Controller
         return response()->json($data);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Rep Item Distribution) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -80,6 +98,9 @@ class RepItemDistributionController extends Controller
         return response()->json(['data' => $record], 201);
     }
 
+    /**
+     * دالة معالجة: bulkStore — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Rep Item Distribution).
+     */
     public function bulkStore(Request $request)
     {
         $validated = $request->validate([
@@ -137,6 +158,9 @@ class RepItemDistributionController extends Controller
         return response()->json(['data' => $results], 201);
     }
 
+    /**
+     * دالة معالجة: linkReturnOrder — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Rep Item Distribution).
+     */
     public function linkReturnOrder(Request $request, $returnOrderId)
     {
         $validated = $request->validate([

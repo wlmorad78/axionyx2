@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): ReceiptVoucherController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Receipt Voucher
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Receipt Voucher" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class ReceiptVoucherController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Receipt Voucher) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -27,6 +43,9 @@ class ReceiptVoucherController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Receipt Voucher) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('receipt_voucher', 'store'));
@@ -36,6 +55,9 @@ class ReceiptVoucherController extends Controller
         return response()->json(ReceiptVoucher::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Receipt Voucher) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(ReceiptVoucher $receiptVoucher)
     {
         return $receiptVoucher->load([
@@ -45,6 +67,9 @@ class ReceiptVoucherController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Receipt Voucher) بناءً على المعرّف.
+     */
     public function update(Request $request, ReceiptVoucher $receiptVoucher)
     {
         $data = $request->validate(ValidationRules::for('receipt_voucher', 'update', $receiptVoucher));
@@ -52,17 +77,26 @@ class ReceiptVoucherController extends Controller
         return response()->json($receiptVoucher);
     }
 
+    /**
+     * حذف سجل من (Receipt Voucher) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(ReceiptVoucher $receiptVoucher)
     {
         $receiptVoucher->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Receipt Voucher).
+     */
     public function nextCode()
     {
         return response()->json(['voucher_no' => self::generateNextCode()]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Receipt Voucher) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = ReceiptVoucher::onlyTrashed()->findOrFail($id);
@@ -70,17 +104,26 @@ class ReceiptVoucherController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Receipt Voucher) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         ReceiptVoucher::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Receipt Voucher).
+     */
     public function schema()
     {
         return ValidationRules::for('receipt_voucher', 'store');
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Receipt Voucher).
+     */
     private static function generateNextCode(): string
     {
         $last = ReceiptVoucher::orderByDesc('id')->value('voucher_no');

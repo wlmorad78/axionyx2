@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): IssueOrderItemController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Issue Order Item
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Issue Order Item" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class IssueOrderItemController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Issue Order Item) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -24,17 +40,26 @@ class IssueOrderItemController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Issue Order Item) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('issue_order_item', 'store'));
         return response()->json(IssueOrderItem::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Issue Order Item) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(IssueOrderItem $issueOrderItem)
     {
         return $issueOrderItem->load(['issueOrder', 'item', 'unit']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Issue Order Item) بناءً على المعرّف.
+     */
     public function update(Request $request, IssueOrderItem $issueOrderItem)
     {
         $data = $request->validate(ValidationRules::for('issue_order_item', 'update', $issueOrderItem));
@@ -42,12 +67,18 @@ class IssueOrderItemController extends Controller
         return response()->json($issueOrderItem);
     }
 
+    /**
+     * حذف سجل من (Issue Order Item) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(IssueOrderItem $issueOrderItem)
     {
         $issueOrderItem->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Issue Order Item) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = IssueOrderItem::onlyTrashed()->findOrFail($id);
@@ -55,12 +86,18 @@ class IssueOrderItemController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Issue Order Item) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         IssueOrderItem::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Issue Order Item).
+     */
     public function schema()
     {
         return ValidationRules::for('issue_order_item', 'store');

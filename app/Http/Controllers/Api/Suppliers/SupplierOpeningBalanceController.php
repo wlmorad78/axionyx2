@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SupplierOpeningBalanceController
+ * الوحدة (Module): الموردين (Suppliers)
+ * المورد (Resource): Supplier Opening Balance
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Supplier Opening Balance" ضمن وحدة "الموردين".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Suppliers;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class SupplierOpeningBalanceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Supplier Opening Balance) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = SupplierOpeningBalance::with(['supplier', 'branch']);
@@ -25,6 +40,9 @@ class SupplierOpeningBalanceController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 50);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Supplier Opening Balance) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -58,11 +76,17 @@ class SupplierOpeningBalanceController extends Controller
         return response()->json($record->load(['supplier', 'branch']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Supplier Opening Balance) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SupplierOpeningBalance $supplierOpeningBalance)
     {
         return $supplierOpeningBalance->load(['supplier', 'branch', 'createdBy']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Supplier Opening Balance) بناءً على المعرّف.
+     */
     public function update(Request $request, SupplierOpeningBalance $supplierOpeningBalance)
     {
         $data = $request->validate([
@@ -92,6 +116,9 @@ class SupplierOpeningBalanceController extends Controller
         return response()->json($supplierOpeningBalance->load(['supplier', 'branch']));
     }
 
+    /**
+     * حذف سجل من (Supplier Opening Balance) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SupplierOpeningBalance $supplierOpeningBalance)
     {
         $supplier = $supplierOpeningBalance->supplier;
@@ -106,6 +133,9 @@ class SupplierOpeningBalanceController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Supplier Opening Balance) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = SupplierOpeningBalance::onlyTrashed()->findOrFail($id);

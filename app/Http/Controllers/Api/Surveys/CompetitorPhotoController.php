@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CompetitorPhotoController
+ * الوحدة (Module): الاستبيانات والاستطلاعات (Surveys)
+ * المورد (Resource): Competitor Photo
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Competitor Photo" ضمن وحدة "الاستبيانات والاستطلاعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Surveys;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class CompetitorPhotoController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Competitor Photo) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -31,6 +46,9 @@ class CompetitorPhotoController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Competitor Photo) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -45,11 +63,17 @@ class CompetitorPhotoController extends Controller
         return response()->json(CompetitorPhoto::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Competitor Photo) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(CompetitorPhoto $competitorPhoto)
     {
         return $competitorPhoto->load(['customer', 'salesRep', 'competitor']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Competitor Photo) بناءً على المعرّف.
+     */
     public function update(Request $request, CompetitorPhoto $competitorPhoto)
     {
         $data = $request->validate([
@@ -65,12 +89,18 @@ class CompetitorPhotoController extends Controller
         return response()->json($competitorPhoto);
     }
 
+    /**
+     * حذف سجل من (Competitor Photo) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(CompetitorPhoto $competitorPhoto)
     {
         $competitorPhoto->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Competitor Photo) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = CompetitorPhoto::onlyTrashed()->findOrFail($id);
@@ -78,6 +108,9 @@ class CompetitorPhotoController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Competitor Photo) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         CompetitorPhoto::onlyTrashed()->findOrFail($id)->forceDelete();

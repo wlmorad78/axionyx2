@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryBankTransferController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury Bank Transfer
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Bank Transfer" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -13,6 +25,9 @@ use Illuminate\Support\Facades\DB;
 
 class TreasuryBankTransferController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Bank Transfer) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : ['treasury', 'bankAccount'];
@@ -37,6 +52,9 @@ class TreasuryBankTransferController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Bank Transfer) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('treasury_bank_transfer', 'store'));
@@ -58,6 +76,9 @@ class TreasuryBankTransferController extends Controller
         return response()->json($transfer->load(['treasury', 'bankAccount']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Bank Transfer) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(TreasuryBankTransfer $treasuryBankTransfer)
     {
         return $treasuryBankTransfer->load([
@@ -66,6 +87,9 @@ class TreasuryBankTransferController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury Bank Transfer) بناءً على المعرّف.
+     */
     public function update(Request $request, TreasuryBankTransfer $treasuryBankTransfer)
     {
         $data = $request->validate(ValidationRules::for('treasury_bank_transfer', 'update', $treasuryBankTransfer));
@@ -73,6 +97,9 @@ class TreasuryBankTransferController extends Controller
         return response()->json($treasuryBankTransfer);
     }
 
+    /**
+     * حذف سجل من (Treasury Bank Transfer) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(TreasuryBankTransfer $treasuryBankTransfer)
     {
         DB::transaction(function () use ($treasuryBankTransfer) {
@@ -85,6 +112,9 @@ class TreasuryBankTransferController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Treasury Bank Transfer).
+     */
     public function approve(TreasuryBankTransfer $treasuryBankTransfer)
     {
         if ($treasuryBankTransfer->status !== 'draft') {
@@ -103,6 +133,9 @@ class TreasuryBankTransferController extends Controller
         return response()->json($treasuryBankTransfer->load(['treasury', 'bankAccount']));
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Treasury Bank Transfer).
+     */
     public function cancel(TreasuryBankTransfer $treasuryBankTransfer)
     {
         if ($treasuryBankTransfer->status === 'cancelled') {
@@ -119,11 +152,17 @@ class TreasuryBankTransferController extends Controller
         return response()->json($treasuryBankTransfer->load(['treasury', 'bankAccount']));
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Treasury Bank Transfer).
+     */
     public function nextCode()
     {
         return response()->json(['transfer_no' => self::generateNextCode()]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Treasury Bank Transfer) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = TreasuryBankTransfer::onlyTrashed()->findOrFail($id);
@@ -138,6 +177,9 @@ class TreasuryBankTransferController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Treasury Bank Transfer) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         $m = TreasuryBankTransfer::onlyTrashed()->findOrFail($id);
@@ -152,11 +194,17 @@ class TreasuryBankTransferController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Treasury Bank Transfer).
+     */
     public function schema()
     {
         return ValidationRules::for('treasury_bank_transfer', 'store');
     }
 
+    /**
+     * دالة معالجة: executeTransfer — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Treasury Bank Transfer).
+     */
     private static function executeTransfer(TreasuryBankTransfer $transfer): void
     {
         $amount = (float) $transfer->amount;
@@ -195,6 +243,9 @@ class TreasuryBankTransferController extends Controller
         }
     }
 
+    /**
+     * دالة معالجة: reverseTransfer — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Treasury Bank Transfer).
+     */
     private static function reverseTransfer(TreasuryBankTransfer $transfer): void
     {
         TreasuryTransaction::where('reference_type', TreasuryBankTransfer::class)
@@ -213,6 +264,9 @@ class TreasuryBankTransferController extends Controller
         }
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Treasury Bank Transfer).
+     */
     private static function generateNextCode(): string
     {
         $last = TreasuryBankTransfer::withTrashed()

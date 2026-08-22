@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): AccountController
+ * الوحدة (Module): المحاسبة (Accounting)
+ * المورد (Resource): Account
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Account" ضمن وحدة "المحاسبة".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Accounting;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +22,9 @@ use Illuminate\Support\Facades\DB;
 
 class AccountController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Account) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -36,6 +52,9 @@ class AccountController extends Controller
         return $query->orderBy('account_code')->paginate($request->per_page ?? 50);
     }
 
+    /**
+     * بناء وعرض هيكل شجري (هيكلي) لسجلات (Account).
+     */
     public function tree(Request $request)
     {
         $companyId = $request->company_id ?? auth()->user()->company_id ?? null;
@@ -57,6 +76,9 @@ class AccountController extends Controller
         return response()->json($tree);
     }
 
+    /**
+     * دالة معالجة: buildTree — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Account).
+     */
     private function buildTree($accounts, $parentId = null)
     {
         $tree = [];
@@ -76,6 +98,9 @@ class AccountController extends Controller
         return $tree;
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Account) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('account', 'store'));
@@ -118,6 +143,9 @@ class AccountController extends Controller
         return response()->json($account->load(['accountGroup', 'accountType', 'parent']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Account) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Account $account)
     {
         return $account->load([
@@ -126,6 +154,9 @@ class AccountController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Account) بناءً على المعرّف.
+     */
     public function update(Request $request, Account $account)
     {
         $data = $request->validate(ValidationRules::for('account', 'update', $account));
@@ -150,6 +181,9 @@ class AccountController extends Controller
         return response()->json($account->fresh()->load(['accountGroup', 'accountType', 'parent']));
     }
 
+    /**
+     * حذف سجل من (Account) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Account $account)
     {
         if (!$account->isDeletable()) {
@@ -162,6 +196,9 @@ class AccountController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Account).
+     */
     public function nextCode(Request $request)
     {
         $parentId = $request->parent_id;
@@ -169,6 +206,9 @@ class AccountController extends Controller
         return response()->json(['account_code' => $code]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Account) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = Account::onlyTrashed()->findOrFail($id);
@@ -176,17 +216,26 @@ class AccountController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Account) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         Account::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Account).
+     */
     public function schema()
     {
         return ValidationRules::for('account', 'store');
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Account).
+     */
     private function generateNextCode(?int $parentId = null): string
     {
         if ($parentId) {

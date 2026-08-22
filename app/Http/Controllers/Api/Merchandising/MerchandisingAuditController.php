@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MerchandisingAuditController
+ * الوحدة (Module): الترتيب والتنسيق التجاري (Merchandising) (Merchandising)
+ * المورد (Resource): Merchandising Audit
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Merchandising Audit" ضمن وحدة "الترتيب والتنسيق التجاري (Merchandising)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Merchandising;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MerchandisingAuditController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Merchandising Audit) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MerchandisingAudit::with(['customer', 'salesRep', 'details', 'shelfAudits', 'refrigeratorAudits', 'photos']);
@@ -37,6 +52,9 @@ class MerchandisingAuditController extends Controller
         return response()->json($audits);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Merchandising Audit) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -57,6 +75,9 @@ class MerchandisingAuditController extends Controller
         return response()->json($audit->load(['customer', 'salesRep', 'details', 'shelfAudits', 'refrigeratorAudits', 'photos']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Merchandising Audit) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $audit = MerchandisingAudit::with(['customer', 'salesRep', 'details', 'shelfAudits', 'refrigeratorAudits', 'photos'])->findOrFail($id);
@@ -64,6 +85,9 @@ class MerchandisingAuditController extends Controller
         return response()->json($audit);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Merchandising Audit) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $audit = MerchandisingAudit::findOrFail($id);
@@ -86,6 +110,9 @@ class MerchandisingAuditController extends Controller
         return response()->json($audit->load(['customer', 'salesRep', 'details', 'shelfAudits', 'refrigeratorAudits', 'photos']));
     }
 
+    /**
+     * حذف سجل من (Merchandising Audit) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $audit = MerchandisingAudit::findOrFail($id);
@@ -94,6 +121,9 @@ class MerchandisingAuditController extends Controller
         return response()->json(['message' => 'Deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Merchandising Audit) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $audit = MerchandisingAudit::onlyTrashed()->findOrFail($id);
@@ -102,6 +132,9 @@ class MerchandisingAuditController extends Controller
         return response()->json($audit);
     }
 
+    /**
+     * حذف نهائي للسجل من (Merchandising Audit) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $audit = MerchandisingAudit::onlyTrashed()->findOrFail($id);

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MerchandisingChecklistController
+ * الوحدة (Module): الترتيب والتنسيق التجاري (Merchandising) (Merchandising)
+ * المورد (Resource): Merchandising Checklist
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Merchandising Checklist" ضمن وحدة "الترتيب والتنسيق التجاري (Merchandising)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Merchandising;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MerchandisingChecklistController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Merchandising Checklist) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MerchandisingChecklist::query();
@@ -31,6 +46,9 @@ class MerchandisingChecklistController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Merchandising Checklist) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -45,11 +63,17 @@ class MerchandisingChecklistController extends Controller
         return response()->json($checklist, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Merchandising Checklist) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return MerchandisingChecklist::with('visitDetails')->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Merchandising Checklist) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $checklist = MerchandisingChecklist::findOrFail($id);
@@ -66,6 +90,9 @@ class MerchandisingChecklistController extends Controller
         return $checklist;
     }
 
+    /**
+     * حذف سجل من (Merchandising Checklist) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $checklist = MerchandisingChecklist::findOrFail($id);
@@ -73,6 +100,9 @@ class MerchandisingChecklistController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Merchandising Checklist) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $checklist = MerchandisingChecklist::withTrashed()->findOrFail($id);
@@ -80,6 +110,9 @@ class MerchandisingChecklistController extends Controller
         return $checklist;
     }
 
+    /**
+     * حذف نهائي للسجل من (Merchandising Checklist) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $checklist = MerchandisingChecklist::withTrashed()->findOrFail($id);

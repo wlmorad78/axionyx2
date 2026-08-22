@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SubscriptionPlanController
+ * الوحدة (Module): الإعدادات العامة (Settings)
+ * المورد (Resource): Subscription Plan
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Subscription Plan" ضمن وحدة "الإعدادات العامة".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Settings;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Http\Request;
 
 class SubscriptionPlanController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Subscription Plan) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = SubscriptionPlan::with(['modules', 'planPermissions', 'limits']);
@@ -19,6 +34,9 @@ class SubscriptionPlanController extends Controller
         return $query->orderBy('sort_order')->get();
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Subscription Plan) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -49,11 +67,17 @@ class SubscriptionPlanController extends Controller
         return response()->json($plan->load(['modules', 'planPermissions', 'limits']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Subscription Plan) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SubscriptionPlan $subscriptionPlan)
     {
         return $subscriptionPlan->load(['modules', 'planPermissions', 'limits']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Subscription Plan) بناءً على المعرّف.
+     */
     public function update(Request $request, SubscriptionPlan $subscriptionPlan)
     {
         $data = $request->validate([
@@ -82,12 +106,18 @@ class SubscriptionPlanController extends Controller
         return response()->json($subscriptionPlan->load(['modules', 'planPermissions', 'limits']));
     }
 
+    /**
+     * حذف سجل من (Subscription Plan) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SubscriptionPlan $subscriptionPlan)
     {
         $subscriptionPlan->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Subscription Plan) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $plan = SubscriptionPlan::onlyTrashed()->findOrFail($id);
@@ -95,6 +125,9 @@ class SubscriptionPlanController extends Controller
         return response()->json($plan);
     }
 
+    /**
+     * حذف نهائي للسجل من (Subscription Plan) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         $plan = SubscriptionPlan::onlyTrashed()->findOrFail($id);
@@ -136,6 +169,9 @@ class SubscriptionPlanController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: syncPermissionsAndLimits — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Subscription Plan).
+     */
     private function syncPermissionsAndLimits(SubscriptionPlan $plan, Request $request): void
     {
         if ($request->has('permissions')) {

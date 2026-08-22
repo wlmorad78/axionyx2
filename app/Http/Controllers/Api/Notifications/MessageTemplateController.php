@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MessageTemplateController
+ * الوحدة (Module): الإشعارات والتنبيهات (Notifications)
+ * المورد (Resource): Message Template
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Message Template" ضمن وحدة "الإشعارات والتنبيهات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Notifications;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use App\Support\ValidationRules;
 
 class MessageTemplateController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Message Template) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MessageTemplate::query();
@@ -28,6 +43,9 @@ class MessageTemplateController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Message Template) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('message_template', 'create'));
@@ -35,11 +53,17 @@ class MessageTemplateController extends Controller
         return response()->json($messageTemplate, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Message Template) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return MessageTemplate::findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Message Template) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $messageTemplate = MessageTemplate::findOrFail($id);
@@ -48,6 +72,9 @@ class MessageTemplateController extends Controller
         return $messageTemplate;
     }
 
+    /**
+     * حذف سجل من (Message Template) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $messageTemplate = MessageTemplate::findOrFail($id);
@@ -55,6 +82,9 @@ class MessageTemplateController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Message Template) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $messageTemplate = MessageTemplate::withTrashed()->findOrFail($id);
@@ -62,6 +92,9 @@ class MessageTemplateController extends Controller
         return $messageTemplate;
     }
 
+    /**
+     * حذف نهائي للسجل من (Message Template) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $messageTemplate = MessageTemplate::withTrashed()->findOrFail($id);

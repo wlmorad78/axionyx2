@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleUnloadController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Unload
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Unload" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class VehicleUnloadController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Unload) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = VehicleUnload::with(['items', 'vehicle', 'returnOrder']);
@@ -27,6 +42,9 @@ class VehicleUnloadController extends Controller
         return response()->json($unloads);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Unload) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -42,6 +60,9 @@ class VehicleUnloadController extends Controller
         return response()->json($unload->load(['items', 'vehicle', 'returnOrder']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Vehicle Unload) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $unload = VehicleUnload::with(['items', 'vehicle', 'returnOrder'])->findOrFail($id);
@@ -49,6 +70,9 @@ class VehicleUnloadController extends Controller
         return response()->json($unload);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Vehicle Unload) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $unload = VehicleUnload::findOrFail($id);
@@ -66,6 +90,9 @@ class VehicleUnloadController extends Controller
         return response()->json($unload->load(['items', 'vehicle', 'returnOrder']));
     }
 
+    /**
+     * حذف سجل من (Vehicle Unload) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $unload = VehicleUnload::findOrFail($id);
@@ -74,6 +101,9 @@ class VehicleUnloadController extends Controller
         return response()->json(['message' => 'Vehicle unload deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Vehicle Unload) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $unload = VehicleUnload::onlyTrashed()->findOrFail($id);
@@ -82,6 +112,9 @@ class VehicleUnloadController extends Controller
         return response()->json($unload->load(['items', 'vehicle', 'returnOrder']));
     }
 
+    /**
+     * حذف نهائي للسجل من (Vehicle Unload) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $unload = VehicleUnload::onlyTrashed()->findOrFail($id);

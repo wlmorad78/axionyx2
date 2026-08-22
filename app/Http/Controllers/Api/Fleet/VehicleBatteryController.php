@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleBatteryController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Battery
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Battery" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class VehicleBatteryController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Battery) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = VehicleBattery::query();
@@ -31,6 +46,9 @@ class VehicleBatteryController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
         return $query->orderByDesc('id')->paginate($perPage);
     }
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Battery) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('vehicle_battery', 'create'));
@@ -45,18 +63,27 @@ class VehicleBatteryController extends Controller
         $item->update($data);
         return $item;
     }
+    /**
+     * حذف سجل من (Vehicle Battery) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $item = VehicleBattery::findOrFail($id);
         $item->delete();
         return response()->json(['message' => 'Deleted']);
     }
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Vehicle Battery) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $item = VehicleBattery::withTrashed()->findOrFail($id);
         $item->restore();
         return $item;
     }
+    /**
+     * حذف نهائي للسجل من (Vehicle Battery) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $item = VehicleBattery::withTrashed()->findOrFail($id);

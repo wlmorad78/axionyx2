@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SalesmanDebtController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Salesman Debt
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Salesman Debt" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -14,6 +26,9 @@ use Illuminate\Support\Facades\DB;
 
 class SalesmanDebtController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Salesman Debt) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -60,6 +75,9 @@ class SalesmanDebtController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Salesman Debt) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SalesmanDebt $salesmanDebt)
     {
         return $salesmanDebt->load([
@@ -69,6 +87,9 @@ class SalesmanDebtController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: collect — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Salesman Debt).
+     */
     public function collect(Request $request, SalesmanDebt $salesmanDebt)
     {
         $data = $request->validate([
@@ -216,6 +237,9 @@ class SalesmanDebtController extends Controller
         });
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Salesman Debt) بناءً على المعرّف.
+     */
     public function update(SalesmanDebt $salesmanDebt, Request $request)
     {
         $data = $request->validate([
@@ -228,12 +252,18 @@ class SalesmanDebtController extends Controller
         return response()->json($salesmanDebt->fresh());
     }
 
+    /**
+     * حذف سجل من (Salesman Debt) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SalesmanDebt $salesmanDebt)
     {
         $salesmanDebt->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Salesman Debt) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = SalesmanDebt::onlyTrashed()->findOrFail($id);
@@ -241,12 +271,18 @@ class SalesmanDebtController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Salesman Debt) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         SalesmanDebt::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Salesman Debt).
+     */
     public function schema()
     {
         return ValidationRules::for('salesman_debt', 'store');

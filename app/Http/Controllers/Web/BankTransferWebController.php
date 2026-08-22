@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): BankTransferWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Bank Transfer Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Transfer Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Support\Facades\Auth;
 
 class BankTransferWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Transfer Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = BankTransfer::with(['fromBankAccount', 'toBankAccount'])
@@ -32,6 +47,9 @@ class BankTransferWebController extends Controller
         return view('bank-transfers.index', compact('transfers'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Bank Transfer Web).
+     */
     public function create()
     {
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('bank_name')->get();
@@ -39,6 +57,9 @@ class BankTransferWebController extends Controller
         return view('bank-transfers.create', compact('bankAccounts'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Transfer Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -69,6 +90,9 @@ class BankTransferWebController extends Controller
             ->with('success', "تم إنشاء التحويل البنكي {$transfer->transfer_no} بنجاح");
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Transfer Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankTransfer $bankTransfer)
     {
         $bankTransfer->load(['fromBankAccount', 'toBankAccount', 'company']);
@@ -76,6 +100,9 @@ class BankTransferWebController extends Controller
         return view('bank-transfers.show', compact('bankTransfer'));
     }
 
+    /**
+     * حذف سجل من (Bank Transfer Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankTransfer $bankTransfer)
     {
         if ($bankTransfer->status === 'completed') {

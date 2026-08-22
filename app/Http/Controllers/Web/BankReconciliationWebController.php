@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): BankReconciliationWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Bank Reconciliation Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Reconciliation Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Support\Facades\Auth;
 
 class BankReconciliationWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Reconciliation Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = BankReconciliation::with(['bankAccount'])
@@ -31,6 +46,9 @@ class BankReconciliationWebController extends Controller
         return view('bank-reconciliations.index', compact('reconciliations'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Bank Reconciliation Web).
+     */
     public function create()
     {
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('bank_name')->get();
@@ -38,6 +56,9 @@ class BankReconciliationWebController extends Controller
         return view('bank-reconciliations.create', compact('bankAccounts'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Reconciliation Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -61,6 +82,9 @@ class BankReconciliationWebController extends Controller
             ->with('success', 'تم إنشاء التسوية البنكية بنجاح');
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Reconciliation Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankReconciliation $bankReconciliation)
     {
         $bankReconciliation->load(['bankAccount']);
@@ -68,6 +92,9 @@ class BankReconciliationWebController extends Controller
         return view('bank-reconciliations.show', compact('bankReconciliation'));
     }
 
+    /**
+     * حذف سجل من (Bank Reconciliation Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankReconciliation $bankReconciliation)
     {
         $bankReconciliation->delete();

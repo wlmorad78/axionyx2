@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleReservationController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Reservation
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Reservation" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class VehicleReservationController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Vehicle Reservation) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = VehicleReservation::query();
@@ -29,6 +44,9 @@ class VehicleReservationController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Vehicle Reservation) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('vehicle_reservation', 'create'));
@@ -46,6 +64,9 @@ class VehicleReservationController extends Controller
         return $item;
     }
 
+    /**
+     * حذف سجل من (Vehicle Reservation) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $item = VehicleReservation::findOrFail($id);
@@ -53,6 +74,9 @@ class VehicleReservationController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Vehicle Reservation) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $item = VehicleReservation::withTrashed()->findOrFail($id);
@@ -60,6 +84,9 @@ class VehicleReservationController extends Controller
         return $item;
     }
 
+    /**
+     * حذف نهائي للسجل من (Vehicle Reservation) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $item = VehicleReservation::withTrashed()->findOrFail($id);

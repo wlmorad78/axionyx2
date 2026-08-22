@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): BankSupplierPaymentWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Bank Supplier Payment Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Supplier Payment Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -14,6 +26,9 @@ use Illuminate\Support\Facades\DB;
 
 class BankSupplierPaymentWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Supplier Payment Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = BankSupplierPayment::with(['bankAccount', 'supplier'])
@@ -43,6 +58,9 @@ class BankSupplierPaymentWebController extends Controller
         return view('bank-supplier-payments.index', compact('payments', 'totalPaid'));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Bank Supplier Payment Web).
+     */
     public function create()
     {
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('bank_name')->get();
@@ -51,6 +69,9 @@ class BankSupplierPaymentWebController extends Controller
         return view('bank-supplier-payments.create', compact('bankAccounts', 'suppliers'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Supplier Payment Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -104,6 +125,9 @@ class BankSupplierPaymentWebController extends Controller
             ->with('success', "تم إنشاء الدفعة {$payment->payment_no} بنجاح");
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Supplier Payment Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankSupplierPayment $bankSupplierPayment)
     {
         $bankSupplierPayment->load(['bankAccount', 'supplier', 'purchaseInvoice', 'company']);
@@ -111,6 +135,9 @@ class BankSupplierPaymentWebController extends Controller
         return view('bank-supplier-payments.show', compact('bankSupplierPayment'));
     }
 
+    /**
+     * حذف سجل من (Bank Supplier Payment Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankSupplierPayment $bankSupplierPayment)
     {
         DB::transaction(function () use ($bankSupplierPayment) {

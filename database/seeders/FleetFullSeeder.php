@@ -10,7 +10,7 @@ use App\Models\Company;
 use App\Models\Driver;
 use App\Models\Vehicle;
 use App\Models\VehicleAssignment;
-use App\Models\VehicleExpense;
+use App\Models\Fleet\VehicleDailyExpense;
 use App\Models\VehicleFuelTransaction;
 use App\Models\VehicleLoading;
 use App\Models\VehicleMaintenance;
@@ -94,14 +94,15 @@ class FleetFullSeeder extends Seeder
                 'notes' => 'تغيير زيت المحرك',
             ]);
 
-            // Vehicle Expenses
+            // Vehicle Daily Expenses
             foreach ($vehicleModels as $i => $vehicle) {
-                VehicleExpense::create([
+                VehicleDailyExpense::create([
                     'vehicle_id' => $vehicle->id,
                     'expense_date' => now()->subDays($i)->toDateString(),
-                    'expense_type' => 'other',
+                    'expense_type' => 'OTHER',
                     'amount' => 300 + ($i * 100),
                     'notes' => 'صيانة دورية',
+                    'created_by' => $adminUser?->id,
                 ]);
             }
 

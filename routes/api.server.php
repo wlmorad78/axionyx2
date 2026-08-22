@@ -121,6 +121,8 @@ Route::get('sales-territory-types/next-code', function () { return response()->j
 Route::get('organization-units/next-code', [\App\Http\Controllers\Api\HR\OrganizationUnitController::class, 'nextCode']);
 Route::get('cost-centers/next-code', [\App\Http\Controllers\Api\Accounting\CostCenterController::class, 'nextCode']);
 Route::get('treasuries/next-code', [\App\Http\Controllers\Api\Treasury\TreasuryController::class, 'nextCode']);
+Route::get('expense-types/next-code', [\App\Http\Controllers\Api\Treasury\ExpenseTypeController::class, 'nextCode']);
+Route::get('expenses/next-code', [\App\Http\Controllers\Api\Treasury\ExpenseController::class, 'nextCode']);
 Route::get('stock-adjustments/next-code', [\App\Http\Controllers\Api\Inventory\StockAdjustmentController::class, 'nextCode']);
 Route::get('stock-counts/next-code', [\App\Http\Controllers\Api\Inventory\StockCountController::class, 'nextCode']);
 Route::get('warehouse-transfers/next-code', [\App\Http\Controllers\Api\Inventory\WarehouseTransferController::class, 'nextCode']);
@@ -151,6 +153,10 @@ Route::get('reports/sales', [\App\Http\Controllers\Api\Reports\ReportController:
 Route::get('reports/purchases', [\App\Http\Controllers\Api\Reports\ReportController::class, 'purchases'])->middleware('auth:sanctum')->name('reports.purchases');
 Route::get('reports/inventory', [\App\Http\Controllers\Api\Reports\ReportController::class, 'inventory'])->middleware('auth:sanctum')->name('reports.inventory');
 Route::get('reports/profit', [\App\Http\Controllers\Api\Reports\ReportController::class, 'profit'])->name('reports.profit');
+Route::get('reports/customer-daily-sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerDailySales'])->middleware('auth:sanctum')->name('reports.customer-daily-sales');
+Route::get('reports/rep-daily-sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'repDailySales'])->middleware('auth:sanctum')->name('reports.rep-daily-sales');
+Route::get('reports/customer-sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerSales'])->middleware('auth:sanctum')->name('reports.customer-sales');
+Route::get('reports/rep-movement-by-item', [\App\Http\Controllers\Api\Reports\ReportController::class, 'repMovementByItem'])->middleware('auth:sanctum')->name('reports.rep-movement-by-item');
 
 // Item Movement Report
 Route::get('reports/item-movement', function (\Illuminate\Http\Request $request) {
@@ -786,6 +792,8 @@ $resources = [
     'treasury-cash-limits' => \App\Http\Controllers\Api\Treasury\TreasuryCashLimitController::class,
     'treasury-alerts' => \App\Http\Controllers\Api\Treasury\TreasuryAlertController::class,
     'treasury-transactions' => \App\Http\Controllers\Api\Treasury\TreasuryTransactionController::class,
+    'expense-types' => \App\Http\Controllers\Api\Treasury\ExpenseTypeController::class,
+    'expenses' => \App\Http\Controllers\Api\Treasury\ExpenseController::class,
     'account-types' => \App\Http\Controllers\Api\Accounting\AccountTypeController::class,
     'account-groups' => \App\Http\Controllers\Api\Accounting\AccountGroupController::class,
     'journal-entry-types' => \App\Http\Controllers\Api\Accounting\JournalEntryTypeController::class,
@@ -852,6 +860,7 @@ $resources = [
     'vehicle-cash-accounts' => \App\Http\Controllers\Api\Fleet\VehicleCashAccountController::class,
     'vehicle-cash-transactions' => \App\Http\Controllers\Api\Fleet\VehicleCashTransactionController::class,
     'vehicle-daily-expenses' => \App\Http\Controllers\Api\Fleet\VehicleDailyExpenseController::class,
+    'vehicle-daily-shifts' => \App\Http\Controllers\Api\Fleet\VehicleDailyShiftController::class,
     'vehicle-stock-counts' => \App\Http\Controllers\Api\Fleet\VehicleStockCountController::class,
     'vehicle-stock-count-items' => \App\Http\Controllers\Api\Fleet\VehicleStockCountItemController::class,
     'vehicle-settlements' => \App\Http\Controllers\Api\Fleet\VehicleSettlementController::class,
@@ -1074,7 +1083,7 @@ if (class_exists(\App\Http\Controllers\Api\Fleet\VehicleInventoryTransactionItem
 // ===== Restore & Force Delete Routes =====
 $softDeleteResources = [
     'customers', 'companies', 'branches', 'users', 'roles', 'warehouses', 'warehouses-types',
-    'treasuries', 'treasury-types', 'items', 'item-categories', 'item-sub-categories', 'units',
+    'treasuries', 'treasury-types', 'expense-types', 'expenses', 'items', 'item-categories', 'item-sub-categories', 'units',
     'product-companies', 'employees', 'employee-contracts', 'employee-contract-amendments',
     'employee-loans', 'employee-advances', 'employee-penalties', 'employee-rewards',
     'departments', 'position-levels', 'job-positions', 'job-families', 'job-titles', 'job-grades',
@@ -1120,7 +1129,7 @@ $softDeleteResources = [
     'vehicle-warehouses', 'vehicle-inventory-transactions', 'vehicle-inventory-transaction-items',
     'vehicle-stock-balances', 'vehicle-loads', 'vehicle-load-items',
     'vehicle-unloads', 'vehicle-unload-items', 'vehicle-cash-accounts', 'vehicle-cash-transactions',
-    'vehicle-daily-expenses', 'vehicle-stock-counts', 'vehicle-stock-count-items',
+    'vehicle-daily-expenses', 'vehicle-daily-shifts', 'vehicle-stock-counts', 'vehicle-stock-count-items',
     'vehicle-settlements', 'vehicle-settlement-items', 'vehicle-deposits',
     'vehicle-documents', 'vehicle-ownership-history', 'vehicle-meter-readings',
     'vehicle-maintenance-plans', 'vehicle-work-orders', 'vehicle-work-order-items',
@@ -1659,6 +1668,9 @@ Route::get('super-admin/plans', [$sc, 'plans']);
 // ===== Vehicle Alert Custom Routes =====
 Route::post('vehicle-alerts/{id}/mark-read', [\App\Http\Controllers\Api\Fleet\VehicleAlertController::class, 'markAsRead']);
 Route::post('vehicle-alerts/{id}/resolve', [\App\Http\Controllers\Api\Fleet\VehicleAlertController::class, 'resolve']);
+
+// ===== Vehicle Cost Report =====
+Route::get('vehicle-cost-report', [\App\Http\Controllers\Api\Fleet\VehicleCostAnalysisController::class, 'costReport']);
 
 // ============================================================
 // PHASE 8: API DOCUMENTATION (auto-generated)

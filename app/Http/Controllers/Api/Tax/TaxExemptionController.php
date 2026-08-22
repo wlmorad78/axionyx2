@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TaxExemptionController
+ * الوحدة (Module): الضرائب والفواتير الإلكترونية (Tax)
+ * المورد (Resource): Tax Exemption
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Tax Exemption" ضمن وحدة "الضرائب والفواتير الإلكترونية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Tax;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TaxExemptionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Tax Exemption) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = TaxExemption::query();
@@ -30,6 +45,9 @@ class TaxExemptionController extends Controller
         return response()->json($taxExemptions);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Tax Exemption) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -43,11 +61,17 @@ class TaxExemptionController extends Controller
         return response()->json($taxExemption, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Tax Exemption) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(TaxExemption $taxExemption)
     {
         return response()->json($taxExemption);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Tax Exemption) بناءً على المعرّف.
+     */
     public function update(Request $request, TaxExemption $taxExemption)
     {
         $validated = $request->validate([
@@ -61,6 +85,9 @@ class TaxExemptionController extends Controller
         return response()->json($taxExemption);
     }
 
+    /**
+     * حذف سجل من (Tax Exemption) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(TaxExemption $taxExemption)
     {
         $taxExemption->delete();

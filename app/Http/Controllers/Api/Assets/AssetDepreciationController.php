@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): AssetDepreciationController
+ * الوحدة (Module): الأصول الثابتة (Assets)
+ * المورد (Resource): Asset Depreciation
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Asset Depreciation" ضمن وحدة "الأصول الثابتة".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Assets;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class AssetDepreciationController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Asset Depreciation) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = AssetDepreciation::query();
@@ -30,6 +45,9 @@ class AssetDepreciationController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Asset Depreciation) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('asset_depreciation', 'create'));
@@ -37,11 +55,17 @@ class AssetDepreciationController extends Controller
         return response()->json($assetDepreciation, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Asset Depreciation) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return AssetDepreciation::findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Asset Depreciation) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $assetDepreciation = AssetDepreciation::findOrFail($id);
@@ -50,6 +74,9 @@ class AssetDepreciationController extends Controller
         return $assetDepreciation;
     }
 
+    /**
+     * حذف سجل من (Asset Depreciation) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $assetDepreciation = AssetDepreciation::findOrFail($id);
@@ -57,6 +84,9 @@ class AssetDepreciationController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Asset Depreciation) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $assetDepreciation = AssetDepreciation::withTrashed()->findOrFail($id);
@@ -64,6 +94,9 @@ class AssetDepreciationController extends Controller
         return $assetDepreciation;
     }
 
+    /**
+     * حذف نهائي للسجل من (Asset Depreciation) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $assetDepreciation = AssetDepreciation::withTrashed()->findOrFail($id);

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryTransactionController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury Transaction
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Transaction" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class TreasuryTransactionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Transaction) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = TreasuryTransaction::with(['treasury']);
@@ -29,6 +44,27 @@ class TreasuryTransactionController extends Controller
             });
         }
 
-        return $query->latest('transaction_date')->paginate($request->get('per_page', 15));
+        $transactions = $query->latest('transaction_date')->paginate($request->get('per_page', 15));
+
+        // إضافة اسم المندوب ورقم المرجع للمعاملات المرتبطة بتسوية يومية
+        $transactions->getCollection()->transform(function ($txn) {
+            if ($txn->reference_type && str_contains($txn->reference_type, 'RepDailySettlement')) {
+                $settlement = $txn->reference()->with('salesRep')->first();
+                if ($settlement) {
+                    if ($settlement->salesRep) {
+                        $txn->rep_name = $settlement->salesRep->full_name_ar
+                            ?? trim(($settlement->salesRep->first_name_ar ?? '') . ' ' . ($settlement->salesRep->last_name_ar ?? ''));
+                    }
+                    $txn->reference_no = $settlement->settlement_no;
+                    // تنظيف البيان: "تسوية مندوب ناصف فايز - RDS-00001" -> "تسوية ناصف فايز"
+                    if ($txn->rep_name) {
+                        $txn->description = "تسوية {$txn->rep_name}";
+                    }
+                }
+            }
+            return $txn;
+        });
+
+        return $transactions;
     }
 }

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): IntegrationEndpointController
+ * الوحدة (Module): التكامل والربط مع الأنظمة الخارجية (Integration)
+ * المورد (Resource): Integration Endpoint
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Integration Endpoint" ضمن وحدة "التكامل والربط مع الأنظمة الخارجية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Integration;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class IntegrationEndpointController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Integration Endpoint) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = IntegrationEndpoint::query()->with('provider');
@@ -22,6 +37,9 @@ class IntegrationEndpointController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Integration Endpoint) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('integration_endpoint', 'create'));

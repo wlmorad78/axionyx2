@@ -70,7 +70,7 @@ class ClearTransactionalDataSeeder extends Seeder
             'salesman_account_movements',
             'salesman_settlements',
             'vehicle_settlements',
-            'vehicle_expenses',
+            'vehicle_fuel_transactions',
             'vehicle_daily_expenses',
             'expenses',
             'tax_returns',

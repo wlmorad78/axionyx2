@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ShiftController
+ * الوحدة (Module): الموارد البشرية (HR)
+ * المورد (Resource): Shift
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Shift" ضمن وحدة "الموارد البشرية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class ShiftController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Shift) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -35,6 +50,9 @@ class ShiftController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Shift) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('shift', 'store'));
@@ -42,11 +60,17 @@ class ShiftController extends Controller
         return response()->json(Shift::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Shift) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Shift $shift)
     {
         return $shift->load(['company', 'shiftType']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Shift) بناءً على المعرّف.
+     */
     public function update(Request $request, Shift $shift)
     {
         $data = $request->validate(ValidationRules::for('shift', 'update', $shift));
@@ -56,6 +80,9 @@ class ShiftController extends Controller
         return response()->json($shift);
     }
 
+    /**
+     * حذف سجل من (Shift) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Shift $shift)
     {
         $shift->delete();
@@ -63,6 +90,9 @@ class ShiftController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Shift) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $shift = Shift::onlyTrashed()->findOrFail($id);
@@ -71,6 +101,9 @@ class ShiftController extends Controller
         return response()->json($shift);
     }
 
+    /**
+     * حذف نهائي للسجل من (Shift) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         Shift::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -78,6 +111,9 @@ class ShiftController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Shift).
+     */
     public function schema()
     {
         return ValidationRules::for('shift', 'store');

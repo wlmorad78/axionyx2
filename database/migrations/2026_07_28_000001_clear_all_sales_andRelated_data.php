@@ -197,7 +197,6 @@ return new class extends Migration
             'vehicle_assignments',
             'vehicle_fuel_transactions',
             'vehicle_maintenance',
-            'vehicle_expenses',
             'vehicle_loadings',
             'vehicle_loads',
             'vehicle_load_items',

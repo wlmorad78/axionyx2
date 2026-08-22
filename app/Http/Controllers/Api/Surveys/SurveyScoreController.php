@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SurveyScoreController
+ * الوحدة (Module): الاستبيانات والاستطلاعات (Surveys)
+ * المورد (Resource): Survey Score
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Survey Score" ضمن وحدة "الاستبيانات والاستطلاعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Surveys;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class SurveyScoreController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Survey Score) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = SurveyScore::with(['response']);
@@ -33,6 +48,9 @@ class SurveyScoreController extends Controller
         return response()->json($scores);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Survey Score) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -47,12 +65,18 @@ class SurveyScoreController extends Controller
         return response()->json($score, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Survey Score) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SurveyScore $surveyScore)
     {
         $surveyScore->load('response');
         return response()->json($surveyScore);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Survey Score) بناءً على المعرّف.
+     */
     public function update(Request $request, SurveyScore $surveyScore)
     {
         $validated = $request->validate([
@@ -66,12 +90,18 @@ class SurveyScoreController extends Controller
         return response()->json($surveyScore);
     }
 
+    /**
+     * حذف سجل من (Survey Score) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SurveyScore $surveyScore)
     {
         $surveyScore->delete();
         return response()->json(['message' => 'Score deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Survey Score) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $score = SurveyScore::withTrashed()->findOrFail($id);
@@ -79,6 +109,9 @@ class SurveyScoreController extends Controller
         return response()->json(['message' => 'Score restored successfully']);
     }
 
+    /**
+     * حذف نهائي للسجل من (Survey Score) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $score = SurveyScore::withTrashed()->findOrFail($id);

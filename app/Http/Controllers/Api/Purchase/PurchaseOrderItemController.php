@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): PurchaseOrderItemController
+ * الوحدة (Module): المشتريات (Purchase)
+ * المورد (Resource): Purchase Order Item
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Purchase Order Item" ضمن وحدة "المشتريات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Purchase;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Validation\Rule;
 
 class PurchaseOrderItemController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Purchase Order Item) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = PurchaseOrderItem::with(['item', 'unit']);
@@ -21,6 +37,9 @@ class PurchaseOrderItemController extends Controller
         return response()->json($items);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Purchase Order Item) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $id = null;
@@ -42,6 +61,9 @@ class PurchaseOrderItemController extends Controller
         return response()->json($item, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Purchase Order Item) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(PurchaseOrderItem $purchaseOrderItem)
     {
         $purchaseOrderItem->load(['item', 'unit']);
@@ -49,6 +71,9 @@ class PurchaseOrderItemController extends Controller
         return response()->json($purchaseOrderItem);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Purchase Order Item) بناءً على المعرّف.
+     */
     public function update(Request $request, PurchaseOrderItem $purchaseOrderItem)
     {
         $id = $purchaseOrderItem->id;
@@ -70,6 +95,9 @@ class PurchaseOrderItemController extends Controller
         return response()->json($purchaseOrderItem);
     }
 
+    /**
+     * حذف سجل من (Purchase Order Item) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(PurchaseOrderItem $purchaseOrderItem)
     {
         $purchaseOrderItem->delete();
@@ -77,6 +105,9 @@ class PurchaseOrderItemController extends Controller
         return response()->json(['message' => 'Purchase order item deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Purchase Order Item) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $purchaseOrderItem = PurchaseOrderItem::withTrashed()->findOrFail($id);
@@ -85,6 +116,9 @@ class PurchaseOrderItemController extends Controller
         return response()->json(['message' => 'Purchase order item restored successfully']);
     }
 
+    /**
+     * حذف نهائي للسجل من (Purchase Order Item) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $purchaseOrderItem = PurchaseOrderItem::withTrashed()->findOrFail($id);
@@ -93,6 +127,9 @@ class PurchaseOrderItemController extends Controller
         return response()->json(['message' => 'Purchase order item permanently deleted']);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Purchase Order Item).
+     */
     public function schema()
     {
         return response()->json([

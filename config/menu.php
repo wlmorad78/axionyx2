@@ -27,6 +27,7 @@ return [
                 ['key' => 'customer_types', 'feature' => 'customers', 'permission' => 'customer.type.view', 'title_en' => 'Customer Types', 'title_ar' => 'أنواع العملاء', 'icon' => 'category', 'color' => '#EC4899', 'order' => 3],
                 ['key' => 'customer_classes', 'feature' => 'customers', 'permission' => 'customer.class.view', 'title_en' => 'Customer Classes', 'title_ar' => 'تصنيفات العملاء', 'icon' => 'label', 'color' => '#F97316', 'order' => 4],
                 ['key' => 'customer_statement', 'feature' => 'customers', 'permission' => 'customer.customer.view', 'title_en' => 'Customer Statement', 'title_ar' => 'كشف حساب العميل', 'icon' => 'receipt_long', 'color' => '#06B6D4', 'order' => 5],
+                ['key' => 'customer_payments', 'feature' => 'customers', 'permission' => 'customer.customer.view', 'title_en' => 'Customer Payments', 'title_ar' => 'سداد العملاء', 'icon' => 'payments', 'color' => '#10B981', 'order' => 6],
             ],
         ],
         [
@@ -262,7 +263,8 @@ return [
                 ['key' => 'report_profit_loss', 'feature' => 'reports', 'permission' => 'reports.view', 'title_en' => 'Profit & Loss', 'title_ar' => 'الأرباح والخسائر', 'icon' => 'pie_chart', 'color' => '#10B981', 'order' => 15],
                 ['key' => 'report_rep_movement', 'feature' => 'reports', 'permission' => 'reports.view', 'title_en' => 'Rep Movement', 'title_ar' => 'حركة المندوب بالصنف', 'icon' => 'person_search', 'color' => '#3B82F6', 'order' => 16],
                 ['key' => 'report_rep_stock_balance', 'feature' => 'reports', 'permission' => 'reports.view', 'title_en' => 'Rep Stock Balance', 'title_ar' => 'رصيد المندوب', 'icon' => 'inventory_2', 'color' => '#F59E0B', 'order' => 17],
-                ['key' => 'report_builder', 'feature' => 'reports', 'permission' => 'reports.view', 'title_en' => 'Report Builder', 'title_ar' => 'منشئ التقارير', 'icon' => 'build', 'color' => '#EC4899', 'order' => 18],
+                ['key' => 'report_warehouse_daily_movement', 'feature' => 'reports', 'permission' => 'reports.inventory.view', 'title_en' => 'Warehouse Daily Movement', 'title_ar' => 'حركة المخزون اليومية', 'icon' => 'warehouse', 'color' => '#F59E0B', 'order' => 18],
+                ['key' => 'report_builder', 'feature' => 'reports', 'permission' => 'reports.view', 'title_en' => 'Report Builder', 'title_ar' => 'منشئ التقارير', 'icon' => 'build', 'color' => '#EC4899', 'order' => 19],
             ],
         ],
         [

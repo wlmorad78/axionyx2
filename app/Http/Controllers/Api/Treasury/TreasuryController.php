@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class TreasuryController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -39,6 +54,9 @@ class TreasuryController extends Controller
         return $paginator;
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('treasury', 'store'));
@@ -46,6 +64,9 @@ class TreasuryController extends Controller
         return response()->json($treasury, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Treasury $treasury)
     {
         $treasury->balance = $treasury->balance;
@@ -53,6 +74,9 @@ class TreasuryController extends Controller
         return $treasury->load(['company', 'branch', 'treasuryType', 'currency']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury) بناءً على المعرّف.
+     */
     public function update(Request $request, Treasury $treasury)
     {
         $data = $request->validate(ValidationRules::for('treasury', 'update', $treasury));
@@ -60,12 +84,18 @@ class TreasuryController extends Controller
         return response()->json($treasury);
     }
 
+    /**
+     * حذف سجل من (Treasury) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(Treasury $treasury)
     {
         $treasury->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Treasury) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $treasury = Treasury::onlyTrashed()->findOrFail($id);
@@ -73,6 +103,9 @@ class TreasuryController extends Controller
         return response()->json($treasury);
     }
 
+    /**
+     * حذف نهائي للسجل من (Treasury) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         $treasury = Treasury::onlyTrashed()->findOrFail($id);
@@ -80,11 +113,17 @@ class TreasuryController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Treasury).
+     */
     public function schema()
     {
         return ValidationRules::for('treasury', 'store');
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Treasury).
+     */
     public function nextCode(Request $request)
     {
         $companyId = $request->company_id;

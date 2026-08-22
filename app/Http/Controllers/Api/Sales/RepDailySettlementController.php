@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): RepDailySettlementController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Rep Daily Settlement
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Rep Daily Settlement" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -11,6 +23,9 @@ use Illuminate\Support\Facades\DB;
 
 class RepDailySettlementController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Rep Daily Settlement) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = RepDailySettlement::with(['salesRep', 'expenses', 'createdBy', 'approvedBy', 'salesmanDebt']);
@@ -43,11 +58,17 @@ class RepDailySettlementController extends Controller
         return $query->orderByDesc('settlement_date')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Rep Daily Settlement) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(RepDailySettlement $repDailySettlement)
     {
         return $repDailySettlement->load(['salesRep', 'expenses', 'issueOrder', 'createdBy', 'approvedBy', 'salesmanDebt']);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Rep Daily Settlement).
+     */
     public function approve(Request $request, RepDailySettlement $repDailySettlement)
     {
         if ($repDailySettlement->status === 'approved') {
@@ -101,6 +122,9 @@ class RepDailySettlementController extends Controller
         }
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Rep Daily Settlement).
+     */
     public function cancel(Request $request, RepDailySettlement $repDailySettlement)
     {
         if ($repDailySettlement->status === 'cancelled') {
@@ -149,6 +173,9 @@ class RepDailySettlementController extends Controller
         }
     }
 
+    /**
+     * دالة معالجة: reopen — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Rep Daily Settlement).
+     */
     public function reopen(Request $request, RepDailySettlement $repDailySettlement)
     {
         if ($repDailySettlement->status !== 'cancelled' && $repDailySettlement->status !== 'approved') {
@@ -180,6 +207,9 @@ class RepDailySettlementController extends Controller
         }
     }
 
+    /**
+     * دالة معالجة: resolveTreasury — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Rep Daily Settlement).
+     */
     private function resolveTreasury(RepDailySettlement $settlement): ?int
     {
         $assignment = DB::table('salesman_assignments')

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ShelfAuditController
+ * الوحدة (Module): الترتيب والتنسيق التجاري (Merchandising) (Merchandising)
+ * المورد (Resource): Shelf Audit
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Shelf Audit" ضمن وحدة "الترتيب والتنسيق التجاري (Merchandising)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Merchandising;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class ShelfAuditController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Shelf Audit) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = ShelfAudit::with(['location', 'items', 'competitorItems']);
@@ -21,6 +36,9 @@ class ShelfAuditController extends Controller
         return response()->json($shelfAudits);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Shelf Audit) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -36,6 +54,9 @@ class ShelfAuditController extends Controller
         return response()->json($shelfAudit->load(['location', 'items', 'competitorItems']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Shelf Audit) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $shelfAudit = ShelfAudit::with(['location', 'items', 'competitorItems'])->findOrFail($id);
@@ -43,6 +64,9 @@ class ShelfAuditController extends Controller
         return response()->json($shelfAudit);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Shelf Audit) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $shelfAudit = ShelfAudit::findOrFail($id);
@@ -60,6 +84,9 @@ class ShelfAuditController extends Controller
         return response()->json($shelfAudit->load(['location', 'items', 'competitorItems']));
     }
 
+    /**
+     * حذف سجل من (Shelf Audit) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $shelfAudit = ShelfAudit::findOrFail($id);
@@ -68,6 +95,9 @@ class ShelfAuditController extends Controller
         return response()->json(['message' => 'Deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Shelf Audit) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $shelfAudit = ShelfAudit::onlyTrashed()->findOrFail($id);
@@ -76,6 +106,9 @@ class ShelfAuditController extends Controller
         return response()->json($shelfAudit);
     }
 
+    /**
+     * حذف نهائي للسجل من (Shelf Audit) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $shelfAudit = ShelfAudit::onlyTrashed()->findOrFail($id);

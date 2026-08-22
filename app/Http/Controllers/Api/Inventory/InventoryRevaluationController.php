@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): InventoryRevaluationController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Inventory Revaluation
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Inventory Revaluation" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class InventoryRevaluationController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Inventory Revaluation) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -26,6 +42,9 @@ class InventoryRevaluationController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Inventory Revaluation) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('inventory_revaluation', 'store'));
@@ -35,6 +54,9 @@ class InventoryRevaluationController extends Controller
         return response()->json(InventoryRevaluation::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Inventory Revaluation) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(InventoryRevaluation $inventoryRevaluation)
     {
         return $inventoryRevaluation->load([
@@ -44,6 +66,9 @@ class InventoryRevaluationController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Inventory Revaluation) بناءً على المعرّف.
+     */
     public function update(Request $request, InventoryRevaluation $inventoryRevaluation)
     {
         $data = $request->validate(ValidationRules::for('inventory_revaluation', 'update', $inventoryRevaluation));
@@ -51,17 +76,26 @@ class InventoryRevaluationController extends Controller
         return response()->json($inventoryRevaluation);
     }
 
+    /**
+     * حذف سجل من (Inventory Revaluation) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(InventoryRevaluation $inventoryRevaluation)
     {
         $inventoryRevaluation->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Inventory Revaluation).
+     */
     public function nextCode()
     {
         return response()->json(['code' => self::generateNextCode('IR', 'inventory_revaluations', 'revaluation_no')]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Inventory Revaluation) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = InventoryRevaluation::onlyTrashed()->findOrFail($id);
@@ -69,17 +103,26 @@ class InventoryRevaluationController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Inventory Revaluation) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         InventoryRevaluation::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Inventory Revaluation).
+     */
     public function schema()
     {
         return ValidationRules::for('inventory_revaluation', 'store');
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Inventory Revaluation).
+     */
     protected static function generateNextCode(string $prefix, string $table, string $column): string
     {
         $last = \DB::table($table)->where($column, 'like', "$prefix-%")->orderByDesc($column)->value($column);

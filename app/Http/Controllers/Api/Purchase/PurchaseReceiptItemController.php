@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): PurchaseReceiptItemController
+ * الوحدة (Module): المشتريات (Purchase)
+ * المورد (Resource): Purchase Receipt Item
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Purchase Receipt Item" ضمن وحدة "المشتريات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Purchase;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class PurchaseReceiptItemController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Purchase Receipt Item) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = PurchaseReceiptItem::with(['item', 'unit']);
@@ -22,6 +38,9 @@ class PurchaseReceiptItemController extends Controller
         return $query->latest()->paginate($request->get('per_page', 15));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Purchase Receipt Item) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate(ValidationRules::for('purchase_receipt_item', 'store'));
@@ -30,6 +49,9 @@ class PurchaseReceiptItemController extends Controller
         return response()->json($item, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Purchase Receipt Item) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(PurchaseReceiptItem $purchaseReceiptItem)
     {
         $purchaseReceiptItem->load(['item', 'unit', 'purchaseReceipt']);
@@ -37,6 +59,9 @@ class PurchaseReceiptItemController extends Controller
         return response()->json($purchaseReceiptItem);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Purchase Receipt Item) بناءً على المعرّف.
+     */
     public function update(Request $request, PurchaseReceiptItem $purchaseReceiptItem)
     {
         $validated = $request->validate(ValidationRules::for('purchase_receipt_item', 'update', $purchaseReceiptItem));
@@ -45,6 +70,9 @@ class PurchaseReceiptItemController extends Controller
         return response()->json($purchaseReceiptItem);
     }
 
+    /**
+     * حذف سجل من (Purchase Receipt Item) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(PurchaseReceiptItem $purchaseReceiptItem)
     {
         $purchaseReceiptItem->delete();
@@ -52,6 +80,9 @@ class PurchaseReceiptItemController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Purchase Receipt Item) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = PurchaseReceiptItem::onlyTrashed()->findOrFail($id);
@@ -60,6 +91,9 @@ class PurchaseReceiptItemController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Purchase Receipt Item) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         PurchaseReceiptItem::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -67,6 +101,9 @@ class PurchaseReceiptItemController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Purchase Receipt Item).
+     */
     public function schema()
     {
         return ValidationRules::for('purchase_receipt_item', 'store');

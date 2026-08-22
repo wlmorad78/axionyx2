@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): DailyDistributionDashboardController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Daily Distribution Dashboard
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Daily Distribution Dashboard" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class DailyDistributionDashboardController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Daily Distribution Dashboard) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = DailyDistributionDashboard::with(['company', 'branch', 'salesRep', 'route']);
@@ -39,6 +54,9 @@ class DailyDistributionDashboardController extends Controller
         return response()->json($dashboards);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Daily Distribution Dashboard) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate(
@@ -50,6 +68,9 @@ class DailyDistributionDashboardController extends Controller
         return response()->json($dashboard->load(['company', 'branch', 'salesRep', 'route']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Daily Distribution Dashboard) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $dashboard = DailyDistributionDashboard::with(['company', 'branch', 'salesRep', 'route'])->findOrFail($id);
@@ -57,6 +78,9 @@ class DailyDistributionDashboardController extends Controller
         return response()->json($dashboard);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Daily Distribution Dashboard) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $dashboard = DailyDistributionDashboard::findOrFail($id);
@@ -70,6 +94,9 @@ class DailyDistributionDashboardController extends Controller
         return response()->json($dashboard->load(['company', 'branch', 'salesRep', 'route']));
     }
 
+    /**
+     * حذف سجل من (Daily Distribution Dashboard) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $dashboard = DailyDistributionDashboard::findOrFail($id);
@@ -78,6 +105,9 @@ class DailyDistributionDashboardController extends Controller
         return response()->json(['message' => 'Dashboard deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Daily Distribution Dashboard) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $dashboard = DailyDistributionDashboard::withTrashed()->findOrFail($id);
@@ -86,6 +116,9 @@ class DailyDistributionDashboardController extends Controller
         return response()->json(['message' => 'Dashboard restored successfully']);
     }
 
+    /**
+     * حذف نهائي للسجل من (Daily Distribution Dashboard) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $dashboard = DailyDistributionDashboard::withTrashed()->findOrFail($id);
@@ -94,6 +127,9 @@ class DailyDistributionDashboardController extends Controller
         return response()->json(['message' => 'Dashboard permanently deleted']);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Daily Distribution Dashboard).
+     */
     public function schema()
     {
         return response()->json([

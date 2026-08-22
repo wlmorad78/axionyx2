@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): InventoryOpeningBalanceController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Inventory Opening Balance
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Inventory Opening Balance" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class InventoryOpeningBalanceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Inventory Opening Balance) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : ['warehouse', 'item', 'unit', 'branch'];
@@ -28,6 +44,9 @@ class InventoryOpeningBalanceController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 50);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Inventory Opening Balance) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('inventory_opening_balance', 'store'));
@@ -55,6 +74,9 @@ class InventoryOpeningBalanceController extends Controller
         return response()->json(InventoryOpeningBalance::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Inventory Opening Balance) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(InventoryOpeningBalance $inventoryOpeningBalance)
     {
         return $inventoryOpeningBalance->load([
@@ -62,6 +84,9 @@ class InventoryOpeningBalanceController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Inventory Opening Balance) بناءً على المعرّف.
+     */
     public function update(Request $request, InventoryOpeningBalance $inventoryOpeningBalance)
     {
         $data = $request->validate(ValidationRules::for('inventory_opening_balance', 'update', $inventoryOpeningBalance));
@@ -82,12 +107,18 @@ class InventoryOpeningBalanceController extends Controller
         return response()->json($inventoryOpeningBalance);
     }
 
+    /**
+     * حذف سجل من (Inventory Opening Balance) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(InventoryOpeningBalance $inventoryOpeningBalance)
     {
         $inventoryOpeningBalance->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Inventory Opening Balance) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = InventoryOpeningBalance::onlyTrashed()->findOrFail($id);
@@ -95,12 +126,18 @@ class InventoryOpeningBalanceController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Inventory Opening Balance) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         InventoryOpeningBalance::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Inventory Opening Balance).
+     */
     public function schema()
     {
         return ValidationRules::for('inventory_opening_balance', 'store');

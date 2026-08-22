@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SyncLogController
+ * الوحدة (Module): التكامل والربط مع الأنظمة الخارجية (Integration)
+ * المورد (Resource): Sync Log
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Sync Log" ضمن وحدة "التكامل والربط مع الأنظمة الخارجية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Integration;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use App\Support\ValidationRules;
 
 class SyncLogController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Sync Log) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = SyncLog::query();
@@ -28,6 +43,9 @@ class SyncLogController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Sync Log) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('sync_log', 'create'));
@@ -35,11 +53,17 @@ class SyncLogController extends Controller
         return response()->json($syncLog, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Sync Log) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return SyncLog::findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Sync Log) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $syncLog = SyncLog::findOrFail($id);
@@ -48,6 +72,9 @@ class SyncLogController extends Controller
         return $syncLog;
     }
 
+    /**
+     * حذف سجل من (Sync Log) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $syncLog = SyncLog::findOrFail($id);
@@ -55,6 +82,9 @@ class SyncLogController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Sync Log) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $syncLog = SyncLog::withTrashed()->findOrFail($id);
@@ -62,6 +92,9 @@ class SyncLogController extends Controller
         return $syncLog;
     }
 
+    /**
+     * حذف نهائي للسجل من (Sync Log) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $syncLog = SyncLog::withTrashed()->findOrFail($id);

@@ -1737,7 +1737,7 @@ class ValidationRules
             'collection' => [
                 'company_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:companies,id'],
                 'branch_id' => ['nullable', 'exists:branches,id'],
-                'collection_no' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:50', Rule::unique('collections', 'collection_no')->ignore($id)],
+                'collection_no' => ['nullable', 'string', 'max:50', Rule::unique('collections', 'collection_no')->ignore($id)],
                 'collection_date' => [$isUpdate ? 'sometimes' : 'required', 'date'],
                 'collection_time' => ['nullable', 'date_format:H:i'],
                 'sales_rep_id' => ['nullable', 'exists:employees,id'],
@@ -2451,6 +2451,7 @@ class ValidationRules
                 'sent_at' => ['nullable', 'date'],
             ],
             'vehicle_type' => [
+                'company_id' => ['nullable', 'exists:companies,id'],
                 'code' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:50', Rule::unique('vehicle_types', 'code')->ignore($id)],
                 'name' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:255', Rule::unique('vehicle_types', 'name')->ignore($id)],
                 'description' => ['nullable', 'string'],
@@ -2477,7 +2478,7 @@ class ValidationRules
             ],
             'vehicle_assignment' => [
                 'vehicle_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:vehicles,id'],
-                'driver_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:drivers,id'],
+                'driver_id' => ['nullable', 'exists:drivers,id'],
                 'sales_rep_id' => ['nullable', 'exists:employees,id'],
                 'from_date' => [$isUpdate ? 'sometimes' : 'required', 'date'],
                 'to_date' => ['nullable', 'date'],
@@ -2486,6 +2487,7 @@ class ValidationRules
             'vehicle_fuel_transaction' => [
                 'vehicle_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:vehicles,id'],
                 'transaction_date' => [$isUpdate ? 'sometimes' : 'required', 'date'],
+                'transaction_time' => ['nullable', 'date_format:H:i'],
                 'odometer' => ['nullable', 'numeric', 'min:0'],
                 'fuel_qty' => ['sometimes', 'numeric', 'min:0'],
                 'fuel_cost' => ['sometimes', 'numeric', 'min:0'],
@@ -2498,11 +2500,13 @@ class ValidationRules
                 'cost' => ['sometimes', 'numeric', 'min:0'],
                 'notes' => ['nullable', 'string'],
             ],
-            'vehicle_expense' => [
+            'vehicle_daily_expense' => [
                 'vehicle_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:vehicles,id'],
                 'expense_date' => [$isUpdate ? 'sometimes' : 'required', 'date'],
-                'expense_type' => ['sometimes', 'string', 'max:20', Rule::in(['toll', 'parking', 'fine', 'other'])],
+                'expense_type' => ['sometimes', 'string', 'max:20', Rule::in(['FUEL', 'TOLL', 'MAINTENANCE', 'PARKING', 'OTHER'])],
                 'amount' => ['sometimes', 'numeric', 'min:0'],
+                'km' => ['nullable', 'numeric', 'min:0'],
+                'quantity' => ['nullable', 'numeric', 'min:0'],
                 'notes' => ['nullable', 'string'],
             ],
             'vehicle_loading' => [
@@ -3715,6 +3719,18 @@ class ValidationRules
                 'is_resolved' => ['sometimes', 'boolean'],
                 'resolved_by' => ['nullable', 'exists:users,id'],
                 'resolved_at' => ['nullable', 'date'],
+            ],
+            'vehicle_daily_shift' => [
+                'vehicle_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:vehicles,id'],
+                'driver_id' => ['nullable', 'exists:drivers,id'],
+                'sales_rep_id' => ['nullable', 'exists:employees,id'],
+                'shift_date' => [$isUpdate ? 'sometimes' : 'required', 'date'],
+                'start_km' => ['nullable', 'numeric', 'min:0'],
+                'end_km' => ['nullable', 'numeric', 'min:0'],
+                'start_time' => ['nullable', 'date_format:H:i'],
+                'end_time' => ['nullable', 'date_format:H:i'],
+                'notes' => ['nullable', 'string', 'max:255'],
+                'status' => [$isUpdate ? 'sometimes' : 'required', Rule::in(['IN_PROGRESS', 'COMPLETED'])],
             ],
             default => [],
         };

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): PromotionExclusionController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Promotion Exclusion
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Promotion Exclusion" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use App\Support\ValidationRules;
 
 class PromotionExclusionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Promotion Exclusion) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = PromotionExclusion::query();
@@ -26,6 +41,9 @@ class PromotionExclusionController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Promotion Exclusion) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('promotion_exclusion', 'create'));
@@ -33,11 +51,17 @@ class PromotionExclusionController extends Controller
         return response()->json($promotionExclusion, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Promotion Exclusion) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return PromotionExclusion::findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Promotion Exclusion) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $promotionExclusion = PromotionExclusion::findOrFail($id);
@@ -46,6 +70,9 @@ class PromotionExclusionController extends Controller
         return $promotionExclusion;
     }
 
+    /**
+     * حذف سجل من (Promotion Exclusion) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $promotionExclusion = PromotionExclusion::findOrFail($id);
@@ -53,6 +80,9 @@ class PromotionExclusionController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Promotion Exclusion) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $promotionExclusion = PromotionExclusion::withTrashed()->findOrFail($id);
@@ -60,6 +90,9 @@ class PromotionExclusionController extends Controller
         return $promotionExclusion;
     }
 
+    /**
+     * حذف نهائي للسجل من (Promotion Exclusion) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $promotionExclusion = PromotionExclusion::withTrashed()->findOrFail($id);

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ItemLedgerController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Item Ledger
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Item Ledger" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -14,6 +26,9 @@ use Illuminate\Support\Facades\DB;
 
 class ItemLedgerController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Item Ledger) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -47,6 +62,9 @@ class ItemLedgerController extends Controller
         ));
     }
 
+    /**
+     * جلب / استعلام بيانات مخصصة لـ (Item Ledger) حسب الطلب.
+     */
     private function getMovements(Request $request, ?int $companyId): \Illuminate\Support\Collection
     {
         $itemId = $request->item_id;
@@ -110,6 +128,9 @@ class ItemLedgerController extends Controller
         return $this->hydrateMovements($rows);
     }
 
+    /**
+     * دالة معالجة: hydrateMovements — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function hydrateMovements($rows): \Illuminate\Support\Collection
     {
         if ($rows->isEmpty()) return collect();
@@ -137,6 +158,9 @@ class ItemLedgerController extends Controller
         });
     }
 
+    /**
+     * دالة معالجة: classifyMovement — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function classifyMovement($row): string
     {
         if ($row->from_location_type && $row->to_location_type) {
@@ -170,6 +194,9 @@ class ItemLedgerController extends Controller
         };
     }
 
+    /**
+     * دالة معالجة: resolveFromName — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function resolveFromName($row, array &$locationCache, array &$refCache): string
     {
         if ($row->from_location_type && $row->from_location_id) {
@@ -179,6 +206,9 @@ class ItemLedgerController extends Controller
         return $this->resolveFromRef($row, $refCache, 'from');
     }
 
+    /**
+     * دالة معالجة: resolveToName — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function resolveToName($row, array &$locationCache, array &$refCache): string
     {
         if ($row->to_location_type && $row->to_location_id) {
@@ -188,6 +218,9 @@ class ItemLedgerController extends Controller
         return $this->resolveFromRef($row, $refCache, 'to');
     }
 
+    /**
+     * دالة معالجة: resolveLocationName — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function resolveLocationName(string $type, int $id, array &$cache): string
     {
         if (!isset($cache[$type])) $cache[$type] = [];
@@ -206,6 +239,9 @@ class ItemLedgerController extends Controller
         return $cache[$type][$id];
     }
 
+    /**
+     * دالة معالجة: resolveFromRef — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function resolveFromRef($row, array &$refCache, string $dir): string
     {
         $refKey = $row->reference_type . '#' . $row->reference_id;
@@ -215,6 +251,9 @@ class ItemLedgerController extends Controller
         return $refCache[$refKey][$dir] ?? '—';
     }
 
+    /**
+     * دالة معالجة: loadRefNames — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function loadRefNames($row): array
     {
         $names = ['from' => '—', 'to' => '—'];
@@ -264,6 +303,9 @@ class ItemLedgerController extends Controller
         return $names;
     }
 
+    /**
+     * دالة معالجة: resolveRefNumber — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function resolveRefNumber($row): string
     {
         if (!$row->reference_type || !$row->reference_id) return '';
@@ -286,6 +328,9 @@ class ItemLedgerController extends Controller
         }
     }
 
+    /**
+     * دالة معالجة: emptyStats — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function emptyStats(): array
     {
         return [
@@ -298,6 +343,9 @@ class ItemLedgerController extends Controller
         ];
     }
 
+    /**
+     * حساب / تلخيص بيانات (Item Ledger) وإرجاع النتيجة.
+     */
     private function calculateStats($movements): array
     {
         $stats = $this->emptyStats();
@@ -329,6 +377,9 @@ class ItemLedgerController extends Controller
         return $stats;
     }
 
+    /**
+     * حساب / تلخيص بيانات (Item Ledger) وإرجاع النتيجة.
+     */
     private function calculateRepBalances($movements): \Illuminate\Support\Collection
     {
         $repMap = [];
@@ -390,6 +441,9 @@ class ItemLedgerController extends Controller
         return collect(array_values($repMap));
     }
 
+    /**
+     * دالة معالجة: repDrawer — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     public function repDrawer(Request $request, int $repId)
     {
         $user = auth()->user();
@@ -437,6 +491,9 @@ class ItemLedgerController extends Controller
         return view('item-ledger.rep-drawer', compact('rep', 'hydrated', 'balance', 'itemId'));
     }
 
+    /**
+     * دالة معالجة: filterByTab — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Item Ledger).
+     */
     private function filterByTab($movements, string $tab): \Illuminate\Support\Collection
     {
         if ($tab === 'all') return $movements;

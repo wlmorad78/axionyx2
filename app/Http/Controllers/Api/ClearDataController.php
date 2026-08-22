@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ClearDataController
+ * الوحدة (Module): واجهة برمجة التطبيقات (Api)
+ * المورد (Resource): Clear Data
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Clear Data" ضمن وحدة "واجهة برمجة التطبيقات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -98,7 +110,7 @@ class ClearDataController extends Controller
             'tables' => [
                 'vehicle_fuel_transactions' => 'معاملات الوقود',
                 'vehicle_maintenance' => 'صيانة المركبات',
-                'vehicle_expenses' => 'مصاريف المركبات',
+                'vehicle_daily_expenses' => 'المصروفات اليومية للمركبات',
                 'vehicle_accidents' => 'حوادث المركبات',
                 'vehicle_trip_history' => 'سجل الرحلات',
                 'vehicle_speed_violations' => 'مخالفات السرعة',
@@ -150,6 +162,9 @@ class ClearDataController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: clearGroup — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Clear Data).
+     */
     public function clearGroup(string $group)
     {
         if (!isset($this->groups[$group])) {
@@ -178,6 +193,9 @@ class ClearDataController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: clearTable — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Clear Data).
+     */
     public function clearTable(string $table)
     {
         $found = false;
@@ -211,6 +229,9 @@ class ClearDataController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: clearAll — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Clear Data).
+     */
     public function clearAll()
     {
         $allTables = [];

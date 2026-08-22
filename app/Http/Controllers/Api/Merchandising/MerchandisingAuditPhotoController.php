@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MerchandisingAuditPhotoController
+ * الوحدة (Module): الترتيب والتنسيق التجاري (Merchandising) (Merchandising)
+ * المورد (Resource): Merchandising Audit Photo
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Merchandising Audit Photo" ضمن وحدة "الترتيب والتنسيق التجاري (Merchandising)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Merchandising;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MerchandisingAuditPhotoController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Merchandising Audit Photo) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MerchandisingAuditPhoto::query();
@@ -29,6 +44,9 @@ class MerchandisingAuditPhotoController extends Controller
         return response()->json($items);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Merchandising Audit Photo) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -43,6 +61,9 @@ class MerchandisingAuditPhotoController extends Controller
         return response()->json($item, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Merchandising Audit Photo) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $item = MerchandisingAuditPhoto::findOrFail($id);
@@ -50,6 +71,9 @@ class MerchandisingAuditPhotoController extends Controller
         return response()->json($item);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Merchandising Audit Photo) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $item = MerchandisingAuditPhoto::findOrFail($id);
@@ -66,6 +90,9 @@ class MerchandisingAuditPhotoController extends Controller
         return response()->json($item);
     }
 
+    /**
+     * حذف سجل من (Merchandising Audit Photo) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $item = MerchandisingAuditPhoto::findOrFail($id);
@@ -74,6 +101,9 @@ class MerchandisingAuditPhotoController extends Controller
         return response()->json(['message' => 'Deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Merchandising Audit Photo) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $item = MerchandisingAuditPhoto::withTrashed()->findOrFail($id);
@@ -82,6 +112,9 @@ class MerchandisingAuditPhotoController extends Controller
         return response()->json(['message' => 'Restored successfully']);
     }
 
+    /**
+     * حذف نهائي للسجل من (Merchandising Audit Photo) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $item = MerchandisingAuditPhoto::withTrashed()->findOrFail($id);

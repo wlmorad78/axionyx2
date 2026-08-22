@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): ReturnOrderController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Return Order
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Return Order" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -17,6 +30,9 @@ use Illuminate\Support\Facades\DB;
 
 class ReturnOrderController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Return Order) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -40,12 +56,18 @@ class ReturnOrderController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Return Order) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('return_order', 'store'));
         return response()->json(ReturnOrder::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Return Order) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(ReturnOrder $returnOrder)
     {
         return $returnOrder->load([
@@ -55,6 +77,9 @@ class ReturnOrderController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Return Order) بناءً على المعرّف.
+     */
     public function update(Request $request, ReturnOrder $returnOrder)
     {
         $data = $request->validate(ValidationRules::for('return_order', 'update', $returnOrder));
@@ -62,12 +87,18 @@ class ReturnOrderController extends Controller
         return response()->json($returnOrder);
     }
 
+    /**
+     * حذف سجل من (Return Order) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(ReturnOrder $returnOrder)
     {
         $returnOrder->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Return Order).
+     */
     public function approve(Request $request, ReturnOrder $returnOrder)
     {
         if ($returnOrder->status_id !== 'pending') {
@@ -114,7 +145,7 @@ class ReturnOrderController extends Controller
             foreach ($returnOrder->items as $item) {
                 $unitId = $item->item_unit_id ?? $item->item?->base_unit_id;
                 if (!$unitId) {
-                    $unitId = App\Models\Unit::first()?->id;
+                    $unitId = \App\Models\Inventory\Unit::first()?->id;
                 }
                 $conversionFactor = $unitService->getConversionFactor($item->item_id, $unitId);
                 $qtyInBase = $unitService->toBase($item->item_id, $unitId, $item->returned_quantity);
@@ -185,8 +216,9 @@ class ReturnOrderController extends Controller
 
             $customer = Customer::where('company_id', $user->company_id)->first();
 
-            $salesInvoice = SalesInvoice::create([
+            $salesInvoice = new SalesInvoice([
                 'company_id' => $returnOrder->company_id,
+                'branch_id' => $returnOrder->branch_id,
                 'warehouse_id' => $returnOrder->warehouse_id,
                 'customer_id' => $customer?->id,
                 'sales_rep_id' => $returnOrder->employee_id,
@@ -205,6 +237,8 @@ class ReturnOrderController extends Controller
                 'created_by' => $employee?->id,
                 'approved_by' => $employee?->id,
             ]);
+            $salesInvoice->invoice_no = $salesInvoice->generateNumber();
+            $salesInvoice->save();
 
             $subtotal = 0;
             foreach ($returnOrder->items as $item) {
@@ -212,7 +246,7 @@ class ReturnOrderController extends Controller
                 $subtotal += $lineTotal;
                 $unitId = $item->item_unit_id ?? $item->item?->base_unit_id;
                 if (!$unitId) {
-                    $unitId = App\Models\Unit::first()?->id;
+                    $unitId = \App\Models\Inventory\Unit::first()?->id;
                 }
 
                 SalesInvoiceItem::create([
@@ -248,6 +282,9 @@ class ReturnOrderController extends Controller
         ]);
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Return Order).
+     */
     public function reject(Request $request, ReturnOrder $returnOrder)
     {
         if ($returnOrder->status_id !== 'pending') {
@@ -265,6 +302,9 @@ class ReturnOrderController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: reopen — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Return Order).
+     */
     public function reopen(Request $request, ReturnOrder $returnOrder)
     {
         if ($returnOrder->status_id !== 'approved') {
@@ -293,6 +333,9 @@ class ReturnOrderController extends Controller
         ]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Return Order) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = ReturnOrder::onlyTrashed()->findOrFail($id);
@@ -300,12 +343,18 @@ class ReturnOrderController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Return Order) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         ReturnOrder::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Return Order).
+     */
     public function schema()
     {
         return ValidationRules::for('return_order', 'store');

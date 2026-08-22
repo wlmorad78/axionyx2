@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): DistributionPlanController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Distribution Plan
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Distribution Plan" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -25,6 +37,9 @@ use Illuminate\Support\Facades\DB;
 
 class DistributionPlanController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Distribution Plan) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = DistributionPlan::with(['createdByEmployee', 'approvedByEmployee', 'products.item', 'reps.salesRep', 'reps.route'])
@@ -41,6 +56,9 @@ class DistributionPlanController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Distribution Plan) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $plan = DistributionPlan::with([
@@ -56,6 +74,9 @@ class DistributionPlanController extends Controller
         return response()->json($planArray);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Distribution Plan) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -102,6 +123,9 @@ class DistributionPlanController extends Controller
         return response()->json($plan->load('products.item'), 201);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Distribution Plan) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $plan = DistributionPlan::findOrFail($id);
@@ -139,6 +163,9 @@ class DistributionPlanController extends Controller
         return response()->json($plan->load('products.item'));
     }
 
+    /**
+     * حذف سجل من (Distribution Plan) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $plan = DistributionPlan::findOrFail($id);
@@ -150,6 +177,9 @@ class DistributionPlanController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * حساب / تلخيص بيانات (Distribution Plan) وإرجاع النتيجة.
+     */
     public function calculate($id)
     {
         $plan = DistributionPlan::findOrFail($id);
@@ -455,6 +485,9 @@ class DistributionPlanController extends Controller
         }
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Distribution Plan).
+     */
     public function approve(Request $request, $id)
     {
         $plan = DistributionPlan::findOrFail($id);
@@ -574,6 +607,9 @@ class DistributionPlanController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: reopen — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Distribution Plan).
+     */
     public function reopen(Request $request, $id)
     {
         $plan = DistributionPlan::findOrFail($id);
@@ -641,6 +677,9 @@ class DistributionPlanController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: updateCustomerQty — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Distribution Plan).
+     */
     public function updateCustomerQty(Request $request, $id, $customerId)
     {
         $plan = DistributionPlan::findOrFail($id);
@@ -681,6 +720,9 @@ class DistributionPlanController extends Controller
         return response()->json(['message' => 'ØªÙ… Ø§Ù„ØªØ­Ø¯ÙŠØ«', 'customer' => $customer->fresh()->load('items.item')]);
     }
 
+    /**
+     * دالة معالجة: updateItemQty — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Distribution Plan).
+     */
     public function updateItemQty(Request $request, $id, $itemId)
     {
         $plan = DistributionPlan::findOrFail($id);
@@ -702,6 +744,9 @@ class DistributionPlanController extends Controller
         return response()->json(['message' => 'ØªÙ… Ø§Ù„ØªØ­Ø¯ÙŠØ«', 'item' => $item->fresh()]);
     }
 
+    /**
+     * جلب / استعلام بيانات مخصصة لـ (Distribution Plan) حسب الطلب.
+     */
     private function getItemDemand(DistributionPlan $plan): array
     {
         $products = $plan->products;

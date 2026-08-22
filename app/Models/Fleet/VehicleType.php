@@ -11,6 +11,7 @@ class VehicleType extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'code',
         'name',
         'description',
@@ -22,6 +23,11 @@ class VehicleType extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function company()
+    {
+        return $this->belongsTo(\App\Models\Company::class);
+    }
 
     public function vehicles()
     {

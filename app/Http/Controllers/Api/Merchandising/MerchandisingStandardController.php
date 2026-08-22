@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MerchandisingStandardController
+ * الوحدة (Module): الترتيب والتنسيق التجاري (Merchandising) (Merchandising)
+ * المورد (Resource): Merchandising Standard
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Merchandising Standard" ضمن وحدة "الترتيب والتنسيق التجاري (Merchandising)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Merchandising;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MerchandisingStandardController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Merchandising Standard) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MerchandisingStandard::query();
@@ -33,6 +48,9 @@ class MerchandisingStandardController extends Controller
         return response()->json($standards);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Merchandising Standard) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -49,6 +67,9 @@ class MerchandisingStandardController extends Controller
         return response()->json($standard, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Merchandising Standard) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $standard = MerchandisingStandard::findOrFail($id);
@@ -56,6 +77,9 @@ class MerchandisingStandardController extends Controller
         return response()->json($standard);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Merchandising Standard) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $standard = MerchandisingStandard::findOrFail($id);
@@ -74,6 +98,9 @@ class MerchandisingStandardController extends Controller
         return response()->json($standard);
     }
 
+    /**
+     * حذف سجل من (Merchandising Standard) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $standard = MerchandisingStandard::findOrFail($id);
@@ -82,6 +109,9 @@ class MerchandisingStandardController extends Controller
         return response()->json(['message' => 'Deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Merchandising Standard) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $standard = MerchandisingStandard::onlyTrashed()->findOrFail($id);
@@ -90,6 +120,9 @@ class MerchandisingStandardController extends Controller
         return response()->json($standard);
     }
 
+    /**
+     * حذف نهائي للسجل من (Merchandising Standard) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $standard = MerchandisingStandard::onlyTrashed()->findOrFail($id);

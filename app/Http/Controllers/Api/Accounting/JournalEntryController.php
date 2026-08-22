@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): JournalEntryController
+ * الوحدة (Module): المحاسبة (Accounting)
+ * المورد (Resource): Journal Entry
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Journal Entry" ضمن وحدة "المحاسبة".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Accounting;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class JournalEntryController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Journal Entry) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -28,6 +44,9 @@ class JournalEntryController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Journal Entry) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('journal_entry', 'store'));
@@ -37,6 +56,9 @@ class JournalEntryController extends Controller
         return response()->json(JournalEntry::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Journal Entry) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(JournalEntry $journalEntry)
     {
         return $journalEntry->load([
@@ -46,6 +68,9 @@ class JournalEntryController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Journal Entry) بناءً على المعرّف.
+     */
     public function update(Request $request, JournalEntry $journalEntry)
     {
         $data = $request->validate(ValidationRules::for('journal_entry', 'update', $journalEntry));
@@ -53,17 +78,26 @@ class JournalEntryController extends Controller
         return response()->json($journalEntry);
     }
 
+    /**
+     * حذف سجل من (Journal Entry) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(JournalEntry $journalEntry)
     {
         $journalEntry->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Journal Entry).
+     */
     public function nextCode()
     {
         return response()->json(['entry_no' => self::generateNextCode()]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Journal Entry) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = JournalEntry::onlyTrashed()->findOrFail($id);
@@ -71,17 +105,26 @@ class JournalEntryController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Journal Entry) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         JournalEntry::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Journal Entry).
+     */
     public function schema()
     {
         return ValidationRules::for('journal_entry', 'store');
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Journal Entry).
+     */
     private static function generateNextCode(): string
     {
         $last = JournalEntry::orderByDesc('id')->value('entry_no');

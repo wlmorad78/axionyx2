@@ -16,13 +16,13 @@ class SalesInvoice extends Document
 
     protected $fillable = [
         'company_id', 'branch_id', 'warehouse_id', 'treasury_id', 'load_request_id', 'issue_order_id',
-        'route_id', 'sales_territory_id', 'sales_rep_id', 'customer_id', 'payment_term_id', 'currency_id',
-        'exchange_rate', 'invoice_no', 'temp_invoice_no', 'source', 'mode', 'device_id',
+        'route_id', 'sales_territory_id', 'sales_rep_id', 'customer_id', 'customer_type_id', 'payment_term_id', 'currency_id',
+        'exchange_rate', 'uuid', 'client_uuid', 'invoice_no', 'temp_invoice_no', 'source', 'mode', 'device_id',
         'sync_status', 'synced_at', 'number_series_id',
         'invoice_date', 'invoice_time',
         'subtotal', 'item_discount_total', 'invoice_discount_total', 'tax_total',
         'incentive_total', 'net_total', 'paid_amount', 'remaining_amount',
-        'status', 'notes', 'created_by', 'approved_by', 'posted_at',
+        'status', 'notes', 'created_by', 'approved_by', 'posted_at', 'deleted_at',
     ];
 
     protected $casts = [
@@ -114,7 +114,11 @@ class SalesInvoice extends Document
     {
         if (empty($items) || !$this->warehouse_id) return;
 
-        if ($this->source === 'mobile') return;
+        // تخطي مزامنة المخزون لمبيعات الهاند هيلد (mobile)
+        if (($this->source ?? '') === 'mobile') {
+            Log::info('Skipping syncStock for mobile/handheld invoice', ['invoice_id' => $this->id]);
+            return;
+        }
 
         $type = InventoryTransactionType::firstWhere('code', 'SALES_INVOICE') ?? null;
         if (!$type) {
@@ -245,14 +249,5 @@ class SalesInvoice extends Document
         }
     }
 
-    // ─── Auto-generate Invoice Number ───────────────────────
 
-    protected static function booted(): void
-    {
-        static::creating(function (SalesInvoice $model) {
-            if (!$model->invoice_no) {
-                $model->invoice_no = $model->generateNumber();
-            }
-        });
-    }
 }

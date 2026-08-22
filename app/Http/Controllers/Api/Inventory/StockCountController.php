@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): StockCountController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Stock Count
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Stock Count" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class StockCountController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Stock Count) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -27,6 +43,9 @@ class StockCountController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Stock Count) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('stock_count', 'store'));
@@ -36,6 +55,9 @@ class StockCountController extends Controller
         return response()->json(StockCount::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Stock Count) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(StockCount $stockCount)
     {
         return $stockCount->load([
@@ -45,6 +67,9 @@ class StockCountController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Stock Count) بناءً على المعرّف.
+     */
     public function update(Request $request, StockCount $stockCount)
     {
         $data = $request->validate(ValidationRules::for('stock_count', 'update', $stockCount));
@@ -52,17 +77,26 @@ class StockCountController extends Controller
         return response()->json($stockCount);
     }
 
+    /**
+     * حذف سجل من (Stock Count) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(StockCount $stockCount)
     {
         $stockCount->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Stock Count).
+     */
     public function nextCode()
     {
         return response()->json(['code' => self::generateNextCode('SC', 'stock_counts', 'count_no')]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Stock Count) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = StockCount::onlyTrashed()->findOrFail($id);
@@ -70,17 +104,26 @@ class StockCountController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Stock Count) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         StockCount::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Stock Count).
+     */
     public function schema()
     {
         return ValidationRules::for('stock_count', 'store');
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Stock Count).
+     */
     protected static function generateNextCode(string $prefix, string $table, string $column): string
     {
         $last = \DB::table($table)->where($column, 'like', "$prefix-%")->orderByDesc($column)->value($column);

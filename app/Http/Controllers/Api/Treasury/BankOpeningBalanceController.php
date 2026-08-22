@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): BankOpeningBalanceController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Bank Opening Balance
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Opening Balance" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Support\Facades\DB;
 
 class BankOpeningBalanceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Opening Balance) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = BankOpeningBalance::with(['bankAccount', 'fiscalYear']);
@@ -28,6 +43,9 @@ class BankOpeningBalanceController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 50);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Opening Balance) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -57,11 +75,17 @@ class BankOpeningBalanceController extends Controller
         return response()->json($record->load(['bankAccount', 'fiscalYear']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Opening Balance) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankOpeningBalance $bankOpeningBalance)
     {
         return $bankOpeningBalance->load(['bankAccount', 'fiscalYear']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Bank Opening Balance) بناءً على المعرّف.
+     */
     public function update(Request $request, BankOpeningBalance $bankOpeningBalance)
     {
         $data = $request->validate([
@@ -86,6 +110,9 @@ class BankOpeningBalanceController extends Controller
         return response()->json($bankOpeningBalance->load(['bankAccount', 'fiscalYear']));
     }
 
+    /**
+     * حذف سجل من (Bank Opening Balance) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankOpeningBalance $bankOpeningBalance)
     {
         DB::transaction(function () use ($bankOpeningBalance) {

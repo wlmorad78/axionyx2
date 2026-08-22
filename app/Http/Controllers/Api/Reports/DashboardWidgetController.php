@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): DashboardWidgetController
+ * الوحدة (Module): التقارير واللوحات (Reports)
+ * المورد (Resource): Dashboard Widget
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Dashboard Widget" ضمن وحدة "التقارير واللوحات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Reports;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +22,9 @@ use Illuminate\Http\Request;
 
 class DashboardWidgetController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Dashboard Widget) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index()
     {
         return response()->json([
@@ -17,6 +32,9 @@ class DashboardWidgetController extends Controller
         ]);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Dashboard Widget) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -34,11 +52,17 @@ class DashboardWidgetController extends Controller
         return response()->json(['data' => $widget], 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Dashboard Widget) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(DashboardWidget $widget)
     {
         return response()->json(['data' => $widget]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Dashboard Widget) بناءً على المعرّف.
+     */
     public function update(Request $request, DashboardWidget $widget)
     {
         $validated = $request->validate([
@@ -56,6 +80,9 @@ class DashboardWidgetController extends Controller
         return response()->json(['data' => $widget]);
     }
 
+    /**
+     * حذف سجل من (Dashboard Widget) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(DashboardWidget $widget)
     {
         $widget->delete();

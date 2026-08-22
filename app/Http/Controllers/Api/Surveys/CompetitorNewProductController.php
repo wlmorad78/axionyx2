@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CompetitorNewProductController
+ * الوحدة (Module): الاستبيانات والاستطلاعات (Surveys)
+ * المورد (Resource): Competitor New Product
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Competitor New Product" ضمن وحدة "الاستبيانات والاستطلاعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Surveys;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class CompetitorNewProductController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Competitor New Product) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -31,6 +46,9 @@ class CompetitorNewProductController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Competitor New Product) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -45,11 +63,17 @@ class CompetitorNewProductController extends Controller
         return response()->json(CompetitorNewProduct::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Competitor New Product) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(CompetitorNewProduct $competitorNewProduct)
     {
         return $competitorNewProduct->load(['competitor', 'competitorProduct', 'reportedBy', 'customer']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Competitor New Product) بناءً على المعرّف.
+     */
     public function update(Request $request, CompetitorNewProduct $competitorNewProduct)
     {
         $data = $request->validate([
@@ -65,12 +89,18 @@ class CompetitorNewProductController extends Controller
         return response()->json($competitorNewProduct);
     }
 
+    /**
+     * حذف سجل من (Competitor New Product) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(CompetitorNewProduct $competitorNewProduct)
     {
         $competitorNewProduct->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Competitor New Product) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $model = CompetitorNewProduct::onlyTrashed()->findOrFail($id);
@@ -78,6 +108,9 @@ class CompetitorNewProductController extends Controller
         return response()->json($model);
     }
 
+    /**
+     * حذف نهائي للسجل من (Competitor New Product) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         CompetitorNewProduct::onlyTrashed()->findOrFail($id)->forceDelete();

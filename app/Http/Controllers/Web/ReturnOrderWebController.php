@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): ReturnOrderWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Return Order Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Return Order Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -13,6 +25,9 @@ use Illuminate\Support\Facades\Auth;
 
 class ReturnOrderWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Return Order Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = ReturnOrder::with(['employee', 'warehouse', 'items.item'])
@@ -35,6 +50,9 @@ class ReturnOrderWebController extends Controller
         return view('return-orders.index', compact('returnOrders'));
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Return Order Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(ReturnOrder $returnOrder)
     {
         $returnOrder->load([
@@ -45,6 +63,9 @@ class ReturnOrderWebController extends Controller
         return view('return-orders.show', compact('returnOrder'));
     }
 
+    /**
+     * تنفيذ إجراء (عملية حالة) على سجل من (Return Order Web).
+     */
     public function approve(ReturnOrder $returnOrder)
     {
         $user = Auth::user();
@@ -60,6 +81,9 @@ class ReturnOrderWebController extends Controller
         return view('return-orders.approve', compact('returnOrder'));
     }
 
+    /**
+     * دالة معالجة: processApproval — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Return Order Web).
+     */
     public function processApproval(Request $request, ReturnOrder $returnOrder)
     {
         $user = Auth::user();
@@ -148,6 +172,9 @@ class ReturnOrderWebController extends Controller
             ->with('success', 'تمت الموافقة على الارتجاع بنجاح');
     }
 
+    /**
+     * دالة معالجة: reopen — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Return Order Web).
+     */
     public function reopen(ReturnOrder $returnOrder)
     {
         $user = Auth::user();

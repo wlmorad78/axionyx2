@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): UserController
+ * الوحدة (Module): الصلاحيات والأدوار (Permissions)
+ * المورد (Resource): User
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "User" ضمن وحدة "الصلاحيات والأدوار".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Permissions;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (User) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = User::query()->with('roles');
@@ -52,6 +67,9 @@ class UserController extends Controller
         return response()->json($users);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (User) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -87,12 +105,18 @@ class UserController extends Controller
         return response()->json($user, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (User) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $user = User::with('roles')->findOrFail($id);
         return response()->json($user);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (User) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
@@ -124,6 +148,9 @@ class UserController extends Controller
         return response()->json($user);
     }
 
+    /**
+     * حذف سجل من (User) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $user = User::findOrFail($id);
@@ -132,6 +159,9 @@ class UserController extends Controller
         return response()->json(['message' => 'User deleted']);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (User).
+     */
     public function schema()
     {
         return response()->json([
@@ -139,6 +169,9 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (User) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $user = User::withTrashed()->findOrFail($id);
@@ -146,6 +179,9 @@ class UserController extends Controller
         return response()->json($user);
     }
 
+    /**
+     * حذف نهائي للسجل من (User) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $user = User::withTrashed()->findOrFail($id);
@@ -153,6 +189,9 @@ class UserController extends Controller
         return response()->json(['message' => 'User permanently deleted']);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (User).
+     */
     public function nextCode()
     {
         $last = User::orderBy('usercode', 'desc')->first();

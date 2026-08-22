@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): StockAdjustmentController
+ * الوحدة (Module): المخزون والمستودعات (Inventory)
+ * المورد (Resource): Stock Adjustment
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Stock Adjustment" ضمن وحدة "المخزون والمستودعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class StockAdjustmentController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Stock Adjustment) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -27,6 +43,9 @@ class StockAdjustmentController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Stock Adjustment) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('stock_adjustment', 'store'));
@@ -36,6 +55,9 @@ class StockAdjustmentController extends Controller
         return response()->json(StockAdjustment::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Stock Adjustment) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(StockAdjustment $stockAdjustment)
     {
         return $stockAdjustment->load([
@@ -45,6 +67,9 @@ class StockAdjustmentController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Stock Adjustment) بناءً على المعرّف.
+     */
     public function update(Request $request, StockAdjustment $stockAdjustment)
     {
         $data = $request->validate(ValidationRules::for('stock_adjustment', 'update', $stockAdjustment));
@@ -52,17 +77,26 @@ class StockAdjustmentController extends Controller
         return response()->json($stockAdjustment);
     }
 
+    /**
+     * حذف سجل من (Stock Adjustment) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(StockAdjustment $stockAdjustment)
     {
         $stockAdjustment->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Stock Adjustment).
+     */
     public function nextCode()
     {
         return response()->json(['code' => self::generateNextCode('SA', 'stock_adjustments', 'adjustment_no')]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Stock Adjustment) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = StockAdjustment::onlyTrashed()->findOrFail($id);
@@ -70,17 +104,26 @@ class StockAdjustmentController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Stock Adjustment) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         StockAdjustment::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Stock Adjustment).
+     */
     public function schema()
     {
         return ValidationRules::for('stock_adjustment', 'store');
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Stock Adjustment).
+     */
     protected static function generateNextCode(string $prefix, string $table, string $column): string
     {
         $last = \DB::table($table)->where($column, 'like', "$prefix-%")->orderByDesc($column)->value($column);

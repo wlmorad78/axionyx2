@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): JobPositionController
+ * الوحدة (Module): الموارد البشرية (HR)
+ * المورد (Resource): Job Position
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Job Position" ضمن وحدة "الموارد البشرية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class JobPositionController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Job Position) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -21,12 +36,18 @@ class JobPositionController extends Controller
         return $query->orderBy('sort_order')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Job Position) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('job_position', 'store'));
         return response()->json(JobPosition::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Job Position) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(JobPosition $jobPosition)
     {
         return $jobPosition->load(
@@ -35,6 +56,9 @@ class JobPositionController extends Controller
         );
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Job Position) بناءً على المعرّف.
+     */
     public function update(Request $request, JobPosition $jobPosition)
     {
         $data = $request->validate(ValidationRules::for('job_position', 'update', $jobPosition));

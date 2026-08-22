@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): PayrollPeriodController
+ * الوحدة (Module): الموارد البشرية (HR)
+ * المورد (Resource): Payroll Period
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Payroll Period" ضمن وحدة "الموارد البشرية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class PayrollPeriodController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Payroll Period) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -32,6 +47,9 @@ class PayrollPeriodController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Payroll Period) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('payroll_period', 'store'));
@@ -39,11 +57,17 @@ class PayrollPeriodController extends Controller
         return response()->json(PayrollPeriod::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Payroll Period) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(PayrollPeriod $payrollPeriod)
     {
         return $payrollPeriod->load(['company', 'payrollRuns']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Payroll Period) بناءً على المعرّف.
+     */
     public function update(Request $request, PayrollPeriod $payrollPeriod)
     {
         $data = $request->validate(ValidationRules::for('payroll_period', 'update', $payrollPeriod));
@@ -53,6 +77,9 @@ class PayrollPeriodController extends Controller
         return response()->json($payrollPeriod);
     }
 
+    /**
+     * حذف سجل من (Payroll Period) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(PayrollPeriod $payrollPeriod)
     {
         $payrollPeriod->delete();
@@ -60,6 +87,9 @@ class PayrollPeriodController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Payroll Period) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $payrollPeriod = PayrollPeriod::onlyTrashed()->findOrFail($id);
@@ -69,6 +99,9 @@ class PayrollPeriodController extends Controller
         return response()->json($payrollPeriod);
     }
 
+    /**
+     * حذف نهائي للسجل من (Payroll Period) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         PayrollPeriod::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -76,6 +109,9 @@ class PayrollPeriodController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Payroll Period).
+     */
     public function schema()
     {
         return ValidationRules::for('payroll_period', 'store');

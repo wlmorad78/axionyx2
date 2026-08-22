@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SurveyAssignmentController
+ * الوحدة (Module): الاستبيانات والاستطلاعات (Surveys)
+ * المورد (Resource): Survey Assignment
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Survey Assignment" ضمن وحدة "الاستبيانات والاستطلاعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Surveys;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class SurveyAssignmentController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Survey Assignment) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = SurveyAssignment::with(['survey', 'salesRep', 'route', 'customer']);
@@ -41,6 +56,9 @@ class SurveyAssignmentController extends Controller
         return response()->json($assignments);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Survey Assignment) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -57,12 +75,18 @@ class SurveyAssignmentController extends Controller
         return response()->json($assignment, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Survey Assignment) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SurveyAssignment $surveyAssignment)
     {
         $surveyAssignment->load(['survey', 'salesRep', 'route', 'customer']);
         return response()->json($surveyAssignment);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Survey Assignment) بناءً على المعرّف.
+     */
     public function update(Request $request, SurveyAssignment $surveyAssignment)
     {
         $validated = $request->validate([
@@ -78,12 +102,18 @@ class SurveyAssignmentController extends Controller
         return response()->json($surveyAssignment);
     }
 
+    /**
+     * حذف سجل من (Survey Assignment) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(SurveyAssignment $surveyAssignment)
     {
         $surveyAssignment->delete();
         return response()->json(['message' => 'Assignment deleted successfully']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Survey Assignment) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $assignment = SurveyAssignment::withTrashed()->findOrFail($id);
@@ -91,6 +121,9 @@ class SurveyAssignmentController extends Controller
         return response()->json(['message' => 'Assignment restored successfully']);
     }
 
+    /**
+     * حذف نهائي للسجل من (Survey Assignment) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $assignment = SurveyAssignment::withTrashed()->findOrFail($id);

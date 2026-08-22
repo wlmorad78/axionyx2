@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): LeaveRequestController
+ * الوحدة (Module): الموارد البشرية (HR)
+ * المورد (Resource): Leave Request
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Leave Request" ضمن وحدة "الموارد البشرية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class LeaveRequestController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Leave Request) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -40,6 +55,9 @@ class LeaveRequestController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Leave Request) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('leave_request', 'store'));
@@ -47,11 +65,17 @@ class LeaveRequestController extends Controller
         return response()->json(LeaveRequest::create($data), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Leave Request) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(LeaveRequest $leaveRequest)
     {
         return $leaveRequest->load(['employee', 'leaveType', 'approver']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Leave Request) بناءً على المعرّف.
+     */
     public function update(Request $request, LeaveRequest $leaveRequest)
     {
         $data = $request->validate(ValidationRules::for('leave_request', 'update', $leaveRequest));
@@ -61,6 +85,9 @@ class LeaveRequestController extends Controller
         return response()->json($leaveRequest);
     }
 
+    /**
+     * حذف سجل من (Leave Request) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(LeaveRequest $leaveRequest)
     {
         $leaveRequest->delete();
@@ -68,6 +95,9 @@ class LeaveRequestController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Leave Request) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $leaveRequest = LeaveRequest::onlyTrashed()->findOrFail($id);
@@ -76,6 +106,9 @@ class LeaveRequestController extends Controller
         return response()->json($leaveRequest);
     }
 
+    /**
+     * حذف نهائي للسجل من (Leave Request) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         LeaveRequest::onlyTrashed()->findOrFail($id)->forceDelete();
@@ -83,6 +116,9 @@ class LeaveRequestController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Leave Request).
+     */
     public function schema()
     {
         return ValidationRules::for('leave_request', 'store');

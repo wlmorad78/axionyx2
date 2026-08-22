@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryOpeningBalanceController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Treasury Opening Balance
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Opening Balance" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class TreasuryOpeningBalanceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Opening Balance) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $companyId = CompanyContext::id();
@@ -32,6 +47,9 @@ class TreasuryOpeningBalanceController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 500);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Opening Balance) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $companyId = CompanyContext::id();
@@ -54,12 +72,18 @@ class TreasuryOpeningBalanceController extends Controller
         return response()->json($openingBalance->load(['treasury', 'fiscalYear']), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Opening Balance) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         $openingBalance = TreasuryOpeningBalance::with(['treasury', 'fiscalYear'])->findOrFail($id);
         return response()->json($openingBalance);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Treasury Opening Balance) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $openingBalance = TreasuryOpeningBalance::findOrFail($id);
@@ -80,6 +104,9 @@ class TreasuryOpeningBalanceController extends Controller
         return response()->json($openingBalance->load(['treasury', 'fiscalYear']));
     }
 
+    /**
+     * حذف سجل من (Treasury Opening Balance) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $openingBalance = TreasuryOpeningBalance::findOrFail($id);
@@ -93,6 +120,9 @@ class TreasuryOpeningBalanceController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Treasury Opening Balance) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $openingBalance = TreasuryOpeningBalance::onlyTrashed()->findOrFail($id);
@@ -100,6 +130,9 @@ class TreasuryOpeningBalanceController extends Controller
         return response()->json($openingBalance);
     }
 
+    /**
+     * حذف نهائي للسجل من (Treasury Opening Balance) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $openingBalance = TreasuryOpeningBalance::onlyTrashed()->findOrFail($id);

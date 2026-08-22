@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): CustomerMarketingMaterialController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Customer Marketing Material
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Customer Marketing Material" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class CustomerMarketingMaterialController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Customer Marketing Material) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = CustomerMarketingMaterial::with(['customer', 'marketingMaterial']);
@@ -26,6 +41,9 @@ class CustomerMarketingMaterialController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Customer Marketing Material) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -40,11 +58,17 @@ class CustomerMarketingMaterialController extends Controller
         return response()->json($record, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Customer Marketing Material) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return CustomerMarketingMaterial::with(['customer', 'marketingMaterial'])->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Customer Marketing Material) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $record = CustomerMarketingMaterial::findOrFail($id);
@@ -61,6 +85,9 @@ class CustomerMarketingMaterialController extends Controller
         return $record;
     }
 
+    /**
+     * حذف سجل من (Customer Marketing Material) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $record = CustomerMarketingMaterial::findOrFail($id);
@@ -68,6 +95,9 @@ class CustomerMarketingMaterialController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Customer Marketing Material) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $record = CustomerMarketingMaterial::withTrashed()->findOrFail($id);
@@ -75,6 +105,9 @@ class CustomerMarketingMaterialController extends Controller
         return $record;
     }
 
+    /**
+     * حذف نهائي للسجل من (Customer Marketing Material) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $record = CustomerMarketingMaterial::withTrashed()->findOrFail($id);

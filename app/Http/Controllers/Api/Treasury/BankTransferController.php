@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): BankTransferController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Bank Transfer
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Bank Transfer" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -10,6 +23,9 @@ use Illuminate\Support\Facades\DB;
 
 class BankTransferController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Bank Transfer) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -29,6 +45,9 @@ class BankTransferController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Bank Transfer) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('bank_transfer', 'store'));
@@ -59,6 +78,9 @@ class BankTransferController extends Controller
         return response()->json($transfer, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Bank Transfer) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(BankTransfer $bankTransfer)
     {
         return $bankTransfer->load([
@@ -67,6 +89,9 @@ class BankTransferController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Bank Transfer) بناءً على المعرّف.
+     */
     public function update(Request $request, BankTransfer $bankTransfer)
     {
         $data = $request->validate(ValidationRules::for('bank_transfer', 'update', $bankTransfer));
@@ -74,6 +99,9 @@ class BankTransferController extends Controller
         return response()->json($bankTransfer);
     }
 
+    /**
+     * حذف سجل من (Bank Transfer) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(BankTransfer $bankTransfer)
     {
         DB::transaction(function () use ($bankTransfer) {
@@ -94,11 +122,17 @@ class BankTransferController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Bank Transfer).
+     */
     public function nextCode()
     {
         return response()->json(['transfer_no' => self::generateNextCode()]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Bank Transfer) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = BankTransfer::onlyTrashed()->findOrFail($id);
@@ -106,17 +140,26 @@ class BankTransferController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Bank Transfer) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         BankTransfer::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Bank Transfer).
+     */
     public function schema()
     {
         return ValidationRules::for('bank_transfer', 'store');
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Bank Transfer).
+     */
     private static function generateNextCode(): string
     {
         $last = BankTransfer::orderByDesc('id')->value('transfer_no');

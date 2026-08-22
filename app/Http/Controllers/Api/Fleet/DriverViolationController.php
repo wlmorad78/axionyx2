@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): DriverViolationController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Driver Violation
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Driver Violation" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class DriverViolationController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Driver Violation) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = DriverViolation::query();
@@ -26,6 +41,9 @@ class DriverViolationController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
         return $query->orderByDesc('id')->paginate($perPage);
     }
+    /**
+     * إنشاء سجل جديد لـ (Driver Violation) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('driver_violation', 'create'));
@@ -40,18 +58,27 @@ class DriverViolationController extends Controller
         $item->update($data);
         return $item;
     }
+    /**
+     * حذف سجل من (Driver Violation) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $item = DriverViolation::findOrFail($id);
         $item->delete();
         return response()->json(['message' => 'Deleted']);
     }
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Driver Violation) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $item = DriverViolation::withTrashed()->findOrFail($id);
         $item->restore();
         return $item;
     }
+    /**
+     * حذف نهائي للسجل من (Driver Violation) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $item = DriverViolation::withTrashed()->findOrFail($id);

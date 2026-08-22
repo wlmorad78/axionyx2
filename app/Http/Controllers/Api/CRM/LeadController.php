@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): LeadController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Lead
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Lead" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Http\Request;
 
 class LeadController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Lead) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = Lead::query();
@@ -35,6 +50,9 @@ class LeadController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Lead) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('lead', 'create'));
@@ -42,11 +60,17 @@ class LeadController extends Controller
         return response()->json($lead, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Lead) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return Lead::findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Lead) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $lead = Lead::findOrFail($id);
@@ -55,6 +79,9 @@ class LeadController extends Controller
         return $lead;
     }
 
+    /**
+     * حذف سجل من (Lead) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $lead = Lead::findOrFail($id);
@@ -62,6 +89,9 @@ class LeadController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Lead) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $lead = Lead::withTrashed()->findOrFail($id);
@@ -69,6 +99,9 @@ class LeadController extends Controller
         return $lead;
     }
 
+    /**
+     * حذف نهائي للسجل من (Lead) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $lead = Lead::withTrashed()->findOrFail($id);

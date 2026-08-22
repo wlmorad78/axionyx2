@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): DemoAuthController
+ * الوحدة (Module): المصادقة وتسجيل الدخول (Auth)
+ * المورد (Resource): Demo Auth
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Demo Auth" ضمن وحدة "المصادقة وتسجيل الدخول".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
@@ -9,6 +21,9 @@ use Illuminate\Support\Facades\Auth;
 
 class DemoAuthController extends Controller
 {
+    /**
+     * دالة معالجة: showLogin — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Demo Auth).
+     */
     public function showLogin()
     {
         $users = User::with('company')
@@ -20,6 +35,9 @@ class DemoAuthController extends Controller
         return view('auth.demo-login', compact('users'));
     }
 
+    /**
+     * دالة معالجة: login — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Demo Auth).
+     */
     public function login(Request $request)
     {
         $userId = $request->input('user_id');
@@ -36,6 +54,9 @@ class DemoAuthController extends Controller
         return redirect()->intended('/admin');
     }
 
+    /**
+     * دالة معالجة: logout — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Demo Auth).
+     */
     public function logout()
     {
         Auth::logout();

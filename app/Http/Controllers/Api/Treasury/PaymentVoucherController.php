@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): PaymentVoucherController
+ * الوحدة (Module): الخزينة والنقد (Treasury)
+ * المورد (Resource): Payment Voucher
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Payment Voucher" ضمن وحدة "الخزينة والنقد".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
@@ -12,6 +25,9 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentVoucherController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Payment Voucher) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -31,6 +47,9 @@ class PaymentVoucherController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Payment Voucher) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('payment_voucher', 'store'));
@@ -58,6 +77,9 @@ class PaymentVoucherController extends Controller
         return response()->json($voucher->load('purchaseInvoice'), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Payment Voucher) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(PaymentVoucher $paymentVoucher)
     {
         return $paymentVoucher->load([
@@ -66,6 +88,9 @@ class PaymentVoucherController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Payment Voucher) بناءً على المعرّف.
+     */
     public function update(Request $request, PaymentVoucher $paymentVoucher)
     {
         $data = $request->validate(ValidationRules::for('payment_voucher', 'update', $paymentVoucher));
@@ -73,6 +98,9 @@ class PaymentVoucherController extends Controller
         return response()->json($paymentVoucher);
     }
 
+    /**
+     * حذف سجل من (Payment Voucher) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(PaymentVoucher $paymentVoucher)
     {
         DB::transaction(function () use ($paymentVoucher) {
@@ -93,11 +121,17 @@ class PaymentVoucherController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * توليد القيمة التلقائية التالية للكود (Code) الخاص بـ (Payment Voucher).
+     */
     public function nextCode()
     {
         return response()->json(['voucher_no' => self::generateNextCode()]);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Payment Voucher) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = PaymentVoucher::onlyTrashed()->findOrFail($id);
@@ -120,17 +154,26 @@ class PaymentVoucherController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Payment Voucher) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         PaymentVoucher::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Payment Voucher).
+     */
     public function schema()
     {
         return ValidationRules::for('payment_voucher', 'store');
     }
 
+    /**
+     * دالة معالجة: syncTreasury — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Payment Voucher).
+     */
     private static function syncTreasury(PaymentVoucher $voucher): void
     {
         $amount = (float)($voucher->amount ?? 0);
@@ -158,6 +201,9 @@ class PaymentVoucherController extends Controller
         ]);
     }
 
+    /**
+     * دالة معالجة: reverseTreasury — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Payment Voucher).
+     */
     private static function reverseTreasury(PaymentVoucher $voucher): void
     {
         TreasuryTransaction::where('reference_type', PaymentVoucher::class)
@@ -165,6 +211,9 @@ class PaymentVoucherController extends Controller
             ->each(fn($txn) => $txn->forceDelete());
     }
 
+    /**
+     * دالة معالجة: generateNextCode — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Payment Voucher).
+     */
     private static function generateNextCode(): string
     {
         $last = PaymentVoucher::withTrashed()->orderByDesc('id')->value('voucher_no');

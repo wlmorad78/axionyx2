@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): SalesmanAccountController
+ * الوحدة (Module): المبيعات (Sales)
+ * المورد (Resource): Salesman Account
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Salesman Account" ضمن وحدة "المبيعات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
@@ -11,6 +23,9 @@ use Illuminate\Http\Request;
 
 class SalesmanAccountController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Salesman Account) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -48,6 +63,9 @@ class SalesmanAccountController extends Controller
         return $query->orderByDesc('id')->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Salesman Account) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(SalesmanAccount $salesmanAccount)
     {
         return $salesmanAccount->load([
@@ -57,6 +75,9 @@ class SalesmanAccountController extends Controller
         ]);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Salesman Account) بناءً على المعرّف.
+     */
     public function update(SalesmanAccount $salesmanAccount, Request $request)
     {
         $data = $request->validate([
@@ -69,6 +90,9 @@ class SalesmanAccountController extends Controller
         return response()->json($salesmanAccount->fresh());
     }
 
+    /**
+     * دالة معالجة: ledger — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Salesman Account).
+     */
     public function ledger(SalesmanAccount $salesmanAccount, Request $request)
     {
         $query = SalesmanAccountMovement::where('salesman_account_id', $salesmanAccount->id);
@@ -88,6 +112,9 @@ class SalesmanAccountController extends Controller
         return $query->orderByDesc('movement_date')->paginate($request->per_page ?? 50);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Salesman Account).
+     */
     public function schema()
     {
         return ValidationRules::for('salesman_account', 'store');

@@ -1,4 +1,17 @@
 <?php
+/**
+ * =====================================================================
+ * متحكم (Controller): AccountGroupController
+ * الوحدة (Module): المحاسبة (Accounting)
+ * المورد (Resource): Account Group
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Account Group" ضمن وحدة "المحاسبة".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Accounting;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +21,9 @@ use Illuminate\Http\Request;
 
 class AccountGroupController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Account Group) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -32,6 +48,9 @@ class AccountGroupController extends Controller
             ->paginate($request->per_page ?? 50);
     }
 
+    /**
+     * بناء وعرض هيكل شجري (هيكلي) لسجلات (Account Group).
+     */
     public function tree(Request $request)
     {
         $query = AccountGroup::with(['accountType', 'accounts' => function ($q) {
@@ -48,6 +67,9 @@ class AccountGroupController extends Controller
         return response()->json($tree);
     }
 
+    /**
+     * دالة معالجة: buildTree — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Account Group).
+     */
     private function buildTree($groups, $parentId = null)
     {
         $tree = [];
@@ -63,6 +85,9 @@ class AccountGroupController extends Controller
         return $tree;
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Account Group) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('account_group', 'store'));
@@ -83,11 +108,17 @@ class AccountGroupController extends Controller
         return response()->json($group->load('accountType'), 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Account Group) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(AccountGroup $accountGroup)
     {
         return $accountGroup->load(['accountType', 'accounts', 'parent', 'children']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Account Group) بناءً على المعرّف.
+     */
     public function update(Request $request, AccountGroup $accountGroup)
     {
         $data = $request->validate(ValidationRules::for('account_group', 'update', $accountGroup));
@@ -107,6 +138,9 @@ class AccountGroupController extends Controller
         return response()->json($accountGroup->fresh()->load('accountType'));
     }
 
+    /**
+     * حذف سجل من (Account Group) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(AccountGroup $accountGroup)
     {
         if ($accountGroup->accounts()->count() > 0) {
@@ -119,6 +153,9 @@ class AccountGroupController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Account Group) وإعادته للعمل.
+     */
     public function restore(int $id)
     {
         $m = AccountGroup::onlyTrashed()->findOrFail($id);
@@ -126,12 +163,18 @@ class AccountGroupController extends Controller
         return response()->json($m);
     }
 
+    /**
+     * حذف نهائي للسجل من (Account Group) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete(int $id)
     {
         AccountGroup::onlyTrashed()->findOrFail($id)->forceDelete();
         return response()->json(null, 204);
     }
 
+    /**
+     * إرجاع قواعد التحقق (Validation Rules) المستخدمة لـ (Account Group).
+     */
     public function schema()
     {
         return ValidationRules::for('account_group', 'store');

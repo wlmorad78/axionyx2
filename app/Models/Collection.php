@@ -30,12 +30,18 @@ class Collection extends Model
             if (empty($model->collection_no)) {
                 $model->collection_no = self::generateNextCode();
             }
+            if (empty($model->status)) {
+                $model->status = 'approved';
+            }
+            if (empty($model->approved_by)) {
+                $model->approved_by = $model->created_by;
+            }
         });
     }
 
     public static function generateNextCode(): string
     {
-        $last = static::orderByRaw("CAST(SUBSTR(collection_no, 5) AS INTEGER) DESC")->first();
+        $last = static::withoutGlobalScopes()->orderByRaw("CAST(SUBSTR(collection_no, 5) AS INTEGER) DESC")->first();
         $next = 1;
         if ($last && preg_match('/^COL-(\d+)$/', $last->collection_no, $m)) {
             $next = intval($m[1]) + 1;
@@ -49,4 +55,5 @@ class Collection extends Model
     public function customer() { return $this->belongsTo(Customer::class); }
     public function salesInvoice() { return $this->belongsTo(SalesInvoice::class); }
     public function paymentMethod() { return $this->belongsTo(PaymentMethod::class); }
+    public function bankAccount() { return $this->belongsTo(\App\Models\Treasury\BankAccount::class); }
 }

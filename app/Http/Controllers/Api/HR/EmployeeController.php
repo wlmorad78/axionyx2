@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): EmployeeController
+ * الوحدة (Module): الموارد البشرية (HR)
+ * المورد (Resource): Employee
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Employee" ضمن وحدة "الموارد البشرية".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
@@ -12,6 +24,9 @@ use Illuminate\Support\Facades\Hash;
 
 class EmployeeController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Employee) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
@@ -43,6 +58,9 @@ class EmployeeController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Employee) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('employee', 'store'));
@@ -70,11 +88,17 @@ class EmployeeController extends Controller
         return response()->json($employee, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Employee) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(Employee $employee)
     {
         return $employee->load(['company', 'user', 'country', 'governorate', 'city', 'area', 'status']);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Employee) بناءً على المعرّف.
+     */
     public function update(Request $request, Employee $employee)
     {
         $data = $request->validate(ValidationRules::for('employee', 'update', $employee));

@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): TreasuryBankTransferWebController
+ * الوحدة (Module): واجهات الويب (Views) (Web)
+ * المورد (Resource): Treasury Bank Transfer Web
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Treasury Bank Transfer Web" ضمن وحدة "واجهات الويب (Views)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
@@ -12,6 +24,9 @@ use Illuminate\Support\Facades\DB;
 
 class TreasuryBankTransferWebController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Treasury Bank Transfer Web) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = TreasuryBankTransfer::with(['treasury', 'bankAccount'])
@@ -46,6 +61,9 @@ class TreasuryBankTransferWebController extends Controller
         ));
     }
 
+    /**
+     * عرض نموذج / بيانات إنشاء سجل جديد لـ (Treasury Bank Transfer Web).
+     */
     public function create()
     {
         $treasuries = Treasury::where('is_active', true)->orderBy('name')->get();
@@ -54,6 +72,9 @@ class TreasuryBankTransferWebController extends Controller
         return view('treasury-bank-transfers.create', compact('treasuries', 'bankAccounts'));
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Treasury Bank Transfer Web) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -114,6 +135,9 @@ class TreasuryBankTransferWebController extends Controller
             ->with('success', "تم إنشاء التحويل {$transfer->transfer_no} بنجاح");
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Treasury Bank Transfer Web) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show(TreasuryBankTransfer $treasuryBankTransfer)
     {
         $treasuryBankTransfer->load(['treasury', 'bankAccount', 'company']);
@@ -121,6 +145,9 @@ class TreasuryBankTransferWebController extends Controller
         return view('treasury-bank-transfers.show', compact('treasuryBankTransfer'));
     }
 
+    /**
+     * حذف سجل من (Treasury Bank Transfer Web) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy(TreasuryBankTransfer $treasuryBankTransfer)
     {
         DB::transaction(function () use ($treasuryBankTransfer) {

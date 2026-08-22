@@ -1,20 +1,35 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): VehicleExpenseController
+ * الوحدة (Module): إدارة أسطول المركبات (Fleet)
+ * المورد (Resource): Vehicle Expense
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Vehicle Expense" ضمن وحدة "إدارة أسطول المركبات".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
-use App\Models\VehicleExpense;
+use App\Models\Fleet\VehicleDailyExpense;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 
 class VehicleExpenseController extends Controller
 {
+    /**
+     * عرض قائمة سجلات المصروفات اليومية مع دعم الفلترة والبحث والصفحات.
+     */
     public function index(Request $request)
     {
-        $query = VehicleExpense::query();
+        $query = VehicleDailyExpense::with(['vehicle', 'creator']);
 
-        if ($request->branch_id) {
-            $query->where('branch_id', $request->branch_id);
+        if ($request->vehicle_id) {
+            $query->where('vehicle_id', $request->vehicle_id);
         }
 
         if ($s = $request->input('search')) {
@@ -24,51 +39,72 @@ class VehicleExpenseController extends Controller
             });
         }
 
-        if ($request->filled('status')) $query->where('status', $request->status);
+        if ($request->filled('expense_date')) {
+            $query->whereDate('expense_date', $request->expense_date);
+        }
 
         $perPage = min((int) $request->input('per_page', 15), 100);
 
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد للمصروف اليومي.
+     */
     public function store(Request $request)
     {
-        $data = $request->validate(ValidationRules::for('vehicle_expense', 'create'));
-        $vehicleExpense = VehicleExpense::create($data);
-        return response()->json($vehicleExpense, 201);
+        $data = $request->validate(ValidationRules::for('vehicle_daily_expense', 'create'));
+        $data['created_by'] = $request->user()->id;
+        $expense = VehicleDailyExpense::create($data);
+        return response()->json($expense, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد.
+     */
     public function show($id)
     {
-        return VehicleExpense::findOrFail($id);
+        return VehicleDailyExpense::with(['vehicle', 'creator'])->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود.
+     */
     public function update(Request $request, $id)
     {
-        $vehicleExpense = VehicleExpense::findOrFail($id);
-        $data = $request->validate(ValidationRules::for('vehicle_expense', 'update', $vehicleExpense));
-        $vehicleExpense->update($data);
-        return $vehicleExpense;
+        $expense = VehicleDailyExpense::findOrFail($id);
+        $data = $request->validate(ValidationRules::for('vehicle_daily_expense', 'update', $expense));
+        $expense->update($data);
+        return $expense;
     }
 
+    /**
+     * حذف سجل.
+     */
     public function destroy($id)
     {
-        $vehicleExpense = VehicleExpense::findOrFail($id);
-        $vehicleExpense->delete();
+        $expense = VehicleDailyExpense::findOrFail($id);
+        $expense->delete();
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف.
+     */
     public function restore($id)
     {
-        $vehicleExpense = VehicleExpense::withTrashed()->findOrFail($id);
-        $vehicleExpense->restore();
-        return $vehicleExpense;
+        $expense = VehicleDailyExpense::withTrashed()->findOrFail($id);
+        $expense->restore();
+        return $expense;
     }
 
+    /**
+     * حذف نهائي للسجل.
+     */
     public function forceDelete($id)
     {
-        $vehicleExpense = VehicleExpense::withTrashed()->findOrFail($id);
-        $vehicleExpense->forceDelete();
+        $expense = VehicleDailyExpense::withTrashed()->findOrFail($id);
+        $expense->forceDelete();
         return response()->json(['message' => 'Permanently deleted']);
     }
 }

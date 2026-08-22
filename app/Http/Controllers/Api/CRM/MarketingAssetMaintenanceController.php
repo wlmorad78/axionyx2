@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * =====================================================================
+ * متحكم (Controller): MarketingAssetMaintenanceController
+ * الوحدة (Module): إدارة العملاء (CRM) (CRM)
+ * المورد (Resource): Marketing Asset Maintenance
+ * ---------------------------------------------------------------------
+ * الوصف:
+ * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
+ * لإدارة "Marketing Asset Maintenance" ضمن وحدة "إدارة العملاء (CRM)".
+ * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
+ * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
+ * =====================================================================
+ */
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +20,9 @@ use Illuminate\Http\Request;
 
 class MarketingAssetMaintenanceController extends Controller
 {
+    /**
+     * عرض قائمة سجلات (Marketing Asset Maintenance) مع دعم الفلترة والبحث والصفحات (Pagination).
+     */
     public function index(Request $request)
     {
         $query = MarketingAssetMaintenance::with('marketingAsset');
@@ -27,6 +42,9 @@ class MarketingAssetMaintenanceController extends Controller
         return $query->orderByDesc('id')->paginate($perPage);
     }
 
+    /**
+     * إنشاء سجل جديد لـ (Marketing Asset Maintenance) بعد التحقق من صحة البيانات المدخلة.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -42,11 +60,17 @@ class MarketingAssetMaintenanceController extends Controller
         return response()->json($maintenance, 201);
     }
 
+    /**
+     * عرض تفاصيل سجل محدد من (Marketing Asset Maintenance) مع العلاقات (Relations) المرتبطة به.
+     */
     public function show($id)
     {
         return MarketingAssetMaintenance::with('marketingAsset')->findOrFail($id);
     }
 
+    /**
+     * تحديث بيانات سجل موجود من (Marketing Asset Maintenance) بناءً على المعرّف.
+     */
     public function update(Request $request, $id)
     {
         $maintenance = MarketingAssetMaintenance::findOrFail($id);
@@ -64,6 +88,9 @@ class MarketingAssetMaintenanceController extends Controller
         return $maintenance;
     }
 
+    /**
+     * حذف سجل من (Marketing Asset Maintenance) مع مراعاة قواعد العمل قبل الحذف.
+     */
     public function destroy($id)
     {
         $maintenance = MarketingAssetMaintenance::findOrFail($id);
@@ -71,6 +98,9 @@ class MarketingAssetMaintenanceController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
+    /**
+     * استرجاع سجل محذوف (Soft Deleted) من (Marketing Asset Maintenance) وإعادته للعمل.
+     */
     public function restore($id)
     {
         $maintenance = MarketingAssetMaintenance::withTrashed()->findOrFail($id);
@@ -78,6 +108,9 @@ class MarketingAssetMaintenanceController extends Controller
         return $maintenance;
     }
 
+    /**
+     * حذف نهائي للسجل من (Marketing Asset Maintenance) من قاعدة البيانات دون إمكانية الاسترجاع.
+     */
     public function forceDelete($id)
     {
         $maintenance = MarketingAssetMaintenance::withTrashed()->findOrFail($id);
