@@ -299,9 +299,11 @@ class ReportController extends Controller
         }
 
         $customersQuery = DB::table('customers')
+            ->whereNull('customers.deleted_at')
             ->leftJoin('employees', function ($q) use ($companyId, $dateFrom, $dateTo) {
                 $q->on('employees.id', '=', DB::raw('(SELECT sales_invoices.sales_rep_id FROM sales_invoices WHERE sales_invoices.customer_id = customers.id AND sales_invoices.company_id = ' . $companyId . ' AND sales_invoices.invoice_date >= \'' . $dateFrom . '\' AND sales_invoices.invoice_date <= \'' . $dateTo . '\' AND sales_invoices.status = \'posted\' AND sales_invoices.deleted_at IS NULL ORDER BY sales_invoices.id DESC LIMIT 1)'));
             })
+            ->whereNull('employees.deleted_at')
             ->whereIn('customers.id', $customerIds)
             ->select(
                 'customers.id as customer_id',
@@ -314,8 +316,11 @@ class ReportController extends Controller
         $customers = $customersQuery->get()->keyBy('customer_id');
 
         $routeQuery = DB::table('route_customers')
+            ->whereNull('route_customers.deleted_at')
             ->join('routes', 'route_customers.route_id', '=', 'routes.id')
+            ->whereNull('routes.deleted_at')
             ->leftJoin('sales_territories', 'routes.sales_territory_id', '=', 'sales_territories.id')
+            ->whereNull('sales_territories.deleted_at')
             ->whereIn('route_customers.customer_id', $customerIds)
             ->where('route_customers.is_active', true)
             ->select(
@@ -359,6 +364,8 @@ class ReportController extends Controller
             ->whereDate('sales_invoices.invoice_date', '<=', $dateTo)
             ->where('sales_invoices.status', 'posted')
             ->whereNull('sales_invoices.deleted_at')
+            ->whereNull('sales_invoice_items.deleted_at')
+            ->whereNull('items.deleted_at')
             ->whereIn('sales_invoices.customer_id', $customerIds);
 
         if ($salesRepId) {
@@ -513,6 +520,7 @@ class ReportController extends Controller
 
         // 2) employees (reps)
         $employees = DB::table('employees')
+            ->whereNull('employees.deleted_at')
             ->whereIn('employees.id', $repIds)
             ->where('employees.company_id', $companyId)
             ->select(
@@ -524,6 +532,7 @@ class ReportController extends Controller
 
         // 3) customers
         $customers = DB::table('customers')
+            ->whereNull('customers.deleted_at')
             ->whereIn('customers.id', $customerIds)
             ->select(
                 'customers.id as customer_id',
@@ -535,8 +544,11 @@ class ReportController extends Controller
 
         // 4) routes + territories per customer
         $routeQuery = DB::table('route_customers')
+            ->whereNull('route_customers.deleted_at')
             ->join('routes', 'route_customers.route_id', '=', 'routes.id')
+            ->whereNull('routes.deleted_at')
             ->leftJoin('sales_territories', 'routes.sales_territory_id', '=', 'sales_territories.id')
+            ->whereNull('sales_territories.deleted_at')
             ->whereIn('route_customers.customer_id', $customerIds)
             ->where('route_customers.is_active', true)
             ->select(
@@ -580,6 +592,8 @@ class ReportController extends Controller
             ->whereDate('sales_invoices.invoice_date', '<=', $dateTo)
             ->where('sales_invoices.status', 'posted')
             ->whereNull('sales_invoices.deleted_at')
+            ->whereNull('sales_invoice_items.deleted_at')
+            ->whereNull('items.deleted_at')
             ->whereIn('sales_invoices.customer_id', $customerIds);
 
         if ($salesRepId) {
@@ -738,13 +752,18 @@ class ReportController extends Controller
 
         $query = DB::table('sales_invoices')
             ->join('customers', 'sales_invoices.customer_id', '=', 'customers.id')
+            ->whereNull('customers.deleted_at')
             ->leftJoin('route_customers', function ($q) {
                 $q->on('route_customers.customer_id', '=', 'customers.id')
                   ->where('route_customers.is_active', true);
             })
+            ->whereNull('route_customers.deleted_at')
             ->leftJoin('routes', 'route_customers.route_id', '=', 'routes.id')
+            ->whereNull('routes.deleted_at')
             ->leftJoin('sales_territories', 'routes.sales_territory_id', '=', 'sales_territories.id')
+            ->whereNull('sales_territories.deleted_at')
             ->leftJoin('employees', 'sales_invoices.sales_rep_id', '=', 'employees.id')
+            ->whereNull('employees.deleted_at')
             ->where('sales_invoices.company_id', $companyId)
             ->whereDate('sales_invoices.invoice_date', '>=', $dateFrom)
             ->whereDate('sales_invoices.invoice_date', '<=', $dateTo)
@@ -807,6 +826,8 @@ class ReportController extends Controller
                 ->join('items', 'sales_invoice_items.item_id', '=', 'items.id')
                 ->join('sales_invoices', 'sales_invoice_items.sales_invoice_id', '=', 'sales_invoices.id')
                 ->whereIn('sales_invoice_items.sales_invoice_id', $invoiceIds)
+                ->whereNull('sales_invoice_items.deleted_at')
+                ->whereNull('items.deleted_at')
                 ->select(
                     'sales_invoices.customer_id',
                     'items.code as item_code',
@@ -981,6 +1002,8 @@ class ReportController extends Controller
             ->whereDate('sales_invoices.invoice_date', $date)
             ->where('sales_invoices.source', 'mobile')
             ->where('sales_invoices.status', 'posted')
+            ->whereNull('sales_invoices.deleted_at')
+            ->whereNull('sales_invoice_items.deleted_at')
             ->select(
                 'sales_invoice_items.item_id',
                 DB::raw('ABS(COALESCE(NULLIF(sales_invoice_items.base_quantity, 0), sales_invoice_items.qty)) as qty')
@@ -1054,6 +1077,7 @@ class ReportController extends Controller
         // 1. التحميل (Load) — من أوامر التحميل
         $loadQuery = DB::table('load_request_items')
             ->join('load_requests', 'load_request_items.load_request_id', '=', 'load_requests.id')
+            ->whereNull('load_requests.deleted_at')
             ->where('load_requests.employee_id', $employeeId)
             ->where('load_requests.company_id', $companyId)
             ->whereIn('load_requests.status', ['approved', 'loading', 'completed'])
@@ -1077,6 +1101,8 @@ class ReportController extends Controller
             ->where('sales_invoices.sales_rep_id', $employeeId)
             ->where('sales_invoices.company_id', $companyId)
             ->where('sales_invoices.status', 'posted')
+            ->whereNull('sales_invoices.deleted_at')
+            ->whereNull('sales_invoice_items.deleted_at')
             ->select(
                 'sales_invoice_items.item_id',
                 DB::raw('ABS(SUM(COALESCE(NULLIF(sales_invoice_items.base_quantity, 0), sales_invoice_items.qty))) as sale_qty'),
@@ -1095,6 +1121,7 @@ class ReportController extends Controller
         // 3. المرتجعات (Returns) — من أوامر الإرجاع
         $returnQuery = DB::table('return_order_items')
             ->join('return_orders', 'return_order_items.return_order_id', '=', 'return_orders.id')
+            ->whereNull('return_orders.deleted_at')
             ->where('return_orders.employee_id', $employeeId)
             ->where('return_orders.company_id', $companyId)
             ->whereIn('return_orders.status_id', ['pending', 'approved', 'received'])

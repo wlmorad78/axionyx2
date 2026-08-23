@@ -13,6 +13,11 @@ Route::get('health-check', function () {
     return response()->json(['status' => 'Server is running', 'timestamp' => now()]);
 });
 
+// App Update (no auth required)
+Route::get('app/version', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'latest']);
+Route::get('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'index']);
+Route::post('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'store']);
+
 // Postman collection
 Route::get('postman-collection', function () {
     $path = storage_path('api-docs/postman_collection.json');

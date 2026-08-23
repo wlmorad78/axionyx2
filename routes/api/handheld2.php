@@ -6,6 +6,20 @@ use App\Http\Controllers\Api\Handheld2Controller;
 Route::post('handheld2/login', [Handheld2Controller::class, 'login']);
 Route::get('handheld2/health', [Handheld2Controller::class, 'health']);
 
+Route::get('handheld2/version', function () {
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'version' => '1.0.1',
+            'build_number' => 2,
+            'min_required_version' => '1.0.0',
+            'force_update' => false,
+            'release_notes' => 'إصلاحات وتحسينات عامة',
+            'download_url' => null,
+        ],
+    ]);
+});
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('handheld2/salesman-profile', [Handheld2Controller::class, 'salesmanProfile']);
     Route::get('handheld2/start-day-counts', [Handheld2Controller::class, 'startDayCounts']);
