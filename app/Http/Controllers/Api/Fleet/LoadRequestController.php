@@ -433,6 +433,21 @@ class LoadRequestController extends Controller
     }
 
     /**
+     * إغلاق طلب التحميل.
+     */
+    public function close(Request $request, LoadRequest $loadRequest)
+    {
+        $loadRequest->update([
+            'status' => 'closed',
+        ]);
+
+        return response()->json([
+            'message' => 'تم إغلاق طلب التحميل',
+            'data' => $loadRequest->fresh(),
+        ]);
+    }
+
+    /**
      * جلب / استعلام بيانات مخصصة لـ (Load Request) حسب الطلب.
      */
     protected function getWarehouseStock(int $warehouseId, int $itemId): float

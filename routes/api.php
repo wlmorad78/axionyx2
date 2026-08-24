@@ -1611,6 +1611,7 @@ Route::post('load-requests/create', function (\Illuminate\Http\Request $request)
 Route::patch('load-requests/{loadRequest}/status', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'updateStatus']);
 Route::post('load-requests/{loadRequest}/approve', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'approve']);
 Route::post('load-requests/{loadRequest}/reject', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'reject']);
+Route::post('load-requests/{loadRequest}/close', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'close']);
 
 // Warehouse Transfers next-code
 Route::get('warehouse-transfers/next-code', function () {
