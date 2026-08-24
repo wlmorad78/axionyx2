@@ -10,12 +10,12 @@ Route::get('handheld2/version', function () {
     return response()->json([
         'success' => true,
         'data' => [
-            'version' => '1.0.1',
-            'build_number' => 2,
+            'version' => '1.0.2',
+            'build_number' => 3,
             'min_required_version' => '1.0.0',
             'force_update' => false,
             'release_notes' => 'إصلاحات وتحسينات عامة',
-            'download_url' => null,
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_hh_v1.0.2.apk',
         ],
     ]);
 });
