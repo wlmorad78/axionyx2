@@ -72,7 +72,7 @@ class LoadRequestController extends Controller
 
         if (!$isComplementary) {
             $existingOpenOrder = LoadRequest::where('employee_id', $repEmployeeId)
-                ->whereIn('status', ['draft', 'pending', 'approved'])
+                ->whereIn('status', ['draft', 'pending', 'approved', 'loading'])
                 ->first();
 
             if ($existingOpenOrder) {
