@@ -36,11 +36,15 @@ class LoadRequestWebController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = LoadRequest::with(['employee', 'warehouse', 'items.item'])
+        $query = LoadRequest::with(['employee', 'warehouse', 'items.item', 'parentRequest'])
             ->orderByDesc('id');
 
         if ($request->status) {
             $query->where('status', $request->status);
+        }
+
+        if ($request->load_type) {
+            $query->where('load_type', $request->load_type);
         }
 
         if ($request->search) {
@@ -151,6 +155,82 @@ class LoadRequestWebController extends Controller
     }
 
     /**
+     * عرض فورم إنشاء أمر تحميل تكميلى مرتبط بأمر تحميل موجود (مفتوح).
+     * يسمح بإضافة أصناف لمخزون المندوب بدون ارتجاع الأذن الأصلي.
+     */
+    public function createComplementary(LoadRequest $loadRequest)
+    {
+        $items = Item::with(['prices', 'itemUnits.unit'])->where('is_active', true)->orderBy('name_ar')->get();
+        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
+
+        return view('load-requests.complementary-create', compact('items', 'warehouses', 'loadRequest'));
+    }
+
+    /**
+     * إنشاء أمر تحميل تكميلى (يضاف لمخزون المندوب ويرسل للهاند هولد).
+     * يتجاوز قيد "مندوب واحد = أمر تحميل مفتوح واحد".
+     */
+    public function storeComplementary(Request $request, LoadRequest $parent)
+    {
+        $request->validate([
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'items' => 'required|array|min:1',
+            'items.*.item_id' => 'required|exists:items,id',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.unit_id' => 'nullable|exists:units,id',
+            'items.*.unit_price' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
+
+        $user = Auth::user();
+        $unitService = app(\App\Services\UnitConversionService::class);
+
+        $repEmployeeId = $parent->employee_id;
+
+        $result = DB::transaction(function () use ($request, $user, $parent, $unitService, $repEmployeeId) {
+            $loadRequest = LoadRequest::create([
+                'company_id' => $user->company_id,
+                'warehouse_id' => $request->warehouse_id,
+                'employee_id' => $repEmployeeId,
+                'parent_load_request_id' => $parent->id,
+                'load_type' => 'complementary',
+                'request_date' => now()->toDateString(),
+                'status' => 'pending',
+                'notes' => $request->notes,
+                'requested_by' => $repEmployeeId,
+            ]);
+
+            foreach ($request->items as $item) {
+                $itemId = $item['item_id'];
+                $qty = (float) $item['quantity'];
+                $unitId = $item['unit_id'] ?? null;
+
+                $resolved = $unitService->resolveUnit($itemId, $unitId);
+                $finalUnitId = $resolved?->unit_id ?? $unitId;
+                $conversionFactor = $resolved?->conversion_factor ?? 1;
+                $baseQuantity = $unitService->toBase($itemId, $finalUnitId, $qty);
+
+                LoadRequestItem::create([
+                    'load_request_id' => $loadRequest->id,
+                    'item_id' => $itemId,
+                    'unit_id' => $finalUnitId,
+                    'conversion_factor' => $conversionFactor,
+                    'base_quantity' => $baseQuantity,
+                    'quantity' => $qty,
+                    'unit_price' => $item['unit_price'] ?? 0,
+                    'total_price' => $qty * ($item['unit_price'] ?? 0),
+                ]);
+            }
+
+            return $loadRequest;
+        });
+
+        return redirect()
+            ->route('load-requests.show', $result->id)
+            ->with('success', "تم إنشاء أمر التحميل التكميلى {$result->request_no} بنجاح");
+    }
+
+    /**
      * عرض تفاصيل سجل محدد من (Load Request Web) مع العلاقات (Relations) المرتبطة به.
      */
     public function show(LoadRequest $loadRequest)
@@ -159,6 +239,7 @@ class LoadRequestWebController extends Controller
             'employee', 'warehouse', 'items.item', 'items.unit',
             'supervisorEmployee', 'requestedByEmployee', 'createByEmployee',
             'issueOrder.items.item',
+            'complementaryRequests.employee', 'complementaryRequests.warehouse',
         ]);
 
         return view('load-requests.show', compact('loadRequest'));

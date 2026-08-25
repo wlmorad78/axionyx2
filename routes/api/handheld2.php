@@ -27,6 +27,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('handheld2/next-customer-code', [Handheld2Controller::class, 'nextCustomerCode']);
     Route::get('handheld2/download-data', [Handheld2Controller::class, 'downloadData']);
     Route::get('handheld2/load-orders', [Handheld2Controller::class, 'loadOrders']);
+    Route::get('handheld2/complementary-orders', [Handheld2Controller::class, 'complementaryOrders']);
+    Route::patch('handheld2/load-requests/{id}/status', [Handheld2Controller::class, 'updateLoadRequestStatus']);
     Route::post('handheld2/sync/push', [Handheld2Controller::class, 'syncPush']);
     Route::post('handheld2/sync/pull', [Handheld2Controller::class, 'syncPull']);
     Route::post('handheld2/start-day', [Handheld2Controller::class, 'startDay']);

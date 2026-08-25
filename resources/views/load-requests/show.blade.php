@@ -125,8 +125,63 @@
 
 <div style="margin-top:20px; display:flex; gap:12px; justify-content:flex-end;">
     <a href="{{ route('load-requests.index') }}" class="btn">العودة للقائمة</a>
+    @if(in_array($loadRequest->status, ['approved', 'loading']))
+        <a href="{{ route('load-requests.complementary.create', $loadRequest->id) }}" class="btn" style="border-color:var(--accent);color:var(--accent);">+ أمر تحميل تكميلى</a>
+    @endif
     @if($loadRequest->status === 'pending')
         <a href="{{ route('load-requests.approve', $loadRequest->id) }}" class="btn primary">الذهاب للموافقة</a>
     @endif
 </div>
+
+@if($loadRequest->complementaryRequests->isNotEmpty())
+<div class="grid grid-2" style="margin-top:20px;">
+    <article class="panel" style="grid-column:1 / -1;">
+        <h3>أوامر التحميل التكميلية التابعة</h3>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">رقم الأمر</th>
+                        <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">المخزن</th>
+                        <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">الحالة</th>
+                        <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;">إجمالي الكمية</th>
+                        <th style="text-align:left;padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);color:#cbd5e1;font-weight:600;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($loadRequest->complementaryRequests as $comp)
+                        <tr>
+                            <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);">{{ $comp->request_no }}</td>
+                            <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);">{{ $comp->warehouse?->name ?? '—' }}</td>
+                            <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);">
+                                @if(in_array($comp->status, ['approved', 'loading']))
+                                    <span class="status good">✓ {{ $comp->status === 'loading' ? 'جاري التحميل' : 'تمت الموافقة' }}</span>
+                                @elseif($comp->status === 'pending')
+                                    <span class="status warn">⏳ قيد المراجعة</span>
+                                @elseif($comp->status === 'closed')
+                                    <span class="status">مغلق</span>
+                                @else
+                                    <span class="status">{{ $comp->status }}</span>
+                                @endif
+                            </td>
+                            <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);">{{ number_format($comp->total_quantity, 2) }}</td>
+                            <td style="padding:10px 8px;border-bottom:1px solid rgba(148,163,184,0.12);text-align:left;">
+                                <a href="{{ route('load-requests.show', $comp->id) }}" class="btn" style="font-size:12px;padding:6px 10px;">عرض</a>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </article>
+</div>
+@endif
+
+@if($loadRequest->parentRequest)
+<div style="margin-top:16px;padding:10px 14px;border-radius:8px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.15);font-size:13px;color:#e0f2fe;">
+    هذا الأمر التكميلى تابع لأمر التحميل
+    <a href="{{ route('load-requests.show', $loadRequest->parentRequest->id) }}" style="color:var(--accent);text-decoration:underline;">{{ $loadRequest->parentRequest->request_no }}</a>
+    ويُغلق تلقائياً عند إغلاقه.
+</div>
+@endif
 @endsection

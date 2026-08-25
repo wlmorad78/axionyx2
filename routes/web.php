@@ -145,6 +145,8 @@ Route::middleware(['auth'])->prefix('load-requests')->name('web.load-requests.')
     Route::get('/', [LoadRequestWebController::class, 'index'])->name('index');
     Route::get('/create', [LoadRequestWebController::class, 'create'])->name('create');
     Route::post('/', [LoadRequestWebController::class, 'store'])->name('store');
+    Route::get('/{loadRequest}/complementary/create', [LoadRequestWebController::class, 'createComplementary'])->name('complementary.create');
+    Route::post('/{loadRequest}/complementary', [LoadRequestWebController::class, 'storeComplementary'])->name('complementary.store');
     Route::get('/{loadRequest}', [LoadRequestWebController::class, 'show'])->name('show');
     Route::get('/{loadRequest}/approve', [LoadRequestWebController::class, 'approve'])->name('approve');
     Route::patch('/{loadRequest}/approval', [LoadRequestWebController::class, 'processApproval'])->name('approval');

@@ -62,6 +62,12 @@
                     <option value="loading" {{ request('status') === 'loading' ? 'selected' : '' }}>جاري التحميل</option>
                     <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>مكتمل</option>
                     <option value="cancelled" {{ request('status') === 'cancelled' ? 'selected' : '' }}>ملغي</option>
+                    <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>مغلق</option>
+                </select>
+                <select name="load_type" style="background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;">
+                    <option value="">جميع الأنواع</option>
+                    <option value="standard" {{ request('load_type') === 'standard' ? 'selected' : '' }}>عادي</option>
+                    <option value="complementary" {{ request('load_type') === 'complementary' ? 'selected' : '' }}>تكميلى</option>
                 </select>
                 <button type="submit" class="btn">بحث</button>
             </form>
@@ -106,7 +112,15 @@
                     @foreach($loadRequests as $index => $lr)
                         <tr>
                             <td>{{ ($loadRequests->currentPage() - 1) * $loadRequests->perPage() + $index + 1 }}</td>
-                            <td><strong style="color:var(--accent);">{{ $lr->request_no }}</strong></td>
+                            <td>
+                                <strong style="color:var(--accent);">{{ $lr->request_no }}</strong>
+                                @if($lr->load_type === 'complementary')
+                                    <span style="display:inline-block;margin-right:6px;padding:2px 8px;border-radius:6px;background:rgba(56,189,248,0.15);color:#38bdf8;font-size:11px;font-weight:600;">تكميلى</span>
+                                @endif
+                                @if($lr->parent_load_request_id)
+                                    <span style="display:inline-block;margin-right:4px;font-size:11px;color:var(--muted);">← {{ $lr->parentRequest->request_no ?? '' }}</span>
+                                @endif
+                            </td>
                             <td>{{ $lr->employee?->name ?? '—' }}</td>
                             <td>{{ $lr->warehouse?->name ?? '—' }}</td>
                             <td>{{ $lr->request_date }}</td>
@@ -130,6 +144,9 @@
                             <td>
                                 <div style="display:flex; gap:6px;">
                                     <a href="{{ route('load-requests.show', $lr->id) }}" class="btn" style="padding:6px 10px;font-size:12px;">عرض</a>
+                                    @if(in_array($lr->status, ['approved', 'loading']) && $lr->load_type !== 'complementary')
+                                        <a href="{{ route('load-requests.complementary.create', $lr->id) }}" class="btn" style="padding:6px 10px;font-size:12px;border-color:var(--accent);color:var(--accent);">+ تكميلى</a>
+                                    @endif
                                     @if($lr->status === 'pending')
                                         <a href="{{ route('load-requests.approve', $lr->id) }}" class="btn primary" style="padding:6px 10px;font-size:12px;">موافقة</a>
                                     @endif

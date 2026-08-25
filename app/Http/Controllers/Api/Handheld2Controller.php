@@ -347,6 +347,111 @@ class Handheld2Controller extends Controller
         ]);
     }
 
+    public function complementaryOrders(Request $request)
+    {
+        $user = $request->user();
+        $resources = $this->getAssignmentResources($user->id);
+        $employeeId = $request->input('employee_id') ?? $resources['employee_id'];
+
+        if (!$employeeId) {
+            return response()->json(['orders' => []]);
+        }
+
+        $complementaryRequests = DB::table('load_requests')
+            ->where('load_requests.employee_id', $employeeId)
+            ->where('load_requests.load_type', 'complementary')
+            ->whereIn('load_requests.status', ['approved', 'loading'])
+            ->whereNull('load_requests.deleted_at')
+            ->get();
+
+        $orders = [];
+
+        foreach ($complementaryRequests as $lr) {
+            $issueOrder = DB::table('issue_orders')
+                ->where('load_request_id', $lr->id)
+                ->whereNull('deleted_at')
+                ->first();
+
+            if (!$issueOrder) continue;
+
+            $hasReturn = DB::table('return_orders')
+                ->where('issue_order_id', $issueOrder->id)
+                ->whereNull('deleted_at')
+                ->exists();
+
+            if ($hasReturn) continue;
+
+            $items = DB::table('issue_order_items')
+                ->where('issue_order_id', $issueOrder->id)
+                ->whereNull('deleted_at')
+                ->get()
+                ->map(function ($item) {
+                    $product = DB::table('items')->where('id', $item->item_id)->first();
+                    return [
+                        'item_id' => $item->item_id,
+                        'item_name' => $product ? ($product->name_ar ?? $product->name_en ?? '') : '',
+                        'item_code' => $product ? $product->code : '',
+                        'quantity' => $item->issued_quantity ?? 0,
+                        'unit_price' => $item->purchase_price ?? 0,
+                        'line_total' => $item->total_amount ?? 0,
+                    ];
+                });
+
+            $parentRequest = null;
+            if ($lr->parent_load_request_id) {
+                $parent = DB::table('load_requests')->where('id', $lr->parent_load_request_id)->first();
+                if ($parent) {
+                    $parentRequest = [
+                        'id' => $parent->id,
+                        'request_no' => $parent->request_no,
+                    ];
+                }
+            }
+
+            $orders[] = [
+                'id' => $issueOrder->id,
+                'issue_no' => $issueOrder->issue_no,
+                'load_request_id' => $lr->id,
+                'load_request_no' => $lr->request_no,
+                'parent_request' => $parentRequest,
+                'load_type' => $lr->load_type,
+                'issue_date' => $issueOrder->issue_date,
+                'status' => $issueOrder->status,
+                'total_items_count' => $issueOrder->total_items_count,
+                'total_quantity' => $issueOrder->total_quantity,
+                'total_amount' => $issueOrder->total_amount,
+                'items' => $items,
+            ];
+        }
+
+        return response()->json(['orders' => $orders]);
+    }
+
+    public function updateLoadRequestStatus(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:draft,pending,approved,rejected,loading,loaded,completed,cancelled,closed',
+        ]);
+
+        $loadRequest = DB::table('load_requests')
+            ->where('id', $id)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$loadRequest) {
+            return response()->json(['message' => 'الطلب غير موجود'], 404);
+        }
+
+        DB::table('load_requests')
+            ->where('id', $id)
+            ->update([
+                'status' => $validated['status'],
+                'updated_at' => now(),
+            ]);
+
+        return response()->json(['message' => 'تم تحديث الحالة بنجاح', 'status' => $validated['status']]);
+    }
+
     /**
      * دالة معالجة: salesmanProfile — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Handheld2).
      */

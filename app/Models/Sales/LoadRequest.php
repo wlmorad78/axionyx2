@@ -15,6 +15,7 @@ class LoadRequest extends Model
 
     protected $fillable = [
         'company_id', 'branch_id', 'warehouse_id', 'request_no',
+        'parent_load_request_id',
         'employee_id', 'supervisor_employee_id', 'sales_territory_id',
         'trip_date', 'load_type', 'priority', 'request_date',
         'status', 'total_items_count', 'total_quantity', 'total_amount',
@@ -42,6 +43,9 @@ class LoadRequest extends Model
     public function issueOrder() { return $this->hasOne(IssueOrder::class); }
     public function returnOrder() { return $this->hasOne(\App\Models\ReturnOrder::class); }
 
+    public function parentRequest() { return $this->belongsTo(self::class, 'parent_load_request_id'); }
+    public function complementaryRequests() { return $this->hasMany(self::class, 'parent_load_request_id'); }
+
     protected static function booted(): void
     {
         static::creating(function (LoadRequest $model) {
@@ -63,6 +67,17 @@ class LoadRequest extends Model
                     $next++;
                     $model->request_no = 'LREQ-' . str_pad($next, 5, '0', STR_PAD_LEFT);
                 }
+            }
+        });
+
+        static::saved(function (LoadRequest $model) {
+            if ($model->isDirty('status') && $model->status === 'closed') {
+                static::where('parent_load_request_id', $model->id)
+                    ->where('status', '!=', 'closed')
+                    ->update([
+                        'status' => 'closed',
+                        'updated_at' => now(),
+                    ]);
             }
         });
     }

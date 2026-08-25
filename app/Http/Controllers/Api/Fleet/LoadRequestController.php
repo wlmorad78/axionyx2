@@ -54,6 +54,8 @@ class LoadRequestController extends Controller
             'warehouse_id' => 'required|exists:warehouses,id',
             'employee_id' => 'required|exists:employees,id',
             'branch_id' => 'nullable|exists:branches,id',
+            'parent_load_request_id' => 'nullable|exists:load_requests,id',
+            'load_type' => 'nullable|in:standard,express,priority,complementary',
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|exists:items,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
@@ -66,22 +68,28 @@ class LoadRequestController extends Controller
         $unitService = app(\App\Services\UnitConversionService::class);
 
         $repEmployeeId = $data['employee_id'];
-        $existingOpenOrder = LoadRequest::where('employee_id', $repEmployeeId)
-            ->whereIn('status', ['draft', 'pending', 'approved', 'loading'])
-            ->first();
+        $isComplementary = ($request->input('load_type') === 'complementary');
 
-        if ($existingOpenOrder) {
-            return response()->json([
-                'message' => "المندوب مينفعش يكون عنده اتنين أوامر تحميل مفتوحين - عندك أمر تحميل رقم {$existingOpenOrder->request_no} لسه مفتوح ({$existingOpenOrder->status}). لازم تغلق/تسلم الأمر الأول.",
-            ], 422);
+        if (!$isComplementary) {
+            $existingOpenOrder = LoadRequest::where('employee_id', $repEmployeeId)
+                ->whereIn('status', ['draft', 'pending', 'approved'])
+                ->first();
+
+            if ($existingOpenOrder) {
+                return response()->json([
+                    'message' => "المندوب مينفعش يكون عنده اتنين أوامر تحميل مفتوحين - عندك أمر تحميل رقم {$existingOpenOrder->request_no} لسه مفتوح ({$existingOpenOrder->status}). لازم تغلق/تسلم الأمر الأول.",
+                ], 422);
+            }
         }
 
-        $loadRequest = \Illuminate\Support\Facades\DB::transaction(function () use ($data, $user, $unitService) {
+        $loadRequest = \Illuminate\Support\Facades\DB::transaction(function () use ($data, $user, $unitService, $isComplementary, $request) {
             $lr = LoadRequest::create([
                 'company_id' => $user->company_id,
                 'branch_id' => $data['branch_id'] ?? $user->branch_id,
                 'warehouse_id' => $data['warehouse_id'],
                 'employee_id' => $data['employee_id'],
+                'parent_load_request_id' => $isComplementary ? $request->input('parent_load_request_id') : null,
+                'load_type' => $request->input('load_type', 'standard'),
                 'request_date' => now()->toDateString(),
                 'status' => 'pending',
                 'notes' => $data['notes'] ?? null,

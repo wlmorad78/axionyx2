@@ -347,6 +347,15 @@ class HandheldController extends BaseApiController
                             'status'     => 'closed',
                             'updated_at' => now(),
                         ]);
+
+                    // Close any complementary load requests linked to this one
+                    DB::table('load_requests')
+                        ->where('parent_load_request_id', $return['load_request_id'])
+                        ->where('status', '!=', 'closed')
+                        ->update([
+                            'status'     => 'closed',
+                            'updated_at' => now(),
+                        ]);
                 }
 
                 $pushResults[] = [
