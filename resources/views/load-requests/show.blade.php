@@ -127,6 +127,10 @@
     <a href="{{ route('load-requests.index') }}" class="btn">العودة للقائمة</a>
     @if(in_array($loadRequest->status, ['approved', 'loading']))
         <a href="{{ route('load-requests.complementary.create', $loadRequest->id) }}" class="btn" style="border-color:var(--accent);color:var(--accent);">+ أمر تحميل تكميلى</a>
+        <form method="POST" action="{{ route('load-requests.cancel', $loadRequest->id) }}" onsubmit="return confirm('هل أنت متأكد من إلغاء أمر التحميل؟ سيتم إرجاع كامل الكمية للمخزن.')">
+            @csrf
+            <button type="submit" class="btn" style="color:#f59e0b;border-color:rgba(245,158,11,0.3);">إلغاء الأمر ورد الكمية للمخزن</button>
+        </form>
     @endif
     @if($loadRequest->status === 'pending')
         <a href="{{ route('load-requests.approve', $loadRequest->id) }}" class="btn primary">الذهاب للموافقة</a>

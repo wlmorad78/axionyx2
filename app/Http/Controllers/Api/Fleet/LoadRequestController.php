@@ -413,6 +413,20 @@ class LoadRequestController extends Controller
                     'to_location_type' => 'rep',
                     'to_location_id' => $loadRequest->employee_id,
                 ]);
+
+                // Keep the representative distribution ledger in sync with the posted load.
+                \App\Models\Sales\RepItemDistribution::create([
+                    'company_id' => $loadRequest->company_id,
+                    'employee_id' => $loadRequest->employee_id,
+                    'item_id' => $itemId,
+                    'issue_order_id' => $issueOrder->id,
+                    'loaded_qty' => $baseQty,
+                    'sold_qty' => 0,
+                    'returned_qty' => 0,
+                    'remaining_qty' => $baseQty,
+                    'unit_price' => $loadItem->unit_price,
+                    'status' => 'active',
+                ]);
             }
 
             $loadRequest->update(['status' => 'loading']);

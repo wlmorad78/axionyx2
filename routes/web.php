@@ -150,6 +150,7 @@ Route::middleware(['auth'])->prefix('load-requests')->name('web.load-requests.')
     Route::get('/{loadRequest}', [LoadRequestWebController::class, 'show'])->name('show');
     Route::get('/{loadRequest}/approve', [LoadRequestWebController::class, 'approve'])->name('approve');
     Route::patch('/{loadRequest}/approval', [LoadRequestWebController::class, 'processApproval'])->name('approval');
+    Route::post('/{loadRequest}/cancel', [LoadRequestWebController::class, 'cancel'])->name('cancel');
     Route::delete('/{loadRequest}', [LoadRequestWebController::class, 'destroy'])->name('destroy');
 });
 

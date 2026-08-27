@@ -1073,6 +1073,13 @@ Route::post('distribution-plans/{plan}/reopen', [\App\Http\Controllers\Api\Sales
 Route::put('distribution-plans/{plan}/customers/{customer}/qty', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'updateCustomerQty']);
 Route::put('distribution-plans/{plan}/items/{item}/qty', [\App\Http\Controllers\Api\Sales\DistributionPlanController::class, 'updateItemQty']);
 
+Route::get('owner/balance', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'balance']);
+Route::post('owner/deposit-cash', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'depositCash']);
+Route::post('owner/withdraw-cash', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'withdrawCash']);
+Route::post('owner/dispatch-goods', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'dispatchGoods']);
+Route::post('owner/receive-goods', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'receiveGoods']);
+Route::get('owner/statement', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'statement']);
+
 // Fix: vehicle-inventory-transaction-items has param name > 32 chars
 if (class_exists(\App\Http\Controllers\Api\Fleet\VehicleInventoryTransactionItemController::class, false)) {
     Route::resource('vehicle-inventory-transaction-items', \App\Http\Controllers\Api\Fleet\VehicleInventoryTransactionItemController::class, [
@@ -1584,6 +1591,7 @@ Route::patch('load-requests/{loadRequest}/status', [\App\Http\Controllers\Api\Fl
 Route::post('load-requests/{loadRequest}/approve', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'approve']);
 Route::post('load-requests/{loadRequest}/reject', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'reject']);
 Route::post('load-requests/{loadRequest}/close', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'close']);
+Route::post('load-requests/{loadRequest}/cancel', [\App\Http\Controllers\Api\Handheld2Controller::class, 'cancelLoadRequest']);
 
 // Warehouse Transfers next-code
 Route::get('warehouse-transfers/next-code', function () {

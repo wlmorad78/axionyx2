@@ -10,12 +10,12 @@ Route::get('handheld2/version', function () {
     return response()->json([
         'success' => true,
         'data' => [
-            'version' => '1.0.2',
-            'build_number' => 3,
+            'version' => '1.0.3',
+            'build_number' => 4,
             'min_required_version' => '1.0.0',
             'force_update' => false,
-            'release_notes' => 'إصلاحات وتحسينات عامة',
-            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_hh_v1.0.2.apk',
+            'release_notes' => 'تحسينات المزامنة والأوامر التكميلية',
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_hh_v1.0.3.apk',
         ],
     ]);
 });
@@ -28,7 +28,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('handheld2/download-data', [Handheld2Controller::class, 'downloadData']);
     Route::get('handheld2/load-orders', [Handheld2Controller::class, 'loadOrders']);
     Route::get('handheld2/complementary-orders', [Handheld2Controller::class, 'complementaryOrders']);
+    Route::get('handheld2/representatives', [Handheld2Controller::class, 'representatives']);
+    Route::get('handheld2/representative-stock-summary', [Handheld2Controller::class, 'representativeStockSummary']);
+    Route::get('handheld2/representative-stock/{employeeId}', [Handheld2Controller::class, 'representativeStock']);
+    Route::post('handheld2/representative-transfers', [Handheld2Controller::class, 'representativeTransfer']);
+    Route::get('handheld2/representative-transfers/incoming', [Handheld2Controller::class, 'incomingRepresentativeTransfers']);
+    Route::post('handheld2/representative-transfers/{id}/receive', [Handheld2Controller::class, 'receiveRepresentativeTransfer']);
     Route::patch('handheld2/load-requests/{id}/status', [Handheld2Controller::class, 'updateLoadRequestStatus']);
+    Route::post('handheld2/load-requests/{id}/cancel', [Handheld2Controller::class, 'cancelLoadRequest']);
     Route::post('handheld2/sync/push', [Handheld2Controller::class, 'syncPush']);
     Route::post('handheld2/sync/pull', [Handheld2Controller::class, 'syncPull']);
     Route::post('handheld2/start-day', [Handheld2Controller::class, 'startDay']);

@@ -863,7 +863,7 @@ class ValidationRules
                 'name_ar' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:255'],
                 'name_en' => ['nullable', 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
-                'type' => ['nullable', 'string', 'in:main,returns,damaged,transit'],
+                'type' => ['nullable', 'string', 'in:main,branch,returns,damaged,transit'],
                 'address' => ['nullable', 'string'],
                 'manager_employee_id' => ['nullable', 'exists:employees,id'],
                 'notes' => ['nullable', 'string'],

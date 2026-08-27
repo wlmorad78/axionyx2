@@ -23,12 +23,140 @@ use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\Sales\SalesInvoice;
 use App\Models\Sales\SalesInvoiceItem;
-use App\Models\Inventory\RepItemDistribution;
+use App\Models\Sales\RepItemDistribution;
 use App\Models\Inventory\Device;
 use App\Models\Warehouse;
+use App\Services\RepresentativeTransferService;
+use App\Models\Inventory\RepresentativeTransfer;
 
 class Handheld2Controller extends Controller
 {
+    public function representatives(Request $request)
+    {
+        $user = $request->user();
+        $currentEmployeeId = DB::table('employees')->where('user_id', $user->id)->value('id');
+        $employees = DB::table('employees')->where('company_id', $user->company_id)
+            ->where('is_active', true)->where('id', '!=', $currentEmployeeId)
+            ->orderBy('first_name_ar')->get(['id', 'employee_code', 'first_name_ar', 'second_name_ar', 'third_name_ar', 'last_name_ar']);
+        return response()->json(['data' => $employees->map(fn ($e) => [
+            'id' => $e->id,
+            'name' => trim(implode(' ', array_filter([$e->first_name_ar, $e->second_name_ar, $e->third_name_ar, $e->last_name_ar]))),
+            'code' => $e->employee_code,
+        ])]);
+    }
+
+    public function representativeStock(Request $request, int $employeeId)
+    {
+        $user = $request->user();
+        $rows = DB::table('rep_item_distributions as d')->join('items as i', 'i.id', '=', 'd.item_id')
+            ->where('d.company_id', $user->company_id)->where('d.employee_id', $employeeId)
+            ->where('d.status', 'active')->where('d.remaining_qty', '>', 0)
+            ->select('d.item_id', 'i.code', 'i.name_ar', 'i.name_en', DB::raw('SUM(d.remaining_qty) as available_qty'))
+            ->groupBy('d.item_id', 'i.code', 'i.name_ar', 'i.name_en')->orderBy('i.name_ar')->get();
+        return response()->json(['data' => $rows->map(fn ($r) => [
+            'item_id' => $r->item_id, 'item_code' => $r->code,
+            'item_name' => $r->name_ar ?? $r->name_en, 'available_qty' => (float) $r->available_qty,
+        ])]);
+    }
+
+    public function representativeStockSummary(Request $request)
+    {
+        $companyId = $request->user()->company_id;
+        $employeeId = (int) DB::table('employees')->where('user_id', $request->user()->id)->value('id');
+        $base = fn (int $itemId) => DB::table('inventory_transaction_items as iti')
+            ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
+            ->where('it.company_id', $companyId)->where('it.status', 'posted')
+            ->whereNull('it.deleted_at')->where('iti.item_id', $itemId);
+
+        $rows = DB::table('items as i')->where('i.company_id', $companyId)->where('i.is_active', true)
+            ->where(function ($q) use ($employeeId, $companyId) {
+                $q->whereExists(function ($sub) use ($employeeId, $companyId) {
+                    $sub->selectRaw('1')->from('inventory_transaction_items as x')->join('inventory_transactions as t', 't.id', '=', 'x.inventory_transaction_id')
+                        ->whereColumn('x.item_id', 'i.id')->where('t.company_id', $companyId)->where('t.status', 'posted')
+                        ->where(function ($w) use ($employeeId) {
+                            $w->where(function ($z) use ($employeeId) { $z->where('x.to_location_type', 'rep')->where('x.to_location_id', $employeeId); })
+                              ->orWhere(function ($z) use ($employeeId) { $z->where('x.from_location_type', 'rep')->where('x.from_location_id', $employeeId); });
+                        });
+                })->orWhereExists(function ($sub) use ($employeeId, $companyId) {
+                    $sub->selectRaw('1')->from('rep_item_distributions as d')->whereColumn('d.item_id', 'i.id')
+                        ->where('d.company_id', $companyId)->where('d.employee_id', $employeeId);
+                });
+            })->get(['i.id', 'i.code', 'i.name_ar', 'i.name_en']);
+
+        $data = $rows->map(function ($item) use ($base, $employeeId, $companyId) {
+            $load = (float) $base($item->id)->where('iti.from_location_type', 'warehouse')->where('iti.to_location_type', 'rep')->where('iti.to_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
+            $loadReturn = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'warehouse')->where('iti.from_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
+            $load = max(0, $load - $loadReturn);
+            $tin = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'rep')->where('iti.to_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
+            $tout = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'rep')->where('iti.from_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
+            $sales = (float) RepItemDistribution::where('company_id', $companyId)->where('employee_id', $employeeId)->where('item_id', $item->id)->sum('sold_qty');
+            return [
+                'item_id' => $item->id, 'item_code' => $item->code,
+                'item_name' => $item->name_ar ?? $item->name_en,
+                'load_qty' => $load, 't_in_qty' => $tin, 't_out_qty' => $tout,
+                'sales_qty' => $sales, 'remaining_qty' => max(0, $load + $tin - $tout - $sales),
+            ];
+        })->filter(fn ($row) => $row['load_qty'] > 0 || $row['t_in_qty'] > 0 || $row['t_out_qty'] > 0 || $row['sales_qty'] > 0)->values();
+
+        return response()->json(['data' => $data]);
+    }
+
+    public function representativeTransfer(Request $request)
+    {
+        $currentEmployeeId = (int) DB::table('employees')->where('user_id', $request->user()->id)->value('id');
+        $data = $request->validate([
+            'from_employee_id' => 'required|integer', 'to_employee_id' => 'required|integer',
+            'client_uuid' => 'nullable|uuid', 'branch_id' => 'nullable|integer',
+            'warehouse_id' => 'nullable|integer', 'notes' => 'nullable|string',
+            'items' => 'required|array|min:1', 'items.*.item_id' => 'required|integer',
+            'items.*.quantity' => 'required|numeric|gt:0', 'items.*.base_quantity' => 'nullable|numeric|gt:0',
+            'items.*.unit_id' => 'nullable|integer', 'items.*.unit_cost' => 'nullable|numeric|min:0',
+            'items.*.batch_no' => 'nullable|string', 'items.*.expiry_date' => 'nullable|date',
+        ]);
+        if ((int) $data['from_employee_id'] !== $currentEmployeeId) {
+            return response()->json(['message' => 'لا يمكن تحويل مخزون مندوب آخر من هذا الحساب.'], 403);
+        }
+        return response()->json(['data' => app(RepresentativeTransferService::class)->post($request->user(), $data)], 201);
+    }
+
+    public function incomingRepresentativeTransfers(Request $request)
+    {
+        $employeeId = (int) DB::table('employees')->where('user_id', $request->user()->id)->value('id');
+        $transfers = RepresentativeTransfer::with(['fromEmployee', 'items.item'])
+            ->where('company_id', $request->user()->company_id)
+            ->where('to_employee_id', $employeeId)
+            ->whereIn('status', ['posted', 'received'])
+            ->latest('id')->get();
+
+        return response()->json(['data' => $transfers->map(fn ($transfer) => [
+            'id' => $transfer->id,
+            'transfer_no' => $transfer->transfer_no,
+            'status' => $transfer->status,
+            'from_employee_name' => $transfer->fromEmployee?->full_name_ar,
+            'created_at' => $transfer->created_at,
+            'items' => $transfer->items->map(fn ($item) => [
+                'item_id' => $item->item_id,
+                'item_name' => $item->item?->name_ar ?? $item->item?->name_en,
+                'item_code' => $item->item?->code,
+                'quantity' => (float) $item->quantity,
+                'base_quantity' => (float) $item->base_quantity,
+                'unit_id' => $item->unit_id,
+                'unit_price' => (float) $item->unit_cost,
+                'line_total' => (float) $item->unit_cost * (float) $item->quantity,
+            ]),
+        ])]);
+    }
+
+    public function receiveRepresentativeTransfer(Request $request, int $id)
+    {
+        $employeeId = (int) DB::table('employees')->where('user_id', $request->user()->id)->value('id');
+        $transfer = RepresentativeTransfer::where('company_id', $request->user()->company_id)
+            ->where('to_employee_id', $employeeId)->findOrFail($id);
+        if ($transfer->status === 'posted') {
+            $transfer->update(['status' => 'received']);
+        }
+        return response()->json(['data' => $transfer->fresh()->load('items.item')]);
+    }
     /**
      * دالة معالجة: login — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Handheld2).
      */
@@ -98,7 +226,7 @@ class Handheld2Controller extends Controller
                 ->where('routes.is_active', true)
                 ->whereNull('routes.deleted_at')
                 ->leftJoin('sales_territories', 'routes.sales_territory_id', '=', 'sales_territories.id')
-                ->select('routes.id', 'routes.code', 'routes.name_ar', 'routes.name_en', 'sales_territories.name_ar as territory_name')
+                ->select('routes.id', 'routes.code', 'routes.name_ar', 'routes.name_en', 'routes.sales_territory_id', 'sales_territories.name_ar as territory_name')
                 ->get()
                 ->map(function ($route) {
                     $customerIds = DB::table('route_customers')
@@ -130,6 +258,7 @@ class Handheld2Controller extends Controller
                         'code' => $route->code,
                         'name' => $route->name_ar ?? $route->name_en,
                         'territory_name' => $route->territory_name,
+                        'sales_territory_id' => $route->sales_territory_id ?? 0,
                         'customers' => $customers,
                     ];
                 })
@@ -250,6 +379,12 @@ class Handheld2Controller extends Controller
             ->toArray();
 
         return response()->json([
+            'branch' => $defaultBranch ? [
+                'id' => $defaultBranch->id,
+                'name' => $defaultBranch->name_ar ?? $defaultBranch->name,
+            ] : null,
+            'warehouse' => $resources['warehouse'],
+            'salesman' => $user->name,
             'routes' => $routes,
             'customers' => $customersList,
             'load_requests' => $loadRequests,
@@ -286,6 +421,7 @@ class Handheld2Controller extends Controller
             ->select(
                 'issue_orders.*',
                 'load_requests.request_no as load_request_no',
+                'load_requests.status as load_request_status',
                 'load_requests.total_quantity as load_total_quantity',
                 'load_requests.total_amount as load_total_amount'
             )
@@ -302,6 +438,9 @@ class Handheld2Controller extends Controller
 
             $hasReturn = $returnOrders->isNotEmpty();
             $totalReturnedQty = $returnOrders->sum('total_quantity');
+
+            $isCancelled = $io->status === 'cancelled'
+                || ($io->load_request_id && ($io->load_request_status ?? null) === 'cancelled');
 
             $items = DB::table('issue_order_items')
                 ->where('issue_order_id', $io->id)
@@ -323,6 +462,7 @@ class Handheld2Controller extends Controller
                 'issue_no' => $io->issue_no,
                 'load_request_id' => $io->load_request_id,
                 'load_request_no' => $io->load_request_no,
+                'load_request_status' => $io->load_request_status ?? $io->status,
                 'issue_date' => $io->issue_date,
                 'status' => $io->status,
                 'total_items_count' => $io->total_items_count,
@@ -332,7 +472,7 @@ class Handheld2Controller extends Controller
                 'items' => $items,
             ];
 
-            if ($hasReturn) {
+            if ($hasReturn || $isCancelled) {
                 $closed[] = $orderData;
             } else {
                 $open[] = $orderData;
@@ -450,6 +590,131 @@ class Handheld2Controller extends Controller
             ]);
 
         return response()->json(['message' => 'تم تحديث الحالة بنجاح', 'status' => $validated['status']]);
+    }
+
+    public function cancelLoadRequest(Request $request, $id)
+    {
+        $user = $request->user();
+        $employeeId = (int) DB::table('employees')->where('user_id', $user->id)->value('id');
+
+        $loadRequest = DB::table('load_requests')
+            ->where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$loadRequest) {
+            return response()->json(['message' => 'أمر التحميل غير موجود'], 404);
+        }
+
+        $employeeId = (int) $loadRequest->employee_id;
+
+        $status = $loadRequest->status;
+        if (!in_array($status, ['approved', 'loading', 'loaded'])) {
+            return response()->json([
+                'message' => 'لا يمكن إلغاء أمر التحميل في الحالة الحالية',
+            ], 422);
+        }
+
+        $issueOrder = DB::table('issue_orders')
+            ->where('load_request_id', $id)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$issueOrder) {
+            DB::table('load_requests')->where('id', $id)->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+            return response()->json(['message' => 'تم إلغاء أمر التحميل']);
+        }
+
+        DB::transaction(function () use ($user, $loadRequest, $issueOrder, $employeeId) {
+            $warehouseId = $loadRequest->warehouse_id;
+            $companyId = $user->company_id;
+
+            $type = \App\Models\Inventory\InventoryTransactionType::where('code', 'RETURN_TO_WAREHOUSE')->first();
+            if (!$type) {
+                $type = \App\Models\Inventory\InventoryTransactionType::firstOrCreate(
+                    ['code' => 'RETURN_TO_WAREHOUSE'],
+                    ['name' => 'إرجاع لأمر التحميل للمخزن', 'effect' => 'addition', 'is_active' => true]
+                );
+            }
+
+            $txn = \App\Models\Inventory\InventoryTransaction::create([
+                'company_id' => $companyId,
+                'warehouse_id' => $warehouseId,
+                'transaction_type_id' => $type->id,
+                'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($companyId),
+                'transaction_date' => now()->toDateString(),
+                'transaction_time' => now()->format('H:i:s'),
+                'reference_type' => \App\Models\LoadRequest::class,
+                'reference_id' => $loadRequest->id,
+                'notes' => "إرجاع أمر التحميل {$loadRequest->request_no} للمخزن",
+                'status' => 'posted',
+                'created_by' => $employeeId,
+            ]);
+
+            $items = DB::table('issue_order_items')
+                ->where('issue_order_id', $issueOrder->id)
+                ->whereNull('deleted_at')
+                ->get();
+
+            foreach ($items as $item) {
+                $baseQty = (float) ($item->base_quantity ?? 0);
+                if ($baseQty <= 0) {
+                    $cf = (float) ($item->conversion_factor ?? 1);
+                    $baseQty = (float) ($item->issued_quantity ?? 0) * ($cf > 0 ? $cf : 1);
+                }
+                if ($baseQty <= 0) {
+                    continue;
+                }
+
+                $unitService = app(\App\Services\UnitConversionService::class);
+                $baseUnitId = $unitService->getBaseUnitId($item->item_id) ?? $item->unit_id;
+
+                \App\Models\Inventory\InventoryTransactionItem::create([
+                    'inventory_transaction_id' => $txn->id,
+                    'item_id' => $item->item_id,
+                    'unit_id' => $baseUnitId,
+                    'conversion_factor' => (float) ($item->conversion_factor ?? 1),
+                    'qty' => $baseQty,
+                    'unit_cost' => $item->purchase_price,
+                    'total_cost' => $item->total_amount,
+                    'from_location_type' => 'rep',
+                    'from_location_id' => $employeeId,
+                    'to_location_type' => 'warehouse',
+                    'to_location_id' => $warehouseId,
+                ]);
+
+                $distribution = \App\Models\Sales\RepItemDistribution::where('company_id', $companyId)
+                    ->where('employee_id', $employeeId)
+                    ->where('item_id', $item->item_id)
+                    ->where('issue_order_id', $issueOrder->id)
+                    ->where('status', 'active')
+                    ->latest('id')
+                    ->first();
+
+                if ($distribution) {
+                    $distribution->update([
+                        'loaded_qty' => max(0, $distribution->loaded_qty - $baseQty),
+                        'remaining_qty' => max(0, $distribution->remaining_qty - $baseQty),
+                    ]);
+                }
+            }
+
+            DB::table('issue_orders')->where('id', $issueOrder->id)->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+
+            DB::table('load_requests')->where('id', $loadRequest->id)->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+        });
+
+        return response()->json(['message' => 'تم إلغاء أمر التحميل وإرجاع الكمية للمخزن']);
     }
 
     /**
@@ -633,7 +898,7 @@ class Handheld2Controller extends Controller
                 ->where('routes.is_active', true)
                 ->whereNull('routes.deleted_at')
                 ->leftJoin('sales_territories', 'routes.sales_territory_id', '=', 'sales_territories.id')
-                ->select('routes.id', 'routes.code', 'routes.name_ar', 'routes.name_en', 'sales_territories.name_ar as territory_name')
+                ->select('routes.id', 'routes.code', 'routes.name_ar', 'routes.name_en', 'routes.sales_territory_id', 'sales_territories.name_ar as territory_name')
                 ->get()
                 ->map(function ($route) {
                     $customerIds = DB::table('route_customers')

@@ -437,6 +437,105 @@ class LoadRequestWebController extends Controller
     }
 
     /**
+     * إلغاء أمر تحميل معتمد وإرجاع الكمية للمخزن.
+     */
+    public function cancel(LoadRequest $loadRequest)
+    {
+        if (!in_array($loadRequest->status, ['approved', 'loading', 'loaded'])) {
+            return back()->with('error', 'لا يمكن إلغاء أمر التحميل في الحالة الحالية');
+        }
+
+        $issueOrder = IssueOrder::where('load_request_id', $loadRequest->id)->whereNull('deleted_at')->first();
+
+        DB::transaction(function () use ($loadRequest, $issueOrder) {
+            $warehouseId = $loadRequest->warehouse_id;
+            $companyId = $loadRequest->company_id;
+            $employeeId = $loadRequest->employee_id;
+
+            $type = \App\Models\Inventory\InventoryTransactionType::where('code', 'RETURN_TO_WAREHOUSE')->first();
+            if (!$type) {
+                $type = \App\Models\Inventory\InventoryTransactionType::firstOrCreate(
+                    ['code' => 'RETURN_TO_WAREHOUSE'],
+                    ['name' => 'إرجاع لأمر التحميل للمخزن', 'effect' => 'addition', 'is_active' => true]
+                );
+            }
+
+            $txn = \App\Models\Inventory\InventoryTransaction::create([
+                'company_id' => $companyId,
+                'warehouse_id' => $warehouseId,
+                'transaction_type_id' => $type->id,
+                'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($companyId),
+                'transaction_date' => now()->toDateString(),
+                'transaction_time' => now()->format('H:i:s'),
+                'reference_type' => \App\Models\LoadRequest::class,
+                'reference_id' => $loadRequest->id,
+                'notes' => "إلغاء أمر التحميل {$loadRequest->request_no} وإرجاع للمخزن",
+                'status' => 'posted',
+                'created_by' => Auth::id(),
+            ]);
+
+            if ($issueOrder) {
+                $items = IssueOrderItem::where('issue_order_id', $issueOrder->id)->whereNull('deleted_at')->get();
+
+                foreach ($items as $item) {
+                    $baseQty = (float) ($item->base_quantity ?? 0);
+                    if ($baseQty <= 0) {
+                        $cf = (float) ($item->conversion_factor ?? 1);
+                        $baseQty = (float) ($item->issued_quantity ?? 0) * ($cf > 0 ? $cf : 1);
+                    }
+                    if ($baseQty <= 0) continue;
+
+                    $unitService = app(\App\Services\UnitConversionService::class);
+                    $baseUnitId = $unitService->getBaseUnitId($item->item_id) ?? $item->unit_id;
+
+                    \App\Models\Inventory\InventoryTransactionItem::create([
+                        'inventory_transaction_id' => $txn->id,
+                        'item_id' => $item->item_id,
+                        'unit_id' => $baseUnitId,
+                        'conversion_factor' => (float) ($item->conversion_factor ?? 1),
+                        'qty' => $baseQty,
+                        'unit_cost' => $item->purchase_price,
+                        'total_cost' => $item->total_amount,
+                        'from_location_type' => 'rep',
+                        'from_location_id' => $employeeId,
+                        'to_location_type' => 'warehouse',
+                        'to_location_id' => $warehouseId,
+                    ]);
+
+                    $distribution = \App\Models\Sales\RepItemDistribution::where('company_id', $companyId)
+                        ->where('employee_id', $employeeId)
+                        ->where('item_id', $item->item_id)
+                        ->where('issue_order_id', $issueOrder->id)
+                        ->where('status', 'active')
+                        ->latest('id')
+                        ->first();
+
+                    if ($distribution) {
+                        $distribution->update([
+                            'loaded_qty' => max(0, $distribution->loaded_qty - $baseQty),
+                            'remaining_qty' => max(0, $distribution->remaining_qty - $baseQty),
+                        ]);
+                    }
+                }
+
+                $issueOrder->update([
+                    'status' => 'cancelled',
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $loadRequest->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+        });
+
+        return redirect()
+            ->route('load-requests.show', $loadRequest->id)
+            ->with('success', 'تم إلغاء أمر التحميل وإرجاع الكمية للمخزن بنجاح');
+    }
+
+    /**
      * حذف سجل من (Load Request Web) مع مراعاة قواعد العمل قبل الحذف.
      */
     public function destroy(LoadRequest $loadRequest)

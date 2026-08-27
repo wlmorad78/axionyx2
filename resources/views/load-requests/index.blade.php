@@ -147,6 +147,12 @@
                                     @if(in_array($lr->status, ['approved', 'loading']) && $lr->load_type !== 'complementary')
                                         <a href="{{ route('load-requests.complementary.create', $lr->id) }}" class="btn" style="padding:6px 10px;font-size:12px;border-color:var(--accent);color:var(--accent);">+ تكميلى</a>
                                     @endif
+                                    @if(in_array($lr->status, ['approved', 'loading']))
+                                        <form method="POST" action="{{ route('load-requests.cancel', $lr->id) }}" onsubmit="return confirm('هل أنت متأكد من إلغاء أمر التحميل؟ سيتم إرجاع كامل الكمية للمخزن.')">
+                                            @csrf
+                                            <button type="submit" class="btn" style="padding:6px 10px;font-size:12px;color:#f59e0b;border-color:rgba(245,158,11,0.3);">إلغاء الأمر</button>
+                                        </form>
+                                    @endif
                                     @if($lr->status === 'pending')
                                         <a href="{{ route('load-requests.approve', $lr->id) }}" class="btn primary" style="padding:6px 10px;font-size:12px;">موافقة</a>
                                     @endif

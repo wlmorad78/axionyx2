@@ -1072,6 +1072,7 @@ $resources = [
     'workflow-sla-rules' => \App\Http\Controllers\Api\Workflows\WorkflowSlaRuleController::class,
     'vehicle-types' => \App\Http\Controllers\Api\Fleet\VehicleTypeController::class,
     'vehicles' => \App\Http\Controllers\Api\Fleet\VehicleController::class,
+    'owner-transactions' => \App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class,
 ];
 
 Route::get('route-schedules/today-count', [\App\Http\Controllers\Api\Sales\RouteScheduleController::class, 'todayCount']);
@@ -1107,6 +1108,14 @@ if (class_exists(\App\Http\Controllers\Api\Fleet\VehicleInventoryTransactionItem
         'parameters' => ['vehicle-inventory-transaction-items' => 'vi_item'],
     ]);
 }
+
+// ===== Owner Account Custom Routes =====
+Route::post('owner/deposit-cash', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'depositCash']);
+Route::post('owner/withdraw-cash', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'withdrawCash']);
+Route::post('owner/dispatch-goods', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'dispatchGoods']);
+Route::post('owner/receive-goods', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'receiveGoods']);
+Route::get('owner/statement', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'statement']);
+Route::get('owner/balance', [\App\Http\Controllers\Api\OwnerAccount\OwnerAccountController::class, 'balance']);
 
 // ===== Restore & Force Delete Routes =====
 $softDeleteResources = [
@@ -1612,6 +1621,7 @@ Route::patch('load-requests/{loadRequest}/status', [\App\Http\Controllers\Api\Fl
 Route::post('load-requests/{loadRequest}/approve', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'approve']);
 Route::post('load-requests/{loadRequest}/reject', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'reject']);
 Route::post('load-requests/{loadRequest}/close', [\App\Http\Controllers\Api\Fleet\LoadRequestController::class, 'close']);
+Route::post('load-requests/{loadRequest}/cancel', [\App\Http\Controllers\Api\Handheld2Controller::class, 'cancelLoadRequest']);
 
 // Warehouse Transfers next-code
 Route::get('warehouse-transfers/next-code', function () {
