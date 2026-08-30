@@ -1,17 +1,5 @@
 <?php
-/**
- * =====================================================================
- * متحكم (Controller): AuthController
- * الوحدة (Module): المصادقة وتسجيل الدخول (Auth)
- * المورد (Resource): Auth
- * ---------------------------------------------------------------------
- * الوصف:
- * هذا المتحكم يُعرّف نقاط النهاية (Endpoints) الخاصة بواجهة النظام
- * لإدارة "Auth" ضمن وحدة "المصادقة وتسجيل الدخول".
- * يوفر العمليات الأساسية (CRUD) بالإضافة إلى أي عمليات مخصصة حسب الحاجة،
- * ويعتمد على نماذج (Models) وقواعد تحقق (Validation Rules) لضمان سلامة البيانات.
- * =====================================================================
- */
+
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
@@ -23,9 +11,6 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    /**
-     * دالة معالجة: login — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
-     */
     public function login(Request $request)
     {
         $request->validate([
@@ -37,36 +22,34 @@ class AuthController extends Controller
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
-                'usercode' => ['Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¯Ø®ÙˆÙ„ ØºÙŠØ± ØµØ­ÙŠØ­Ø©.'],
+                'usercode' => ['بيانات الدخول غير صحيحة.'],
             ]);
         }
 
         if (! $user->is_active) {
             throw ValidationException::withMessages([
-                'usercode' => ['Ø­Ø³Ø§Ø¨Ùƒ Ù…Ø¹Ø·Ù‘Ù„. ØªÙˆØ§ØµÙ„ Ù…Ø¹ Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„.'],
+                'usercode' => ['حسابك معطّل. تواصل مع المسؤول.'],
             ]);
         }
 
-        // Retry token creation up to 3 times to handle SQLite "database is locked"
         $token = null;
         $lastException = null;
         for ($attempt = 1; $attempt <= 3; $attempt++) {
             try {
-                // Delete old tokens to reduce lock contention
                 $user->tokens()->delete();
                 $token = $user->createToken('auth-token')->plainTextToken;
                 break;
             } catch (\Exception $e) {
                 $lastException = $e;
                 if ($attempt < 3) {
-                    usleep(500000); // 500ms delay before retry
+                    usleep(500000);
                     continue;
                 }
             }
         }
 
         if (!$token) {
-            throw $lastException ?? new \Exception('ÙØ´Ù„ ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„. Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.');
+            throw $lastException ?? new \Exception('فشل تسجيل الدخول.');
         }
 
         $company = $user->company;
@@ -119,13 +102,9 @@ class AuthController extends Controller
                     'can_delete' => (bool) $m->pivot->can_delete,
                 ])
                 : collect(),
-            'token' => $token,
         ]);
     }
 
-    /**
-     * دالة معالجة: logout — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
-     */
     public function logout(Request $request)
     {
         $user = $request->user();
@@ -141,9 +120,6 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out']);
     }
 
-    /**
-     * دالة معالجة: me — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
-     */
     public function me(Request $request)
     {
         $user = $request->user()->load('companies');
@@ -151,9 +127,6 @@ class AuthController extends Controller
         return response()->json($user);
     }
 
-    /**
-     * دالة معالجة: changePassword — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
-     */
     public function changePassword(Request $request)
     {
         $request->validate([
@@ -176,9 +149,6 @@ class AuthController extends Controller
         return response()->json(['message' => 'Password changed successfully']);
     }
 
-    /**
-     * دالة معالجة: register — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Auth).
-     */
     public function register(Request $request)
     {
         $request->validate([
