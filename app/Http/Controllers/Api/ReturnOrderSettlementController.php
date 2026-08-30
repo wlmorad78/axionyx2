@@ -70,7 +70,7 @@ class ReturnOrderSettlementController extends Controller
                 'return_order_id' => $order->id,
                 'return_no' => $order->return_no,
                 'return_date' => $order->return_date?->format('Y-m-d'),
-                'employee_id' => $order->employee_id,
+                'user_id' => $order->user_id,
                 'employee_name' => $employeeName,
                 'employee' => $employee ? [
                     'id' => $employee->id,
@@ -97,7 +97,7 @@ class ReturnOrderSettlementController extends Controller
     {
         $request->validate([
             'status' => 'nullable|string|in:pending,submitted,approved,cancelled,all',
-            'employee_id' => 'nullable|integer',
+            'user_id' => 'nullable|integer',
             'search' => 'nullable|string',
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
@@ -110,8 +110,8 @@ class ReturnOrderSettlementController extends Controller
             $query->where('status', $status);
         }
 
-        if ($request->filled('employee_id')) {
-            $query->where('employee_id', $request->input('employee_id'));
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->input('user_id'));
         }
 
         if ($request->filled('search')) {
@@ -141,7 +141,7 @@ class ReturnOrderSettlementController extends Controller
         $validated = $request->validate([
             'return_order_id' => 'nullable|integer',
             'load_request_id' => 'nullable|integer',
-            'employee_id' => 'required|integer',
+            'user_id' => 'required|integer',
             'warehouse_id' => 'nullable|integer',
             'load_request_no' => 'nullable|string',
             'notes' => 'nullable|string',
@@ -217,7 +217,7 @@ class ReturnOrderSettlementController extends Controller
     {
         $settlement->load('items.replacements');
 
-        $employee = \App\Models\HR\Employee::find($settlement->employee_id);
+        $employee = \App\Models\HR\Employee::find($settlement->user_id);
         $warehouse = \App\Models\Inventory\Warehouse::find($settlement->warehouse_id);
 
         return response()->json([

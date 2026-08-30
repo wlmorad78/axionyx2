@@ -131,4 +131,30 @@ class NumberSeries extends Model
             ], $defaults)
         );
     }
+
+    /**
+     * Peek the next number WITHOUT consuming the sequence.
+     * Used by "next-code" preview endpoints so the previewed number
+     * matches exactly what the model will generate on save.
+     */
+    public static function peekNumber(int $companyId, string $documentType): string
+    {
+        $series = static::where('company_id', $companyId)
+            ->where('document_type', $documentType)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$series) {
+            $series = static::create([
+                'company_id' => $companyId,
+                'document_type' => $documentType,
+                'prefix' => strtoupper(substr($documentType, 0, 2)),
+                'format' => '{prefix}-{sequence}',
+                'next_sequence' => 1,
+                'padding' => 5,
+            ]);
+        }
+
+        return $series->formatNumber();
+    }
 }

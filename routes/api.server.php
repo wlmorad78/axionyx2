@@ -630,15 +630,9 @@ Route::post('roles/copy-permissions', [\App\Http\Controllers\Api\Permissions\Rol
 
 // Per-company next-code routes
 Route::get('purchase-invoices/next-code', function (\Illuminate\Http\Request $request) {
-    $companyId = $request->input('company_id');
-    $query = \App\Models\PurchaseInvoice::withTrashed();
-    if ($companyId) {
-        $query->where('company_id', $companyId);
-    }
-    $last = $query->latest('invoice_no')->first();
-    $next = 1;
-    if ($last && preg_match('/^PINV-(\d+)$/', $last->invoice_no, $m)) $next = intval($m[1]) + 1;
-    return response()->json(['code' => 'PINV-' . str_pad($next, 5, '0', STR_PAD_LEFT)]);
+    $companyId = (int) $request->input('company_id', 0);
+    $code = \App\Models\NumberSeries::peekNumber($companyId, 'purchase_invoice');
+    return response()->json(['code' => $code]);
 });
 
 Route::get('sales-invoices/next-code', function (\Illuminate\Http\Request $request) {
@@ -1260,8 +1254,8 @@ foreach ($softDeleteResources as $resource) {
             'vehicles' => \App\Models\Vehicle::class,
             'vehicle-types' => \App\Models\VehicleType::class,
             'vehicle-warehouses' => \App\Models\VehicleWarehouse::class,
-            'load-requests' => \App\Models\LoadRequest::class,
-            'load-request-items' => \App\Models\LoadRequestItem::class,
+            'load-requests' => \App\Models\Sales\LoadRequest::class,
+            'load-request-items' => \App\Models\Sales\LoadRequestItem::class,
             'countries' => \App\Models\Country::class,
             'governorates' => \App\Models\Governorate::class,
             'cities' => \App\Models\City::class,
@@ -1301,8 +1295,8 @@ foreach ($softDeleteResources as $resource) {
             'vehicles' => \App\Models\Vehicle::class,
             'vehicle-types' => \App\Models\VehicleType::class,
             'vehicle-warehouses' => \App\Models\VehicleWarehouse::class,
-            'load-requests' => \App\Models\LoadRequest::class,
-            'load-request-items' => \App\Models\LoadRequestItem::class,
+            'load-requests' => \App\Models\Sales\LoadRequest::class,
+            'load-request-items' => \App\Models\Sales\LoadRequestItem::class,
             'countries' => \App\Models\Country::class,
             'governorates' => \App\Models\Governorate::class,
             'cities' => \App\Models\City::class,
@@ -1336,6 +1330,8 @@ Route::post('sales-invoices/{salesInvoice}/cancel', [\App\Http\Controllers\Api\S
 
 // ===== Purchase Invoice Custom Routes =====
 Route::post('purchase-invoices/{purchaseInvoice}/post', [\App\Http\Controllers\Api\Purchase\PurchaseInvoiceController::class, 'post'])->middleware('permission:purchase.invoice.post');
+Route::post('purchase-invoices/{purchaseInvoice}/receive', [\App\Http\Controllers\Api\Purchase\PurchaseInvoiceController::class, 'receive'])->middleware('permission:purchase.invoice.post');
+Route::get('purchase-invoices/{purchaseInvoice}/receipts', [\App\Http\Controllers\Api\Purchase\PurchaseInvoiceController::class, 'receipts'])->middleware('permission:purchase.invoice.view');
 Route::post('purchase-invoices/{purchaseInvoice}/cancel', [\App\Http\Controllers\Api\Purchase\PurchaseInvoiceController::class, 'cancel'])->middleware('permission:purchase.invoice.cancel');
 
 // ===== Inventory Module =====
@@ -1557,7 +1553,7 @@ Route::post('load-requests/create', function (\Illuminate\Http\Request $request)
         'notes' => 'nullable|string',
     ]);
 
-    $loadRequest = \App\Models\LoadRequest::create([
+    $loadRequest = \App\Models\Sales\LoadRequest::create([
         'company_id' => $request->input('company_id', 1),
         'branch_id' => $request->input('branch_id'),
         'warehouse_id' => $data['warehouse_id'],
@@ -1573,7 +1569,7 @@ Route::post('load-requests/create', function (\Illuminate\Http\Request $request)
         $incentiveQty = (float)($item['incentive_qty'] ?? 0);
         $totalQty = $qty + $incentiveQty;
         if ($totalQty > 0) {
-            \App\Models\LoadRequestItem::create([
+            \App\Models\Sales\LoadRequestItem::create([
                 'load_request_id' => $loadRequest->id,
                 'item_id' => $item['item_id'],
                 'unit_id' => $item['unit_id'] ?? null,

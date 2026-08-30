@@ -5,14 +5,14 @@ namespace App\Models\Fleet;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\HR\Employee;
+use App\Models\User;
 
 class Driver extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'employee_id',
+        'user_id',
         'license_no',
         'license_expiry',
         'mobile',
@@ -23,9 +23,9 @@ class Driver extends Model
         'license_expiry' => 'date',
     ];
 
-    public function employee()
+    public function user()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 
     public function assignments()

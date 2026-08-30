@@ -29,7 +29,7 @@ class EmployeeAssignmentController extends Controller
         $with = $request->with ? explode(',', $request->with) : [];
         $query = EmployeeAssignment::with($with);
 
-        if ($request->employee_id) $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) $query->where('user_id', $request->user_id);
         if ($request->branch_id) $query->where('branch_id', $request->branch_id);
         if ($request->job_title_id) $query->where('job_title_id', $request->job_title_id);
         if ($request->is_current !== null) $query->where('is_current', $request->boolean('is_current'));
@@ -46,7 +46,7 @@ class EmployeeAssignmentController extends Controller
         $data = $request->validate(ValidationRules::for('employee_assignment', 'store'));
 
         if (!empty($data['is_current']) && $data['is_current']) {
-            EmployeeAssignment::where('employee_id', $data['employee_id'])
+            EmployeeAssignment::where('user_id', $data['user_id'])
                 ->where('is_current', true)->update(['is_current' => false]);
         }
 
@@ -72,7 +72,7 @@ class EmployeeAssignmentController extends Controller
         $data = $request->validate(ValidationRules::for('employee_assignment', 'update', $employeeAssignment));
 
         if (!empty($data['is_current']) && $data['is_current']) {
-            EmployeeAssignment::where('employee_id', $employeeAssignment->employee_id)
+            EmployeeAssignment::where('user_id', $employeeAssignment->user_id)
                 ->where('is_current', true)
                 ->where('id', '!=', $employeeAssignment->id)
                 ->update(['is_current' => false]);

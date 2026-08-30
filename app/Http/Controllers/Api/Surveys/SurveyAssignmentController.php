@@ -63,7 +63,7 @@ class SurveyAssignmentController extends Controller
     {
         $validated = $request->validate([
             'survey_id' => 'required|exists:surveys,id',
-            'sales_rep_id' => 'nullable|exists:employees,id',
+            'sales_rep_id' => 'nullable|exists:users,id',
             'route_id' => 'nullable|exists:routes,id',
             'customer_id' => 'nullable|exists:customers,id',
             'assigned_date' => 'required|date',
@@ -90,7 +90,7 @@ class SurveyAssignmentController extends Controller
     public function update(Request $request, SurveyAssignment $surveyAssignment)
     {
         $validated = $request->validate([
-            'sales_rep_id' => 'nullable|exists:employees,id',
+            'sales_rep_id' => 'nullable|exists:users,id',
             'route_id' => 'nullable|exists:routes,id',
             'customer_id' => 'nullable|exists:customers,id',
             'assigned_date' => 'sometimes|date',

@@ -35,7 +35,7 @@ class IssueOrderController extends Controller
         }
         if ($request->warehouse_id) $query->where('warehouse_id', $request->warehouse_id);
         if ($request->load_request_id) $query->where('load_request_id', $request->load_request_id);
-        if ($request->employee_id) $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) $query->where('user_id', $request->user_id);
         if ($request->status) $query->where('status', $request->status);
         if ($request->search) {
             $s = $request->search;

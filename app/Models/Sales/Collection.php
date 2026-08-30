@@ -18,7 +18,7 @@ class Collection extends Model
 
     protected $fillable = [
         'company_id', 'branch_id', 'collection_no', 'collection_date', 'collection_time',
-        'sales_rep_id', 'customer_id', 'sales_invoice_id', 'payment_method_id',
+        'sales_rep_id', 'customer_id', 'payer_customer_id', 'sales_invoice_id', 'payment_method_id',
         'safe_id', 'bank_account_id', 'amount', 'reference_no', 'notes',
         'status', 'created_by', 'approved_by',
         'collection_type', 'debt_id', 'debt_payment_line_id', 'collected_from_id',
@@ -61,6 +61,7 @@ class Collection extends Model
     public function customer() { return $this->belongsTo(Customer::class); }
     public function salesInvoice() { return $this->belongsTo(SalesInvoice::class); }
     public function paymentMethod() { return $this->belongsTo(PaymentMethod::class); }
+    public function payerCustomer() { return $this->belongsTo(Customer::class, 'payer_customer_id'); }
     public function salesmanDebt() { return $this->belongsTo(SalesmanDebt::class, 'debt_id'); }
     public function debtPaymentLine() { return $this->belongsTo(SalesmanDebtPaymentLine::class, 'debt_payment_line_id'); }
     public function collectedFrom() { return $this->belongsTo(Employee::class, 'collected_from_id'); }

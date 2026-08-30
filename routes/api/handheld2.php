@@ -26,7 +26,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('handheld2/routes-with-customers', [Handheld2Controller::class, 'routesWithCustomers']);
     Route::get('handheld2/next-customer-code', [Handheld2Controller::class, 'nextCustomerCode']);
     Route::get('handheld2/download-data', [Handheld2Controller::class, 'downloadData']);
+    Route::get('handheld2/bank-accounts', [Handheld2Controller::class, 'bankAccounts']);
     Route::get('handheld2/load-orders', [Handheld2Controller::class, 'loadOrders']);
+    Route::post('handheld2/load-orders/{loadRequestNo}/load', [Handheld2Controller::class, 'loadOrder']);
     Route::get('handheld2/complementary-orders', [Handheld2Controller::class, 'complementaryOrders']);
     Route::get('handheld2/representatives', [Handheld2Controller::class, 'representatives']);
     Route::get('handheld2/representative-stock-summary', [Handheld2Controller::class, 'representativeStockSummary']);
@@ -39,10 +41,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('handheld2/sync/push', [Handheld2Controller::class, 'syncPush']);
     Route::post('handheld2/sync/pull', [Handheld2Controller::class, 'syncPull']);
     Route::post('handheld2/start-day', [Handheld2Controller::class, 'startDay']);
+    Route::get('handheld2/customer-statement', [Handheld2Controller::class, 'customerStatement']);
+    Route::get('handheld2/customer-sales-report', [Handheld2Controller::class, 'customerSalesReport']);
+    Route::get('handheld2/invoice-details', [Handheld2Controller::class, 'invoiceDetails']);
+    Route::get('handheld2/invoice-payment-methods/{clientUuid}', [Handheld2Controller::class, 'invoicePaymentMethods']);
 
     Route::post('handheld2/car-expenses', function (\Illuminate\Http\Request $request) {
         $user = $request->user();
-        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+        $employee = DB::table('employees')->where('id', $user->id)->first();
 
         $validated = $request->validate([
             'vehicle_id' => 'nullable|integer',

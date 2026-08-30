@@ -14,7 +14,7 @@ class AssetAssignment extends Model
 
     protected $fillable = [
         'asset_id',
-        'employee_id',
+        'user_id',
         'assigned_date',
         'returned_date',
         'status',
@@ -30,8 +30,8 @@ class AssetAssignment extends Model
         return $this->belongsTo(Asset::class);
     }
 
-    public function employee()
+    public function user()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(\App\Models\User::class);
     }
 }

@@ -13,7 +13,7 @@ class Collection extends Model
 
     protected $fillable = [
         'company_id', 'branch_id', 'collection_no', 'collection_date', 'collection_time',
-        'sales_rep_id', 'customer_id', 'sales_invoice_id', 'payment_method_id',
+        'sales_rep_id', 'customer_id', 'payer_customer_id', 'sales_invoice_id', 'payment_method_id',
         'safe_id', 'bank_account_id', 'amount', 'reference_no', 'notes',
         'status', 'created_by', 'approved_by',
     ];
@@ -56,4 +56,5 @@ class Collection extends Model
     public function salesInvoice() { return $this->belongsTo(SalesInvoice::class); }
     public function paymentMethod() { return $this->belongsTo(PaymentMethod::class); }
     public function bankAccount() { return $this->belongsTo(\App\Models\Treasury\BankAccount::class); }
+    public function payerCustomer() { return $this->belongsTo(Customer::class, 'payer_customer_id'); }
 }

@@ -5,7 +5,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Company\Branch;
 use App\Models\Company\Company;
-use App\Models\HR\Employee;
+use App\Models\User;
+use App\Models\Employee;
 use App\Models\Inventory\IssueOrder;
 use App\Models\Inventory\Warehouse;
 
@@ -16,29 +17,33 @@ class LoadRequest extends Model
     protected $fillable = [
         'company_id', 'branch_id', 'warehouse_id', 'request_no',
         'parent_load_request_id',
-        'employee_id', 'supervisor_employee_id', 'sales_territory_id',
+        'employee_id', 'supervisor_employee_id',
+        'user_id', 'supervisor_user_id', 'sales_territory_id',
         'trip_date', 'load_type', 'priority', 'request_date',
         'status', 'total_items_count', 'total_quantity', 'total_amount',
         'requested_by', 'create_by', 'create_at', 'create_notes', 'notes',
     ];
 
-    protected $casts = [
-        'trip_date' => 'date',
-        'request_date' => 'date',
-        'create_at' => 'datetime',
-        'total_items_count' => 'integer',
-        'total_quantity' => 'decimal:2',
-        'total_amount' => 'decimal:2',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'trip_date' => 'date',
+            'request_date' => 'date',
+            'create_at' => 'datetime',
+            'total_items_count' => 'integer',
+            'total_quantity' => 'decimal:2',
+            'total_amount' => 'decimal:2',
+        ];
+    }
 
     public function company() { return $this->belongsTo(Company::class); }
     public function branch() { return $this->belongsTo(Branch::class); }
     public function warehouse() { return $this->belongsTo(Warehouse::class); }
-    public function employee() { return $this->belongsTo(Employee::class); }
-    public function supervisorEmployee() { return $this->belongsTo(Employee::class, 'supervisor_employee_id'); }
+    public function user() { return $this->belongsTo(User::class); }
+    public function supervisorUser() { return $this->belongsTo(User::class, 'supervisor_user_id'); }
     public function salesTerritory() { return $this->belongsTo(SalesTerritory::class); }
-    public function requestedByEmployee() { return $this->belongsTo(Employee::class, 'requested_by'); }
-    public function createByEmployee() { return $this->belongsTo(Employee::class, 'create_by'); }
+    public function requestedByUser() { return $this->belongsTo(User::class, 'requested_by'); }
+    public function createByUser() { return $this->belongsTo(User::class, 'create_by'); }
     public function items() { return $this->hasMany(LoadRequestItem::class); }
     public function issueOrder() { return $this->hasOne(IssueOrder::class); }
     public function returnOrder() { return $this->hasOne(\App\Models\ReturnOrder::class); }
@@ -49,6 +54,20 @@ class LoadRequest extends Model
     protected static function booted(): void
     {
         static::creating(function (LoadRequest $model) {
+            if ($model->user_id && !$model->employee_id) {
+                $employee = Employee::where('user_id', $model->user_id)->first();
+                if ($employee) {
+                    $model->employee_id = $employee->id;
+                }
+            }
+
+            if ($model->supervisor_user_id && !$model->supervisor_employee_id) {
+                $supervisor = Employee::where('user_id', $model->supervisor_user_id)->first();
+                if ($supervisor) {
+                    $model->supervisor_employee_id = $supervisor->id;
+                }
+            }
+
             if (!$model->request_no) {
                 $maxNo = static::withoutGlobalScopes()
                     ->where('company_id', $model->company_id)

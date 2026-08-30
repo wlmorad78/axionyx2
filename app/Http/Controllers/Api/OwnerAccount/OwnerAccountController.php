@@ -78,7 +78,7 @@ class OwnerAccountController extends Controller
             $data['treasury_id'],
             $data['amount'],
             $data['description'] ?? 'إيداع من المالك',
-            auth()->user()->employee?->id,
+            null,
             $data['transaction_date'] ?? now()->toDateString()
         );
 
@@ -108,7 +108,7 @@ class OwnerAccountController extends Controller
             $data['treasury_id'],
             $data['amount'],
             $data['description'] ?? 'سحب من المالك',
-            auth()->user()->employee?->id,
+            null,
             $data['transaction_date'] ?? now()->toDateString()
         );
 
@@ -144,7 +144,7 @@ class OwnerAccountController extends Controller
             $data['quantity'],
             $data['unit_cost'],
             $data['description'] ?? 'إرسال بضاعة من المالك',
-            auth()->user()->employee?->id,
+            null,
             $data['transaction_date'] ?? now()->toDateString()
         );
 
@@ -180,7 +180,7 @@ class OwnerAccountController extends Controller
             $data['quantity'],
             $data['unit_cost'],
             $data['description'] ?? 'سحب بضاعة للمالك',
-            auth()->user()->employee?->id,
+            null,
             $data['transaction_date'] ?? now()->toDateString()
         );
 

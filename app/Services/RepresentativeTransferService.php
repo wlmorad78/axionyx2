@@ -16,17 +16,17 @@ class RepresentativeTransferService
     {
         return DB::transaction(function () use ($user, $data) {
             $companyId = $user->company_id;
-            $fromId = (int) $data['from_employee_id'];
-            $toId = (int) $data['to_employee_id'];
+            $fromId = (int) $data['from_user_id'];
+            $toId = (int) $data['to_user_id'];
 
             if ($fromId === $toId) {
-                throw ValidationException::withMessages(['to_employee_id' => 'لا يمكن التحويل لنفس المندوب.']);
+                throw ValidationException::withMessages(['to_user_id' => 'لا يمكن التحويل لنفس المندوب.']);
             }
 
             $employees = Employee::whereIn('id', [$fromId, $toId])
                 ->where('company_id', $companyId)->get()->keyBy('id');
             if ($employees->count() !== 2) {
-                throw ValidationException::withMessages(['employee_id' => 'المندوب غير تابع للشركة الحالية.']);
+                throw ValidationException::withMessages(['user_id' => 'المندوب غير تابع للشركة الحالية.']);
             }
 
             if (!empty($data['client_uuid'])) {
@@ -118,7 +118,7 @@ class RepresentativeTransferService
 
                 $this->consumeDistribution($companyId, $fromId, (int) $item['item_id'], $baseQty);
                 RepItemDistribution::create([
-                    'company_id' => $companyId, 'employee_id' => $toId,
+                    'company_id' => $companyId, 'user_id' => $toId,
                     'item_id' => $item['item_id'], 'loaded_qty' => $baseQty,
                     'sold_qty' => 0, 'returned_qty' => 0, 'remaining_qty' => $baseQty,
                     'unit_price' => $item['unit_cost'] ?? 0, 'status' => 'active',
@@ -132,13 +132,13 @@ class RepresentativeTransferService
     private function available(int $companyId, int $employeeId, int $itemId): float
     {
         return (float) RepItemDistribution::where('company_id', $companyId)
-            ->where('employee_id', $employeeId)->where('item_id', $itemId)
+            ->where('user_id', $employeeId)->where('item_id', $itemId)
             ->where('status', 'active')->lockForUpdate()->sum('remaining_qty');
     }
 
     private function consumeDistribution(int $companyId, int $employeeId, int $itemId, float $qty): void
     {
-        $rows = RepItemDistribution::where('company_id', $companyId)->where('employee_id', $employeeId)
+        $rows = RepItemDistribution::where('company_id', $companyId)->where('user_id', $employeeId)
             ->where('item_id', $itemId)->where('status', 'active')->where('remaining_qty', '>', 0)
             ->orderBy('id')->lockForUpdate()->get();
         foreach ($rows as $row) {
@@ -158,7 +158,7 @@ class RepresentativeTransferService
 
     private function employeeWarehouse(int $employeeId): ?int
     {
-        return DB::table('salesman_assignments')->where('employee_id', $employeeId)
+        return DB::table('salesman_assignments')->where('user_id', $employeeId)
             ->where('is_active', true)->value('warehouse_id');
     }
 }

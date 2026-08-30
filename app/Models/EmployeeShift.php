@@ -5,12 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\User;
 
 class EmployeeShift extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['employee_id', 'shift_id', 'effective_from', 'effective_to', 'is_current', 'notes'];
+    protected $fillable = ['user_id', 'shift_id', 'effective_from', 'effective_to', 'is_current', 'notes'];
 
     protected function casts(): array
     {
@@ -21,9 +22,9 @@ class EmployeeShift extends Model
         ];
     }
 
-    public function employee()
+    public function user()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 
     public function shift()

@@ -12,14 +12,16 @@ class ReturnOrderItem extends Model
 
     protected $fillable = [
         'return_order_id', 'item_id', 'item_unit_id', 'batch_id',
-        'returned_quantity', 'sold_quantity', 'loaded_qty', 'sales_price', 'line_total',
-        'return_reason_id', 'return_condition', 'notes',
+        'returned_quantity', 'sold_quantity', 'loaded_qty', 't_in_qty', 't_out_qty',
+        'sales_price', 'line_total', 'return_reason_id', 'return_condition', 'notes',
     ];
 
     protected $casts = [
         'returned_quantity' => 'decimal:2',
         'sold_quantity' => 'decimal:2',
         'loaded_qty' => 'decimal:2',
+        't_in_qty' => 'decimal:2',
+        't_out_qty' => 'decimal:2',
         'sales_price' => 'decimal:2',
         'line_total' => 'decimal:2',
     ];

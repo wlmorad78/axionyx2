@@ -964,15 +964,16 @@ class ReportController extends Controller
         }
         $salesOutTransactions = $salesOutQuery->get();
 
-        // 4.1 آخر سعر شراء لكل صنف
-        $lastPurchasePriceMap = [];
-        foreach ($inTransactions as $txn) {
-            foreach ($txn->items as $item) {
-                $itemId = $item->item_id;
-                $cost = (float) $item->unit_cost;
-                if ($cost > 0) {
-                    $lastPurchasePriceMap[$itemId] = $cost;
-                }
+        // 4.1 سعر الشراء من الوحدة الافتراضية في item_units
+        $itemIds = $allItems->keys()->all();
+        $defaultUnitCostMap = [];
+        $unitRows = \App\Models\Inventory\ItemUnit::whereIn('item_id', $itemIds)
+            ->where('is_default', true)
+            ->get(['item_id', 'purchase_price']);
+        foreach ($unitRows as $u) {
+            $cost = (float) $u->purchase_price;
+            if ($cost > 0) {
+                $defaultUnitCostMap[$u->item_id] = $cost;
             }
         }
 
@@ -1032,7 +1033,7 @@ class ReportController extends Controller
             $outQty += $mobileQty;
             $total = $openingBalance + $inQty;
             $closingBalance = $total - $outQty;
-            $unitCost = $lastPurchasePriceMap[$itemId] ?? 0;
+            $unitCost = $defaultUnitCostMap[$itemId] ?? 0;
             $totalValue = $closingBalance * $unitCost;
 
             $result[] = [
@@ -1064,13 +1065,13 @@ class ReportController extends Controller
     public function repMovementByItem(Request $request)
     {
         $request->validate([
-            'employee_id' => 'required|integer|exists:employees,id',
+            'user_id' => 'required|integer|exists:users,id',
             'date_from'   => 'nullable|date',
             'date_to'     => 'nullable|date',
         ]);
 
         $companyId = $request->user()->company_id;
-        $employeeId = (int) $request->input('employee_id');
+        $employeeId = (int) $request->input('user_id');
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
@@ -1078,7 +1079,7 @@ class ReportController extends Controller
         $loadQuery = DB::table('load_request_items')
             ->join('load_requests', 'load_request_items.load_request_id', '=', 'load_requests.id')
             ->whereNull('load_requests.deleted_at')
-            ->where('load_requests.employee_id', $employeeId)
+            ->where('load_requests.user_id', $employeeId)
             ->where('load_requests.company_id', $companyId)
             ->whereIn('load_requests.status', ['approved', 'loading', 'completed'])
             ->select(
@@ -1122,7 +1123,7 @@ class ReportController extends Controller
         $returnQuery = DB::table('return_order_items')
             ->join('return_orders', 'return_order_items.return_order_id', '=', 'return_orders.id')
             ->whereNull('return_orders.deleted_at')
-            ->where('return_orders.employee_id', $employeeId)
+            ->where('return_orders.user_id', $employeeId)
             ->where('return_orders.company_id', $companyId)
             ->whereIn('return_orders.status_id', ['pending', 'approved', 'received'])
             ->select(

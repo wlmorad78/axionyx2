@@ -21,7 +21,7 @@ class Warehouse extends Model
         'phone',
         'type',
         'address',
-        'manager_employee_id',
+        'manager_user_id',
         'notes',
         'is_default',
         'is_active',
@@ -52,6 +52,6 @@ class Warehouse extends Model
 
     public function manager()
     {
-        return $this->belongsTo(\App\Models\Employee::class, 'manager_employee_id');
+        return $this->belongsTo(\App\Models\User::class, 'manager_user_id');
     }
 }

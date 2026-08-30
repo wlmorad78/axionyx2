@@ -31,7 +31,7 @@ class LoadRequestController extends Controller
         if ($request->company_id) $query->where('company_id', $request->company_id);
         if ($request->branch_id) $query->where('branch_id', $request->branch_id);
         if ($request->warehouse_id) $query->where('warehouse_id', $request->warehouse_id);
-        if ($request->employee_id) $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) $query->where('user_id', $request->user_id);
         if ($request->status) $query->where('status', $request->status);
         if ($request->load_type) $query->where('load_type', $request->load_type);
         if ($request->priority) $query->where('priority', $request->priority);
@@ -52,7 +52,7 @@ class LoadRequestController extends Controller
     {
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
-            'employee_id' => 'required|exists:employees,id',
+            'user_id' => 'required|exists:users,id',
             'branch_id' => 'nullable|exists:branches,id',
             'parent_load_request_id' => 'nullable|exists:load_requests,id',
             'load_type' => 'nullable|in:standard,express,priority,complementary',
@@ -67,11 +67,11 @@ class LoadRequestController extends Controller
         $user = $request->user();
         $unitService = app(\App\Services\UnitConversionService::class);
 
-        $repEmployeeId = $data['employee_id'];
+        $repEmployeeId = $data['user_id'];
         $isComplementary = ($request->input('load_type') === 'complementary');
 
         if (!$isComplementary) {
-            $existingOpenOrder = LoadRequest::where('employee_id', $repEmployeeId)
+            $existingOpenOrder = LoadRequest::where('user_id', $repEmployeeId)
                 ->whereIn('status', ['draft', 'pending', 'approved', 'loading'])
                 ->first();
 
@@ -87,13 +87,13 @@ class LoadRequestController extends Controller
                 'company_id' => $user->company_id,
                 'branch_id' => $data['branch_id'] ?? $user->branch_id,
                 'warehouse_id' => $data['warehouse_id'],
-                'employee_id' => $data['employee_id'],
+                'user_id' => $data['user_id'],
                 'parent_load_request_id' => $isComplementary ? $request->input('parent_load_request_id') : null,
                 'load_type' => $request->input('load_type', 'standard'),
                 'request_date' => now()->toDateString(),
                 'status' => 'pending',
                 'notes' => $data['notes'] ?? null,
-                'requested_by' => $data['employee_id'],
+                'requested_by' => $data['user_id'],
             ]);
 
             foreach ($data['items'] as $item) {
@@ -323,7 +323,7 @@ class LoadRequestController extends Controller
         \Illuminate\Support\Facades\DB::transaction(function () use ($loadRequest, $request, $employee) {
             $loadRequest->update([
                 'status' => 'approved',
-                'supervisor_employee_id' => $employee?->id,
+                'supervisor_user_id' => $employee?->user_id,
                 'create_notes' => $request->input('notes', ''),
             ]);
 
@@ -331,15 +331,16 @@ class LoadRequestController extends Controller
                 'company_id' => $loadRequest->company_id,
                 'warehouse_id' => $loadRequest->warehouse_id,
                 'load_request_id' => $loadRequest->id,
+                'employee_id' => $loadRequest->employee_id,
                 'issue_date' => now()->toDateString(),
                 'issue_time' => now()->toTimeString(),
-                'employee_id' => $loadRequest->employee_id,
+                'user_id' => $loadRequest->user_id,
                 'sales_territory_id' => $loadRequest->sales_territory_id,
                 'status' => 'issued',
-                'issued_by' => $employee?->id,
-                'approved_by' => $employee?->id,
+                'issued_by' => $employee?->user_id,
+                'approved_by' => $employee?->user_id,
                 'approved_at' => now(),
-                'notes' => "ØµØ§Ø¯Ø± Ø¨Ù†Ø§Ø¡Ù‹ Ø¹Ù„Ù‰ Ø£Ù…Ø± Ø§Ù„ØªØ­Ù…ÙŠÙ„ {$loadRequest->request_no}",
+                'notes' => "صادر بناءً على أمر التحميل {$loadRequest->request_no}",
             ]);
 
             foreach ($loadRequest->items as $loadItem) {
@@ -384,7 +385,7 @@ class LoadRequestController extends Controller
                 'reference_id' => $issueOrder->id,
                 'notes' => "Ø¥Ø°Ù† ØµØ±Ù Ø¨Ù†Ø§Ø¡Ù‹ Ø¹Ù„Ù‰ Ø£Ù…Ø± Ø§Ù„ØªØ­Ù…ÙŠÙ„ {$loadRequest->request_no}",
                 'status' => 'posted',
-                'created_by' => $employee?->id,
+                'created_by' => $employee?->user_id,
             ]);
 
             foreach ($loadRequest->items as $loadItem) {
@@ -411,13 +412,13 @@ class LoadRequestController extends Controller
                     'from_location_type' => 'warehouse',
                     'from_location_id' => $loadRequest->warehouse_id,
                     'to_location_type' => 'rep',
-                    'to_location_id' => $loadRequest->employee_id,
+                    'to_location_id' => $loadRequest->user_id,
                 ]);
 
                 // Keep the representative distribution ledger in sync with the posted load.
                 \App\Models\Sales\RepItemDistribution::create([
                     'company_id' => $loadRequest->company_id,
-                    'employee_id' => $loadRequest->employee_id,
+                    'user_id' => $loadRequest->user_id,
                     'item_id' => $itemId,
                     'issue_order_id' => $issueOrder->id,
                     'loaded_qty' => $baseQty,

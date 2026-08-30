@@ -26,11 +26,14 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::query()->with('roles');
+        $query = User::query()->with('userType');
 
         $with = $request->with ? explode(',', $request->with) : [];
         if ($with) {
-            $query->with($with);
+            $filteredWith = array_filter($with, fn($w) => $w !== 'roles');
+            if ($filteredWith) {
+                $query->with($filteredWith);
+            }
         }
 
         $companyId = $request->header('X-Company-Id')
@@ -38,6 +41,21 @@ class UserController extends Controller
 
         if ($companyId) {
             $query->where('company_id', $companyId);
+        }
+
+        // فلترة بالفرع: يُرجع فقط المستخدمين المرتبطين بالفرع الحالي
+        // سواء عن طريق branch_id المباشر أو عن طريق جدول user_branches
+        // المدير العام (company_id = null) يرى جميع المستخدمين بدون تقييد
+        $branchId = $request->input('branch_id');
+        $authUser = $request->user();
+
+        if ($branchId && $authUser && $authUser->company_id !== null) {
+            $query->where(function ($q) use ($branchId) {
+                // المستخدمين الذين فرعهم الرئيسي هو هذا الفرع
+                $q->where('branch_id', $branchId)
+                  // أو المستخدمين المرتبطين بالفرع عبر user_branches
+                  ->orWhereHas('branches', fn ($bq) => $bq->where('branches.id', $branchId));
+            });
         }
 
         if ($request->has('search') && $request->search) {
@@ -52,8 +70,8 @@ class UserController extends Controller
         if ($request->has('roles')) {
             $roles = $request->input('roles');
             if (is_string($roles)) $roles = explode(',', $roles);
-            $query->whereHas('roles', function ($rq) use ($roles) {
-                $rq->whereIn('name', $roles);
+            $query->whereHas('userType', function ($rq) use ($roles) {
+                $rq->whereIn('name_ar', $roles);
             });
         }
 
@@ -62,7 +80,12 @@ class UserController extends Controller
         }
 
         $perPage = $request->input('per_page', 15);
-        $users = $query->orderBy('id', 'desc')->paginate($perPage);
+        $users = $query->orderBy('usercode', 'asc')->paginate($perPage);
+
+        $users->getCollection()->transform(function ($user) {
+            $user->roles = $user->getRolesAttribute();
+            return $user;
+        });
 
         return response()->json($users);
     }
@@ -79,8 +102,10 @@ class UserController extends Controller
             'phone' => 'nullable|string|max:50',
             'is_active' => 'nullable|boolean',
             'usercode' => 'nullable|integer',
-            'role_ids' => 'nullable|array',
-            'role_ids.*' => 'integer|exists:roles,id',
+            'user_type_id' => 'nullable|integer|exists:user_types,id',
+            'branch_id' => 'nullable|integer|exists:branches,id',
+            'warehouse_id' => 'nullable|integer|exists:warehouses,id',
+            'treasury_id' => 'nullable|integer|exists:treasuries,id',
         ]);
 
         $companyId = $request->header('X-Company-Id')
@@ -94,13 +119,16 @@ class UserController extends Controller
             'is_active' => $request->boolean('is_active', true),
             'company_id' => $companyId,
             'usercode' => $request->input('usercode'),
+            'branch_id' => $request->input('branch_id'),
+            'warehouse_id' => $request->input('warehouse_id'),
+            'treasury_id' => $request->input('treasury_id'),
         ]);
 
-        if ($request->has('role_ids')) {
-            $user->roles()->sync($request->role_ids);
+        if ($request->has('user_type_id')) {
+            $user->update(['user_type_id' => $request->user_type_id]);
         }
 
-        $user->load('roles');
+        $user->load('userType');
 
         return response()->json($user, 201);
     }
@@ -110,7 +138,7 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $user = User::with('roles')->findOrFail($id);
+        $user = User::with('userType')->findOrFail($id);
         return response()->json($user);
     }
 
@@ -128,22 +156,33 @@ class UserController extends Controller
             'phone' => 'nullable|string|max:50',
             'is_active' => 'nullable|boolean',
             'usercode' => 'nullable|integer',
-            'role_ids' => 'nullable|array',
-            'role_ids.*' => 'integer|exists:roles,id',
+            'user_type_id' => 'nullable|integer|exists:user_types,id',
+            'branch_id' => 'nullable|integer|exists:branches,id',
+            'warehouse_id' => 'nullable|integer|exists:warehouses,id',
+            'treasury_id' => 'nullable|integer|exists:treasuries,id',
         ]);
 
-        $data = $request->only(['name', 'email', 'phone', 'is_active', 'usercode']);
+        $data = $request->only([
+            'name',
+            'email',
+            'phone',
+            'is_active',
+            'usercode',
+            'branch_id',
+            'warehouse_id',
+            'treasury_id',
+        ]);
         if ($request->has('password')) {
             $data['password'] = Hash::make($request->password);
         }
 
         $user->update($data);
 
-        if ($request->has('role_ids')) {
-            $user->roles()->sync($request->role_ids);
+        if ($request->has('user_type_id')) {
+            $user->update(['user_type_id' => $request->user_type_id]);
         }
 
-        $user->load('roles');
+        $user->load('userType');
 
         return response()->json($user);
     }

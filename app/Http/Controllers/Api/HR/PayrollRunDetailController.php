@@ -33,8 +33,8 @@ class PayrollRunDetailController extends Controller
             $query->where('payroll_run_id', $request->payroll_run_id);
         }
 
-        if ($request->employee_id) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) {
+            $query->where('user_id', $request->user_id);
         }
 
         if ($request->trashed) {

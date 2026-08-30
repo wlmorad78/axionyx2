@@ -13,7 +13,7 @@ class ReturnOrderSettlement extends Model
     protected $fillable = [
         'settlement_no',
         'return_order_id',
-        'employee_id',
+        'user_id',
         'warehouse_id',
         'load_request_no',
         'status',
@@ -76,8 +76,8 @@ class ReturnOrderSettlement extends Model
         return $query->where('status', 'approved');
     }
 
-    public function scopeByEmployee($query, int $employeeId)
+    public function scopeByEmployee($query, int $userId)
     {
-        return $query->where('employee_id', $employeeId);
+        return $query->where('user_id', $userId);
     }
 }

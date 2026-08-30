@@ -51,7 +51,7 @@ class MarketIssueController extends Controller
     {
         $data = $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
-            'sales_rep_id' => 'required|exists:employees,id',
+            'sales_rep_id' => 'required|exists:users,id',
             'issue_date' => 'required|date',
             'issue_type' => 'required|in:PRICE,PROMOTION,QUALITY,AVAILABILITY,COMPETITOR_ACTIVITY,OTHER',
             'description' => 'required|string',
@@ -77,7 +77,7 @@ class MarketIssueController extends Controller
     {
         $data = $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
-            'sales_rep_id' => 'sometimes|required|exists:employees,id',
+            'sales_rep_id' => 'sometimes|required|exists:users,id',
             'issue_date' => 'sometimes|required|date',
             'issue_type' => 'sometimes|required|in:PRICE,PROMOTION,QUALITY,AVAILABILITY,COMPETITOR_ACTIVITY,OTHER',
             'description' => 'sometimes|required|string',

@@ -439,7 +439,7 @@ RouteFacade::post('handheld/return-orders/{id}/approve', function (\Illuminate\H
         ]);
 
         if ($returnOrder->load_request_id) {
-            \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
+            \App\Models\Sales\LoadRequest::where('id', $returnOrder->load_request_id)
                 ->update(['status' => 'closed']);
         }
 
@@ -1171,6 +1171,118 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         return response()->json(['message' => 'الموظف غير موجود في النظام'], 404);
     }
 
+    $createCollections = function (array $payments, $invoice, int $customerId) use ($user, $employee) {
+        if (empty($payments)) {
+            return 0;
+        }
+
+        $bal = \Illuminate\Support\Facades\DB::table('sales_invoices')
+            ->where('company_id', $user->company_id)
+            ->where('customer_id', $customerId)
+            ->whereNull('deleted_at')
+            ->selectRaw('COALESCE(SUM(net_total),0) as debit, COALESCE(SUM(paid_amount),0) as credit')
+            ->first();
+        $ledger = \Illuminate\Support\Facades\DB::table('customer_ledger')
+            ->where('customer_id', $customerId)
+            ->selectRaw('COALESCE(SUM(debit),0) as debit, COALESCE(SUM(credit),0) as credit')
+            ->first();
+        $coll = \Illuminate\Support\Facades\DB::table('collections')
+            ->where('customer_id', $customerId)
+            ->where('status', 'approved')
+            ->whereNull('sales_invoice_id')
+            ->selectRaw('COALESCE(SUM(amount),0) as c')
+            ->first();
+        $balance = (($bal?->debit ?? 0) - ($bal?->credit ?? 0))
+            - (($ledger?->credit ?? 0) - ($ledger?->debit ?? 0))
+            - ($coll?->c ?? 0);
+        $availableCredit = $balance < 0 ? -$balance : 0;
+
+        $totalPaid = 0;
+        $now = now();
+        foreach ($payments as $p) {
+            $method = $p['method'] ?? 'cash';
+            $amount = (float) ($p['amount'] ?? 0);
+            if ($amount <= 0) {
+                continue;
+            }
+            $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
+                ->where('code', $method)->where('is_active', true)->first();
+            $paymentMethodId = $pm?->id;
+
+            $bankAccountId = null;
+            if ($method === 'bank_transfer') {
+                $bankAccountId = (int) ($p['bank_account_id'] ?? 0);
+                $bank = \Illuminate\Support\Facades\DB::table('bank_accounts')
+                    ->where('id', $bankAccountId)
+                    ->where('company_id', $user->company_id)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at')
+                    ->first();
+                if (!$bank) {
+                    $bank = \Illuminate\Support\Facades\DB::table('bank_accounts')
+                        ->where('company_id', $user->company_id)
+                        ->where('is_active', true)
+                        ->whereNull('deleted_at')
+                        ->first();
+                    $bankAccountId = $bank?->id;
+                }
+                if ($bankAccountId) {
+                    \Illuminate\Support\Facades\DB::table('bank_accounts')
+                        ->where('id', $bankAccountId)
+                        ->increment('current_balance', $amount);
+                }
+            }
+
+            if ($method === 'customer_balance') {
+                if ($amount > $availableCredit) {
+                    $amount = $availableCredit;
+                }
+                if ($amount <= 0) {
+                    continue;
+                }
+                \Illuminate\Support\Facades\DB::table('customer_ledger')->insert([
+                    'customer_id' => $customerId,
+                    'transaction_date' => $now->toDateString(),
+                    'reference_type' => 'balance_payment',
+                    'reference_id' => $invoice->id,
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'balance' => 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+
+            \Illuminate\Support\Facades\DB::table('collections')->insert([
+                'company_id' => $user->company_id,
+                'branch_id' => $invoice->branch_id,
+                'collection_no' => 'HH-' . $now->format('YmdHis') . '-' . $invoice->id . '-' . rand(100, 999),
+                'collection_date' => $now->toDateString(),
+                'collection_time' => $now->format('H:i:s'),
+                'sales_rep_id' => $employee->id,
+                'customer_id' => $customerId,
+                'sales_invoice_id' => $invoice->id,
+                'payment_method_id' => $paymentMethodId,
+                'bank_account_id' => $bankAccountId,
+                'amount' => $amount,
+                'collection_type' => 'receipt',
+                'reference_no' => null,
+                'notes' => $method === 'customer_balance'
+                    ? 'تحصيل من رصيد العميل'
+                    : ($method === 'bank_transfer' ? 'تحويل بنكي' : 'نقدي'),
+                'status' => 'approved',
+                'created_by' => $employee->id,
+                'approved_by' => $employee->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $totalPaid += $amount;
+        }
+
+        return $totalPaid;
+    };
+
     $buildItemsData = function (array $lines) {
         $subtotal = 0;
         $taxTotal = 0;
@@ -1199,7 +1311,10 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
     $applyDistribution = function (array $itemsData, int $sign) use ($user, $employee) {
         foreach ($itemsData as $itemData) {
             $distribution = \App\Models\RepItemDistribution::where('company_id', $user->company_id)
-                ->where('employee_id', $employee->id)
+                ->where(function ($q) use ($employee) {
+                    $q->where('employee_id', $employee->id)
+                      ->orWhere('user_id', $employee->id);
+                })
                 ->where('item_id', $itemData['item_id'])
                 ->where('status', 'active')
                 ->latest('id')
@@ -1232,7 +1347,10 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 $oldItems = \App\Models\SalesInvoiceItem::where('sales_invoice_id', $existing->id)->get();
                 foreach ($oldItems as $oldItem) {
                     $dist = \App\Models\RepItemDistribution::where('company_id', $user->company_id)
-                        ->where('employee_id', $employee->id)
+                        ->where(function ($q) use ($employee) {
+                            $q->where('employee_id', $employee->id)
+                              ->orWhere('user_id', $employee->id);
+                        })
                         ->where('item_id', $oldItem->item_id)
                         ->where('status', 'active')->latest('id')->first();
                     if ($dist) {
@@ -1282,6 +1400,19 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                         'tax_amount' => $itemData['tax_amount'],
                         'net_amount' => $itemData['net_amount'],
                     ]);
+                }
+
+                $payments = $invoiceData['payments'] ?? [];
+                if (!empty($payments)) {
+                    $collectedTotal = $createCollections($payments, $existing, (int) $invoiceData['customer_id']);
+                    if ($collectedTotal > 0) {
+                        $paidAmount = $collectedTotal;
+                        $remainingAmount = max(0, $netTotal - $paidAmount);
+                        $existing->update([
+                            'paid_amount' => $paidAmount,
+                            'remaining_amount' => $remainingAmount,
+                        ]);
+                    }
                 }
 
                 $applyDistribution($itemsData, 1);
@@ -1388,6 +1519,19 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                     'tax_amount' => $itemData['tax_amount'],
                     'net_amount' => $itemData['net_amount'],
                 ]);
+            }
+
+            $payments = $invoiceData['payments'] ?? [];
+            if (!empty($payments)) {
+                $collectedTotal = $createCollections($payments, $inv, (int) $invoiceData['customer_id']);
+                if ($collectedTotal > 0) {
+                    $paidAmount = $collectedTotal;
+                    $remainingAmount = max(0, $netTotal - $paidAmount);
+                    $inv->update([
+                        'paid_amount' => $paidAmount,
+                        'remaining_amount' => $remainingAmount,
+                    ]);
+                }
             }
 
             if ($cashReceived < $paidAmount) {
@@ -2050,9 +2194,11 @@ RouteFacade::post('handheld/sync-collections', function (\Illuminate\Http\Reques
         'collections' => 'required|array|min:1',
         'collections.*.uuid' => 'required|string',
         'collections.*.customer_id' => 'required|exists:customers,id',
+        'collections.*.payer_customer_id' => 'nullable|exists:customers,id',
         'collections.*.amount' => 'required|numeric|min:0.01',
         'collections.*.collection_date' => 'required|date',
         'collections.*.payment_method_id' => 'nullable|exists:payment_methods,id',
+        'collections.*.bank_account_id' => 'nullable|exists:bank_accounts,id',
         'collections.*.reference_no' => 'nullable|string|max:100',
         'collections.*.notes' => 'nullable|string',
         'collections.*.branch_id' => 'nullable|exists:branches,id',
@@ -2067,6 +2213,11 @@ RouteFacade::post('handheld/sync-collections', function (\Illuminate\Http\Reques
     $results = [];
 
     foreach ($request->collections as $collectionData) {
+        $payerCustomerId = (int) ($collectionData['payer_customer_id'] ?? $collectionData['customer_id']);
+        if ($payerCustomerId !== (int) $collectionData['customer_id'] &&
+            !app(\App\Services\PermissionService::class)->check($user, 'sales.collection.cross_customer_payment')) {
+            return response()->json(['message' => 'السداد عن عميل آخر غير مسموح حالياً'], 403);
+        }
         $existing = \App\Models\Sales\Collection::where('company_id', $user->company_id)
             ->where('customer_id', $collectionData['customer_id'])
             ->where('amount', $collectionData['amount'])
@@ -2084,6 +2235,18 @@ RouteFacade::post('handheld/sync-collections', function (\Illuminate\Http\Reques
             continue;
         }
 
+        $bankAccountId = $collectionData['bank_account_id'] ?? null;
+        $requiresBank = $collectionData['payment_method_id']
+            ? DB::table('payment_methods')->where('id', $collectionData['payment_method_id'])->value('requires_bank_account')
+            : false;
+        if ($requiresBank && !$bankAccountId) {
+            $bankAccountId = DB::table('bank_accounts')
+                ->where('company_id', $user->company_id)
+                ->where('is_active', true)
+                ->orderByDesc('id')
+                ->value('id');
+        }
+
         $collection = \App\Models\Sales\Collection::create([
             'company_id' => $user->company_id,
             'branch_id' => $collectionData['branch_id'] ?? $request->input('branch_id'),
@@ -2091,13 +2254,19 @@ RouteFacade::post('handheld/sync-collections', function (\Illuminate\Http\Reques
             'collection_time' => now()->format('H:i:s'),
             'sales_rep_id' => $employee->id,
             'customer_id' => $collectionData['customer_id'],
+            'payer_customer_id' => $payerCustomerId,
             'payment_method_id' => $collectionData['payment_method_id'] ?? null,
+            'bank_account_id' => $bankAccountId,
             'amount' => $collectionData['amount'],
             'reference_no' => $collectionData['reference_no'] ?? null,
             'notes' => $collectionData['notes'] ?? 'تحصيل من جهاز المندوب - تم المزامنة',
             'status' => 'approved',
             'created_by' => $employee->id,
         ]);
+
+        if ($collection->status === 'approved' && $bankAccountId) {
+            DB::table('bank_accounts')->where('id', $bankAccountId)->increment('current_balance', $collection->amount);
+        }
 
         $results[] = [
             'uuid' => $collectionData['uuid'],
@@ -2394,6 +2563,20 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         'notes' => 'nullable|string',
         'branch_id' => 'nullable|integer',
         'issue_order_id' => 'nullable|integer',
+        'items' => 'nullable|array',
+        'items.*.item_id' => 'required_with:items|integer',
+        'items.*.item_code' => 'nullable|string|max:50',
+        'items.*.item_name' => 'nullable|string|max:255',
+        'items.*.unit_id' => 'nullable|integer',
+        'items.*.loaded_qty' => 'nullable|numeric|min:0',
+        'items.*.sold_qty' => 'nullable|numeric|min:0',
+        'items.*.returned_qty' => 'nullable|numeric|min:0',
+        'items.*.remaining_qty' => 'nullable|numeric|min:0',
+        'items.*.unit_price' => 'nullable|numeric|min:0',
+        'items.*.line_total' => 'nullable|numeric|min:0',
+        'items.*.transfer_in_qty' => 'nullable|numeric|min:0',
+        'items.*.transfer_out_qty' => 'nullable|numeric|min:0',
+        'items.*.notes' => 'nullable|string',
     ]);
 
     $today = now()->toDateString();
@@ -2535,6 +2718,35 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             'amount' => $expense['amount'],
             'notes' => $expense['notes'] ?? null,
         ]);
+    }
+
+    // Save settlement item details (product-level breakdown)
+    if (!empty($request->items)) {
+        // Delete old items if this is an update
+        $settlement->items()->delete();
+
+        foreach ($request->items as $item) {
+            $itemId = $item['item_id'] ?? null;
+            if (!$itemId) continue;
+
+            \App\Models\Sales\RepDailySettlementItem::create([
+                'company_id' => $user->company_id,
+                'settlement_id' => $settlement->id,
+                'item_id' => $itemId,
+                'unit_id' => $item['unit_id'] ?? null,
+                'item_code' => $item['item_code'] ?? null,
+                'item_name' => $item['item_name'] ?? null,
+                'loaded_qty' => round((float) ($item['loaded_qty'] ?? 0), 2),
+                'sold_qty' => round((float) ($item['sold_qty'] ?? 0), 2),
+                'returned_qty' => round((float) ($item['returned_qty'] ?? 0), 2),
+                'remaining_qty' => round((float) ($item['remaining_qty'] ?? 0), 2),
+                'unit_price' => round((float) ($item['unit_price'] ?? 0), 2),
+                'line_total' => round((float) ($item['line_total'] ?? 0), 2),
+                'transfer_in_qty' => round((float) ($item['transfer_in_qty'] ?? 0), 2),
+                'transfer_out_qty' => round((float) ($item['transfer_out_qty'] ?? 0), 2),
+                'notes' => $item['notes'] ?? null,
+            ]);
+        }
     }
 
     if ($shortage > 0) {
@@ -2940,4 +3152,3 @@ RouteFacade::post('handheld/link-customer-route', function (\Illuminate\Http\Req
 
     return response()->json(['message' => 'تم ربط العميل بخط السير بنجاح']);
 });
-

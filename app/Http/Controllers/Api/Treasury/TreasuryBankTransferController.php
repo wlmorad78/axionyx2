@@ -124,7 +124,7 @@ class TreasuryBankTransferController extends Controller
         DB::transaction(function () use ($treasuryBankTransfer) {
             $treasuryBankTransfer->update([
                 'status' => 'completed',
-                'approved_by' => auth()->user()?->employee?->id,
+                'approved_by' => null,
                 'approved_at' => now(),
             ]);
             self::executeTransfer($treasuryBankTransfer);

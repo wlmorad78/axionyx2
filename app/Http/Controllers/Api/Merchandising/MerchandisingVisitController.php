@@ -50,7 +50,7 @@ class MerchandisingVisitController extends Controller
     {
         $data = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            'sales_rep_id' => 'required|exists:employees,id',
+            'sales_rep_id' => 'required|exists:users,id',
             'customer_id' => 'required|exists:customers,id',
             'visit_date' => 'required|date',
             'visit_time' => 'nullable',
@@ -81,7 +81,7 @@ class MerchandisingVisitController extends Controller
 
         $data = $request->validate([
             'company_id' => 'sometimes|required|exists:companies,id',
-            'sales_rep_id' => 'sometimes|required|exists:employees,id',
+            'sales_rep_id' => 'sometimes|required|exists:users,id',
             'customer_id' => 'sometimes|required|exists:customers,id',
             'visit_date' => 'sometimes|required|date',
             'visit_time' => 'nullable',

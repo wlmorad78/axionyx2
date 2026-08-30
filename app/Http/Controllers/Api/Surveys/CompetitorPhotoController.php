@@ -53,7 +53,7 @@ class CompetitorPhotoController extends Controller
     {
         $data = $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
-            'sales_rep_id' => 'nullable|exists:employees,id',
+            'sales_rep_id' => 'nullable|exists:users,id',
             'competitor_id' => 'nullable|exists:competitors,id',
             'photo_type' => 'required|in:PRICE_TAG,SHELF,DISPLAY,PROMOTION,NEW_PRODUCT',
             'file_path' => 'required|string|max:255',
@@ -78,7 +78,7 @@ class CompetitorPhotoController extends Controller
     {
         $data = $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
-            'sales_rep_id' => 'nullable|exists:employees,id',
+            'sales_rep_id' => 'nullable|exists:users,id',
             'competitor_id' => 'nullable|exists:competitors,id',
             'photo_type' => 'sometimes|required|in:PRICE_TAG,SHELF,DISPLAY,PROMOTION,NEW_PRODUCT',
             'file_path' => 'sometimes|required|string|max:255',

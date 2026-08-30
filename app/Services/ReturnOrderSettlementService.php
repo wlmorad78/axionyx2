@@ -22,7 +22,7 @@ class ReturnOrderSettlementService
 
             $settlement = ReturnOrderSettlement::create([
                 'return_order_id' => $data['return_order_id'] ?? null,
-                'employee_id' => $data['employee_id'],
+                'user_id' => $data['user_id'],
                 'warehouse_id' => $data['warehouse_id'] ?? null,
                 'load_request_no' => $loadRequestNo,
                 'notes' => $data['notes'] ?? null,

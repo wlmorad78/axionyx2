@@ -20,7 +20,7 @@
         <div class="metric">
             <div>
                 <div class="muted">قيد المراجعة</div>
-                <div class="value">{{ \App\Models\LoadRequest::where('status', 'pending')->count() }}</div>
+                <div class="value">{{ \App\Models\Sales\LoadRequest::where('status', 'pending')->count() }}</div>
                 <div class="trend">بانتظار الموافقة</div>
             </div>
             <span class="chip warn">Pending</span>
@@ -30,7 +30,7 @@
         <div class="metric">
             <div>
                 <div class="muted">تمت الموافقة</div>
-                <div class="value">{{ \App\Models\LoadRequest::whereIn('status', ['approved', 'loading'])->count() }}</div>
+                <div class="value">{{ \App\Models\Sales\LoadRequest::whereIn('status', ['approved', 'loading'])->count() }}</div>
                 <div class="trend">جاري التحميل</div>
             </div>
             <span class="chip good">Approved</span>
@@ -40,7 +40,7 @@
         <div class="metric">
             <div>
                 <div class="muted">مرفوض / ملغي</div>
-                <div class="value">{{ \App\Models\LoadRequest::where('status', 'cancelled')->count() }}</div>
+                <div class="value">{{ \App\Models\Sales\LoadRequest::where('status', 'cancelled')->count() }}</div>
                 <div class="trend">طلبات ملغاة</div>
             </div>
             <span class="chip bad">Rejected</span>

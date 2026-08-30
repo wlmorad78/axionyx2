@@ -13,8 +13,6 @@ class AdminNavigationService
 
     public function forUser(User $user): array
     {
-        $user->loadMissing('roles');
-
         $screens = $this->resolveScreens($user);
         $screenIds = $screens->pluck('id');
 
@@ -50,18 +48,10 @@ class AdminNavigationService
 
     private function resolveScreens(User $user): Collection
     {
-        if ($this->authz->isAdmin($user)) {
-            return AdminScreen::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->get();
-        }
-
-        $roleIds = $user->roles->pluck('id');
-
+        // لا يوجد ربط بين المستخدمين والأدوار بعد الآن (يُستخدم user_type فقط).
+        // تُعرض كل الشاشات النشطة لجميع المستخدمين في هذه المرحلة.
         return AdminScreen::query()
             ->where('is_active', true)
-            ->whereHas('roles', fn ($q) => $q->whereIn('roles.id', $roleIds))
             ->orderBy('sort_order')
             ->get();
     }

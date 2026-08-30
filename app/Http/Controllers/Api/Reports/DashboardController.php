@@ -27,11 +27,10 @@ class DashboardController extends Controller
         if (!$companyId) return response()->json(['data' => $this->emptyData()]);
 
         $branchId = $request->header('X-Branch-Id') ?? $request->input('branch_id');
-        $userRoles = $user?->roles->pluck('name')->toArray() ?? [];
-        $isAdmin = in_array(RoleNames::ADMIN, $userRoles);
-        $isAccountant = in_array(RoleNames::ACCOUNTANT, $userRoles);
-        $isWarehouseKeeper = in_array(RoleNames::WAREHOUSE_KEEPER, $userRoles);
-        $isSalesRep = in_array(RoleNames::SALES_REP, $userRoles) || in_array(RoleNames::SALES_MAN, $userRoles);
+        $isAdmin = $user?->isAdmin() ?? false;
+        $isAccountant = $user?->hasRole(RoleNames::ACCOUNTANT) ?? false;
+        $isWarehouseKeeper = $user?->hasRole(RoleNames::WAREHOUSE_KEEPER) ?? false;
+        $isSalesRep = ($user?->hasRole(RoleNames::SALES_REP) ?? false) || ($user?->hasRole(RoleNames::SALES_MAN) ?? false);
 
         $now = now();
         $monthStart = $now->copy()->startOfMonth()->toDateString();
@@ -197,7 +196,7 @@ class DashboardController extends Controller
         }
 
         // ===== SALES REPS PERFORMANCE =====
-        if ($isAdmin || $isAccountant || in_array(RoleNames::SALES_MANAGER, $userRoles)) {
+        if ($isAdmin || $isAccountant || $user?->hasRole(RoleNames::SALES_MANAGER)) {
             $reps = Employee::where('is_active', true)->where('company_id', $companyId);
             if ($branchId) $reps->where('branch_id', $branchId);
             $repsList = $reps->get(['id', 'first_name_ar', 'last_name_ar']);

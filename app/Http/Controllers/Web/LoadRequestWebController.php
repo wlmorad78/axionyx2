@@ -15,8 +15,8 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\LoadRequest;
-use App\Models\LoadRequestItem;
+use App\Models\Sales\LoadRequest;
+use App\Models\Sales\LoadRequestItem;
 use App\Models\IssueOrder;
 use App\Models\IssueOrderItem;
 use App\Models\Item;
@@ -68,7 +68,7 @@ class LoadRequestWebController extends Controller
         $user = Auth::user();
         $employee = Employee::where('email', $user->email)->first();
 
-        $existingOpenOrder = LoadRequest::where('employee_id', $employee?->id)
+        $existingOpenOrder = LoadRequest::where('user_id', $employee?->id)
             ->whereIn('status', ['draft', 'pending', 'approved', 'loading'])
             ->first();
 
@@ -105,7 +105,7 @@ class LoadRequestWebController extends Controller
         $unitService = app(\App\Services\UnitConversionService::class);
 
         $repEmployeeId = $employee?->id;
-        $existingOpenOrder = LoadRequest::where('employee_id', $repEmployeeId)
+        $existingOpenOrder = LoadRequest::where('user_id', $repEmployeeId)
             ->whereIn('status', ['draft', 'pending', 'approved', 'loading'])
             ->first();
 
@@ -117,7 +117,7 @@ class LoadRequestWebController extends Controller
             $loadRequest = LoadRequest::create([
                 'company_id' => $user->company_id,
                 'warehouse_id' => $request->warehouse_id,
-                'employee_id' => $employee?->id,
+                'user_id' => $employee?->id,
                 'request_date' => now()->toDateString(),
                 'status' => 'pending',
                 'notes' => $request->notes,
@@ -185,13 +185,13 @@ class LoadRequestWebController extends Controller
         $user = Auth::user();
         $unitService = app(\App\Services\UnitConversionService::class);
 
-        $repEmployeeId = $parent->employee_id;
+        $repEmployeeId = $parent->user_id;
 
         $result = DB::transaction(function () use ($request, $user, $parent, $unitService, $repEmployeeId) {
             $loadRequest = LoadRequest::create([
                 'company_id' => $user->company_id,
                 'warehouse_id' => $request->warehouse_id,
-                'employee_id' => $repEmployeeId,
+                'user_id' => $repEmployeeId,
                 'parent_load_request_id' => $parent->id,
                 'load_type' => 'complementary',
                 'request_date' => now()->toDateString(),
@@ -336,7 +336,7 @@ class LoadRequestWebController extends Controller
         DB::transaction(function () use ($loadRequest, $request, $employee, $user) {
             $loadRequest->update([
                 'status' => 'approved',
-                'supervisor_employee_id' => $employee?->id,
+                'supervisor_user_id' => $employee?->id,
                 'create_notes' => $request->notes ?? 'تمت الموافقة من أمين المخزن',
             ]);
 
@@ -344,9 +344,10 @@ class LoadRequestWebController extends Controller
                 'company_id' => $loadRequest->company_id,
                 'warehouse_id' => $loadRequest->warehouse_id,
                 'load_request_id' => $loadRequest->id,
+                'employee_id' => $loadRequest->employee_id,
                 'issue_date' => now()->toDateString(),
                 'issue_time' => now()->toTimeString(),
-                'employee_id' => $loadRequest->employee_id,
+                'user_id' => $loadRequest->user_id,
                 'sales_territory_id' => $loadRequest->sales_territory_id,
                 'status' => 'issued',
                 'issued_by' => $employee?->id,
@@ -424,7 +425,7 @@ class LoadRequestWebController extends Controller
                     'from_location_type' => 'warehouse',
                     'from_location_id'   => $loadRequest->warehouse_id,
                     'to_location_type'   => 'rep',
-                    'to_location_id'     => $loadRequest->employee_id,
+                    'to_location_id'     => $loadRequest->user_id,
                 ]);
             }
 
@@ -450,7 +451,7 @@ class LoadRequestWebController extends Controller
         DB::transaction(function () use ($loadRequest, $issueOrder) {
             $warehouseId = $loadRequest->warehouse_id;
             $companyId = $loadRequest->company_id;
-            $employeeId = $loadRequest->employee_id;
+            $employeeId = $loadRequest->user_id;
 
             $type = \App\Models\Inventory\InventoryTransactionType::where('code', 'RETURN_TO_WAREHOUSE')->first();
             if (!$type) {
@@ -467,7 +468,7 @@ class LoadRequestWebController extends Controller
                 'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($companyId),
                 'transaction_date' => now()->toDateString(),
                 'transaction_time' => now()->format('H:i:s'),
-                'reference_type' => \App\Models\LoadRequest::class,
+                'reference_type' => \App\Models\Sales\LoadRequest::class,
                 'reference_id' => $loadRequest->id,
                 'notes' => "إلغاء أمر التحميل {$loadRequest->request_no} وإرجاع للمخزن",
                 'status' => 'posted',
@@ -503,7 +504,7 @@ class LoadRequestWebController extends Controller
                     ]);
 
                     $distribution = \App\Models\Sales\RepItemDistribution::where('company_id', $companyId)
-                        ->where('employee_id', $employeeId)
+                        ->where('user_id', $employeeId)
                         ->where('item_id', $item->item_id)
                         ->where('issue_order_id', $issueOrder->id)
                         ->where('status', 'active')

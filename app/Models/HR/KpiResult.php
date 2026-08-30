@@ -5,6 +5,7 @@ namespace App\Models\HR;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\User;
 
 class KpiResult extends Model
 {
@@ -14,7 +15,7 @@ class KpiResult extends Model
 
     protected $fillable = [
         'kpi_definition_id',
-        'employee_id',
+        'user_id',
         'actual_value',
         'achievement_percent',
         'calculated_at',
@@ -31,8 +32,8 @@ class KpiResult extends Model
         return $this->belongsTo(KpiDefinition::class);
     }
 
-    public function employee()
+    public function user()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 }

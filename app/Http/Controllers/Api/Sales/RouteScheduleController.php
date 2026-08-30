@@ -34,8 +34,8 @@ class RouteScheduleController extends Controller
         if ($request->route_id) {
             $query->where('route_id', $request->route_id);
         }
-        if ($request->employee_id) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) {
+            $query->where('user_id', $request->user_id);
         }
         if ($request->day_of_week) {
             $query->whereRaw("FIND_IN_SET(?, day_of_week)", [$request->day_of_week]);
@@ -134,7 +134,7 @@ class RouteScheduleController extends Controller
 
         // Bulk fetch routes, employees, and route_customers
         $routeIds = $schedules->pluck('route_id')->unique()->values();
-        $employeeIds = $schedules->pluck('employee_id')->filter()->unique()->values();
+        $employeeIds = $schedules->pluck('user_id')->filter()->unique()->values();
 
         $routesMap = DB::table('routes')->whereIn('id', $routeIds)->get()->keyBy('id');
         $employeesMap = Employee::whereIn('id', $employeeIds)->get()->keyBy('id');
@@ -153,7 +153,7 @@ class RouteScheduleController extends Controller
         foreach ($schedules as $sch) {
             $custs = $routeCustomersMap->get($sch->route_id, []);
             $routeName = $routesMap->get($sch->route_id)?->name_ar ?? '';
-            $employeeName = $employeesMap->get($sch->employee_id)?->full_name_ar ?? '';
+            $employeeName = $employeesMap->get($sch->user_id)?->full_name_ar ?? '';
 
             $routesData[] = [
                 'schedule_id' => $sch->id,

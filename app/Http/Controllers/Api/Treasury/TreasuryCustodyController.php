@@ -27,8 +27,8 @@ class TreasuryCustodyController extends Controller
     {
         $query = TreasuryCustody::with(['employee', 'treasury', 'transactions']);
 
-        if ($request->filled('employee_id')) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
         }
 
         if ($request->filled('treasury_id')) {
@@ -50,7 +50,7 @@ class TreasuryCustodyController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'employee_id' => 'required|exists:employees,id',
+            'user_id' => 'required|exists:users,id',
             'treasury_id' => 'required|exists:treasuries,id',
             'custody_no' => 'required|unique:treasury_custodies,custody_no',
             'issue_date' => 'required|date',
@@ -82,7 +82,7 @@ class TreasuryCustodyController extends Controller
         $custody = TreasuryCustody::findOrFail($id);
 
         $validated = $request->validate([
-            'employee_id' => 'required|exists:employees,id',
+            'user_id' => 'required|exists:users,id',
             'treasury_id' => 'required|exists:treasuries,id',
             'custody_no' => 'required|unique:treasury_custodies,custody_no,' . $id,
             'issue_date' => 'required|date',

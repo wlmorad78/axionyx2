@@ -43,7 +43,7 @@ class ReturnOrderController extends Controller
             $query->where('branch_id', $request->branch_id);
         }
         if ($request->warehouse_id) $query->where('warehouse_id', $request->warehouse_id);
-        if ($request->employee_id) $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) $query->where('user_id', $request->user_id);
         if ($request->status_id) $query->where('status_id', $request->status_id);
         if ($request->return_type) $query->where('return_type', $request->return_type);
         if ($request->search) {
@@ -70,11 +70,85 @@ class ReturnOrderController extends Controller
      */
     public function show(ReturnOrder $returnOrder)
     {
-        return $returnOrder->load([
-            'company', 'branch', 'warehouse', 'loadRequest', 'issueOrder',
+        $returnOrder->load([
+            'company', 'branch', 'warehouse',
+            'loadRequest.items', 'loadRequest.parentRequest.items',
+            'issueOrder',
             'employee', 'salesTerritory', 'receivedByEmployee', 'approvedByEmployee',
             'items.item', 'items.unit',
         ]);
+
+        $employeeId = $returnOrder->employee_id;
+        if (!$employeeId && $returnOrder->user_id) {
+            $emp = \App\Models\HR\Employee::where('user_id', $returnOrder->user_id)->first();
+            $employeeId = $emp?->id;
+        }
+
+        if ($employeeId) {
+            $companyId = $returnOrder->company_id;
+
+            $base = fn ($itemId) => DB::table('inventory_transaction_items as iti')
+                ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
+                ->where('iti.item_id', $itemId)
+                ->where('it.company_id', $companyId)
+                ->where('it.status', 'posted')
+                ->whereNull('it.deleted_at');
+
+            // Collect load request item quantities (parent + current)
+            $loadRequestQty = [];
+            $loadRequest = $returnOrder->loadRequest;
+            if ($loadRequest) {
+                // Current load request items
+                foreach ($loadRequest->items as $li) {
+                    $loadRequestQty[$li->item_id] = ($loadRequestQty[$li->item_id] ?? 0) + (float) $li->quantity;
+                }
+                // Parent (original) load request items
+                if ($loadRequest->parentRequest) {
+                    foreach ($loadRequest->parentRequest->items as $pi) {
+                        $loadRequestQty[$pi->item_id] = ($loadRequestQty[$pi->item_id] ?? 0) + (float) $pi->quantity;
+                    }
+                }
+            }
+
+            foreach ($returnOrder->items as $item) {
+                $itemId = $item->item_id;
+
+                $load = (float) $base($itemId)
+                    ->where('iti.from_location_type', 'warehouse')
+                    ->where('iti.to_location_type', 'rep')
+                    ->where('iti.to_location_id', $employeeId)
+                    ->sum(DB::raw('ABS(iti.qty)'));
+
+                $loadReturn = (float) $base($itemId)
+                    ->where('iti.from_location_type', 'rep')
+                    ->where('iti.to_location_type', 'warehouse')
+                    ->where('iti.from_location_id', $employeeId)
+                    ->sum(DB::raw('ABS(iti.qty)'));
+
+                $load = max(0, $load - $loadReturn);
+
+                // Add load request quantities (parent + child)
+                $load += $loadRequestQty[$itemId] ?? 0;
+
+                $tin = (float) $base($itemId)
+                    ->where('iti.from_location_type', 'rep')
+                    ->where('iti.to_location_type', 'rep')
+                    ->where('iti.to_location_id', $employeeId)
+                    ->sum(DB::raw('ABS(iti.qty)'));
+
+                $tout = (float) $base($itemId)
+                    ->where('iti.from_location_type', 'rep')
+                    ->where('iti.to_location_type', 'rep')
+                    ->where('iti.from_location_id', $employeeId)
+                    ->sum(DB::raw('ABS(iti.qty)'));
+
+                $item->load_qty = $load;
+                $item->t_in_qty = $tin;
+                $item->t_out_qty = $tout;
+            }
+        }
+
+        return $returnOrder;
     }
 
     /**
@@ -119,7 +193,7 @@ class ReturnOrderController extends Controller
             ]);
 
             if ($returnOrder->load_request_id) {
-                \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
+                \App\Models\Sales\LoadRequest::where('id', $returnOrder->load_request_id)
                     ->update(['status' => 'closed']);
             }
 
@@ -158,7 +232,7 @@ class ReturnOrderController extends Controller
                     'unit_cost' => $item->sales_price,
                     'total_cost' => $item->line_total,
                     'from_location_type' => 'rep',
-                    'from_location_id'   => $returnOrder->employee_id,
+                    'from_location_id'   => $returnOrder->user_id,
                     'to_location_type'   => 'warehouse',
                     'to_location_id'     => $returnOrder->warehouse_id,
                 ]);
@@ -172,7 +246,7 @@ class ReturnOrderController extends Controller
                     $salesmanDebt = \App\Models\Sales\SalesmanDebt::create([
                         'company_id' => $returnOrder->company_id,
                         'branch_id' => $returnOrder->branch_id,
-                        'salesman_id' => $returnOrder->employee_id,
+                        'salesman_id' => $returnOrder->user_id,
                         'salesman_account_id' => $salesmanAccount->id,
                         'return_authorization_id' => null,
                         'salesman_assignment_id' => null,
@@ -198,7 +272,7 @@ class ReturnOrderController extends Controller
                         'company_id' => $returnOrder->company_id,
                         'branch_id' => $returnOrder->branch_id,
                         'salesman_account_id' => $salesmanAccount->id,
-                        'salesman_id' => $returnOrder->employee_id,
+                        'salesman_id' => $returnOrder->user_id,
                         'movement_date' => now()->toDateString(),
                         'movement_type' => 'debt_creation',
                         'reference_type' => \App\Models\Sales\SalesmanDebt::class,
@@ -221,7 +295,7 @@ class ReturnOrderController extends Controller
                 'branch_id' => $returnOrder->branch_id,
                 'warehouse_id' => $returnOrder->warehouse_id,
                 'customer_id' => $customer?->id,
-                'sales_rep_id' => $returnOrder->employee_id,
+                'sales_rep_id' => $returnOrder->user_id,
                 'invoice_date' => now()->toDateString(),
                 'invoice_time' => now()->format('H:i:s'),
                 'subtotal' => 0,

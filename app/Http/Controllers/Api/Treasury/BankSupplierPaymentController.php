@@ -123,7 +123,7 @@ class BankSupplierPaymentController extends Controller
         DB::transaction(function () use ($bankSupplierPayment) {
             $bankSupplierPayment->update([
                 'status' => 'completed',
-                'approved_by' => auth()->user()?->employee?->id,
+                'approved_by' => null,
                 'approved_at' => now(),
             ]);
             self::executePayment($bankSupplierPayment);

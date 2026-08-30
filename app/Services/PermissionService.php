@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Support\RoleNames;
 
 class PermissionService
 {
@@ -18,14 +17,8 @@ class PermissionService
      */
     public function check(User $user, string $permission): bool
     {
-        // Admin always has everything
-        if ($this->isAdmin($user)) {
-            return true;
-        }
-
-        $userPermissions = $this->getUserPermissions($user);
-
-        return $this->matchesAny($permission, $userPermissions);
+        // نظام الصلاحيات متوقف مؤقتاً — لا يوجد فحص، يُسمح للجميع.
+        return true;
     }
 
     /**
@@ -59,23 +52,9 @@ class PermissionService
      */
     public function getUserPermissions(User $user): array
     {
-        $permissions = [];
-
-        // From roles
-        foreach ($user->roles as $role) {
-            foreach ($role->permissions as $perm) {
-                $permissions[] = $perm->code;
-            }
-        }
-
-        // From direct permissions (if relation exists)
-        if (method_exists($user, 'permissions') && $user->relationLoaded('permissions')) {
-            foreach ($user->permissions as $perm) {
-                $permissions[] = $perm->code;
-            }
-        }
-
-        return array_unique($permissions);
+        // لا يوجد نظام صلاحيات في هذه المرحلة — الصلاحيات تُحدَّد لاحقاً عبر user_type_permissions.
+        // يُرجَع مصفوفة فارغة دون أي اعتماد على الأدوار (Roles).
+        return [];
     }
 
     /**
@@ -107,7 +86,7 @@ class PermissionService
 
     protected function isAdmin(User $user): bool
     {
-        return $user->hasRole(RoleNames::ADMIN) || $user->hasRole('super_admin');
+        return $user->isAdmin();
     }
 
     /**

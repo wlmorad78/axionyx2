@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Company\Branch;
 use App\Models\Company\Company;
 use App\Models\HR\Employee;
+use App\Models\Sales\LoadRequest;
 use App\Models\Sales\Route;
 
 class IssueOrder extends Model

@@ -26,7 +26,7 @@ class VehicleDailyShiftController extends Controller
         $validated = $request->validate([
             'vehicle_id' => 'required|exists:vehicles,id',
             'driver_id' => 'nullable|exists:drivers,id',
-            'sales_rep_id' => 'nullable|exists:employees,id',
+            'sales_rep_id' => 'nullable|exists:users,id',
             'shift_date' => 'required|date',
             'start_km' => 'nullable|numeric|min:0',
             'end_km' => 'nullable|numeric|min:0|gte:start_km',
@@ -53,7 +53,7 @@ class VehicleDailyShiftController extends Controller
         $validated = $request->validate([
             'vehicle_id' => 'required|exists:vehicles,id',
             'driver_id' => 'nullable|exists:drivers,id',
-            'sales_rep_id' => 'nullable|exists:employees,id',
+            'sales_rep_id' => 'nullable|exists:users,id',
             'shift_date' => 'required|date',
             'start_km' => 'nullable|numeric|min:0',
             'end_km' => 'nullable|numeric|min:0',

@@ -2,25 +2,20 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Role;
 use App\Models\User;
-use App\Models\Permission;
+use App\Models\UserType;
 use Illuminate\Console\Command;
 
 class GrantAllPermissions extends Command
 {
     protected $signature = 'user:grant-all {userId}';
-    protected $description = 'Grant a user full admin access to all screens by assigning the Admin role';
+    protected $description = 'Grant a user full admin access by assigning the Admin user type';
 
     public function handle()
     {
         $userId = $this->argument('userId');
 
-        // Try by ID first, then by usercode
-        $user = User::find($userId);
-        if (!$user) {
-            $user = User::where('usercode', $userId)->first();
-        }
+        $user = User::find($userId) ?? User::where('usercode', $userId)->first();
         if (!$user) {
             $this->error("User {$userId} not found (tried both ID and usercode).");
             return 1;
@@ -28,49 +23,33 @@ class GrantAllPermissions extends Command
 
         $this->info("User: {$user->name} (ID: {$user->id}, Usercode: {$user->usercode})");
 
-        // Find or create Admin role
-        $adminRole = Role::where('name', 'Admin')->first();
-        if (!$adminRole) {
-            $this->warn('Admin role not found. Creating it...');
-            $adminRole = Role::create([
-                'name' => 'Admin',
+        // Find or create Admin user type (global)
+        $adminType = UserType::where('company_id', $user->company_id)
+            ->where('name_ar', 'Admin')
+            ->first();
+
+        if (!$adminType) {
+            $adminType = UserType::whereNull('company_id')
+                ->where('name_ar', 'Admin')
+                ->first();
+        }
+
+        if (!$adminType) {
+            $adminType = UserType::create([
+                'company_id' => $user->company_id,
                 'code' => 'admin',
+                'name_ar' => 'Admin',
+                'name_en' => 'Admin',
                 'description' => 'Full admin access to all modules and screens',
-                'is_global' => true,
-                'is_system' => true,
+                'is_active' => true,
+                'is_protected' => true,
             ]);
-            $this->info('Admin role created.');
+            $this->info('Admin user type created.');
         }
 
-        // Assign Admin role to user
-        $hasRole = $user->roles()->where('role_id', $adminRole->id)->exists();
-        if ($hasRole) {
-            $this->info("User already has the Admin role.");
-        } else {
-            $user->roles()->attach($adminRole);
-            $this->info('Admin role assigned to user.');
-        }
-
-        // Also sync ALL permissions to the Admin role (belt + suspenders)
-        $allPermissions = Permission::pluck('id')->toArray();
-        if (!empty($allPermissions)) {
-            $adminRole->permissions()->syncWithoutDetaching($allPermissions);
-            $this->info("Synced " . count($allPermissions) . " permissions to Admin role.");
-        }
-
-        // Add wildcard permission too
-        $wildcardPerm = Permission::where('code', '*')->first();
-        if (!$wildcardPerm) {
-            $wildcardPerm = Permission::create(['code' => '*', 'name' => 'All Permissions (Wildcard)']);
-            $this->info('Wildcard permission created.');
-        }
-        if (!$adminRole->permissions()->where('permission_id', $wildcardPerm->id)->exists()) {
-            $adminRole->permissions()->attach($wildcardPerm);
-        }
-
+        $user->update(['user_type_id' => $adminType->id]);
         $this->newLine();
-        $this->info("Done! User {$user->name} (ID: {$userId}) now has full access to all screens.");
-        $this->info("The user will see the complete sidebar menu on next login.");
+        $this->info("Done! User {$user->name} now has the Admin user type (full access).");
 
         return 0;
     }

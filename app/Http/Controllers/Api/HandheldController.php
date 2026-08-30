@@ -110,7 +110,7 @@ class HandheldController extends BaseApiController
                     'phone'         => $user->phone,
                     'email'         => $user->email,
                     'company_id'    => $user->company_id,
-                    'employee_id'   => $employee?->id,
+                    'user_id'   => $employee?->id,
                     'national_id'   => $employee?->national_id,
                     'pin_required'  => true,
                 ];
@@ -247,7 +247,7 @@ class HandheldController extends BaseApiController
         $localVisits = $request->input('local_visits', []);
         foreach ($localVisits as $visit) {
             DB::table('customer_visits')->insert([
-                'employee_id'   => $request->input('_salesman_id'),
+                'user_id'   => $request->input('_salesman_id'),
                 'customer_id'   => $visit['customer_id'],
                 'visit_date'    => $visit['visit_date'],
                 'check_in_time' => $visit['check_in_time'],
@@ -269,7 +269,7 @@ class HandheldController extends BaseApiController
                 DB::table('vehicle_daily_expenses')->insert([
                     'uuid'           => $expense['uuid'] ?? \Illuminate\Support\Str::uuid(),
                     'vehicle_id'     => $expense['vehicle_id'] ?? null,
-                    'employee_id'    => $expense['employee_id'] ?? $request->input('_salesman_id'),
+                    'user_id'    => $expense['user_id'] ?? $request->input('_salesman_id'),
                     'expense_date'   => $expense['expense_date'] ?? now()->toDateString(),
                     'expense_type'   => $expense['expense_type'] ?? 'OTHER',
                     'amount'         => $expense['amount'] ?? 0,
@@ -311,7 +311,7 @@ class HandheldController extends BaseApiController
                     'return_no'          => $return['return_no'] ?? ('RTN-' . time()),
                     'return_type'        => $return['return_type'] ?? 'excess',
                     'return_date'        => $return['return_date'] ?? now()->toDateString(),
-                    'employee_id'        => $return['employee_id'] ?? $request->input('_salesman_id'),
+                    'user_id'        => $return['user_id'] ?? $request->input('_salesman_id'),
                     'sales_territory_id' => $return['sales_territory_id'] ?? null,
                     'status_id'          => 'pending',
                     'total_items_count'  => $return['total_items_count'] ?? 0,

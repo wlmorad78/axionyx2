@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Traits\BelongsToCompany;
 use App\Traits\BranchScoped;
+use App\Models\User;
 
 class ItemSalesReturn extends Model
 {
@@ -15,7 +16,7 @@ class ItemSalesReturn extends Model
         'company_id',
         'branch_id',
         'warehouse_id',
-        'employee_id',
+        'user_id',
         'item_id',
         'date',
         'item_code',
@@ -46,9 +47,9 @@ class ItemSalesReturn extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
-    public function employee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(\App\Models\User::class);
     }
 
     public function item(): BelongsTo

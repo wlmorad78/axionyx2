@@ -64,7 +64,7 @@ class SurveyResponseController extends Controller
         $validated = $request->validate([
             'survey_id' => 'required|exists:surveys,id',
             'customer_id' => 'nullable|exists:customers,id',
-            'sales_rep_id' => 'nullable|exists:employees,id',
+            'sales_rep_id' => 'nullable|exists:users,id',
             'visit_id' => 'nullable|exists:customer_visits,id',
             'response_date' => 'required|date',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -93,7 +93,7 @@ class SurveyResponseController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
-            'sales_rep_id' => 'nullable|exists:employees,id',
+            'sales_rep_id' => 'nullable|exists:users,id',
             'visit_id' => 'nullable|exists:customer_visits,id',
             'response_date' => 'sometimes|date',
             'latitude' => 'nullable|numeric|between:-90,90',

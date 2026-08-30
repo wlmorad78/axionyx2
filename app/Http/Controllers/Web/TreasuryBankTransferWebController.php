@@ -105,7 +105,7 @@ class TreasuryBankTransferWebController extends Controller
                     'reference_id' => $transfer->id,
                     'description' => "تحويل من الخزنة إلى البنك - {$transfer->transfer_no}",
                     'transaction_date' => $transfer->transfer_date,
-                    'created_by' => auth()->user()?->employee?->id,
+                    'created_by' => null,
                 ]);
 
                 BankAccount::where('id', $transfer->bank_account_id)
@@ -120,7 +120,7 @@ class TreasuryBankTransferWebController extends Controller
                     'reference_id' => $transfer->id,
                     'description' => "تحويل من البنك إلى الخزنة - {$transfer->transfer_no}",
                     'transaction_date' => $transfer->transfer_date,
-                    'created_by' => auth()->user()?->employee?->id,
+                    'created_by' => null,
                 ]);
 
                 BankAccount::where('id', $transfer->bank_account_id)

@@ -38,8 +38,8 @@ class SalesRouteController extends Controller
         if ($request->sales_territory_id) {
             $query->where('sales_territory_id', $request->sales_territory_id);
         }
-        if ($request->employee_id) {
-            $routeIds = \App\Models\RouteSchedule::where('employee_id', $request->employee_id)
+        if ($request->user_id) {
+            $routeIds = \App\Models\RouteSchedule::where('user_id', $request->user_id)
                 ->where('is_active', true)
                 ->whereNull('deleted_at')
                 ->pluck('route_id');

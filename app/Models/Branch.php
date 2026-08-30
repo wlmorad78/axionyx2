@@ -24,7 +24,7 @@ class Branch extends Model
         'phone',
         'mobile',
         'email',
-        'manager_employee_id',
+        'manager_user_id',
         'is_head_office',
         'is_active',
     ];

@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeeAdvance extends Model {
     use HasFactory, SoftDeletes;
-    protected $fillable = ['employee_id', 'advance_number', 'amount', 'request_date', 'status', 'notes'];
+    protected $fillable = ['user_id', 'advance_number', 'amount', 'request_date', 'status', 'notes'];
     protected function casts(): array { return ['amount' => 'decimal:2', 'request_date' => 'date']; }
 
-    public function employee() { return $this->belongsTo(Employee::class); }
+    public function user() { return $this->belongsTo(User::class); }
 }

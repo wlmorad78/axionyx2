@@ -121,7 +121,7 @@ class ReturnOrderWebController extends Controller
             ]);
 
             if ($returnOrder->load_request_id) {
-                \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
+                \App\Models\Sales\LoadRequest::where('id', $returnOrder->load_request_id)
                     ->update(['status' => 'closed']);
             }
 
@@ -160,7 +160,7 @@ class ReturnOrderWebController extends Controller
                     'unit_cost' => $item->sales_price,
                     'total_cost' => $item->line_total,
                     'from_location_type' => 'rep',
-                    'from_location_id'   => $returnOrder->employee_id,
+                    'from_location_id'   => $returnOrder->user_id,
                     'to_location_type'   => 'warehouse',
                     'to_location_id'     => $returnOrder->warehouse_id,
                 ]);

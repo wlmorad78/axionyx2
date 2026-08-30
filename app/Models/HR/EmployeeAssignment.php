@@ -5,13 +5,14 @@ namespace App\Models\HR;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\User;
 
 class EmployeeAssignment extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'employee_id', 'branch_id', 'organization_unit_id', 'position_id',
+        'user_id', 'branch_id', 'organization_unit_id', 'position_id',
         'cost_center_id', 'sales_territory_id', 'job_title_id', 'job_grade_id',
         'salary_scale_id', 'direct_manager_id', 'effective_from', 'effective_to',
         'is_current', 'notes',
@@ -20,7 +21,7 @@ class EmployeeAssignment extends Model
     protected function casts(): array
     {
         return [
-            'employee_id' => 'integer',
+            'user_id' => 'integer',
             'branch_id' => 'integer',
             'organization_unit_id' => 'integer',
             'position_id' => 'integer',
@@ -36,7 +37,7 @@ class EmployeeAssignment extends Model
         ];
     }
 
-    public function employee() { return $this->belongsTo(Employee::class); }
+    public function user() { return $this->belongsTo(User::class); }
     public function branch() { return $this->belongsTo(\App\Models\Branch::class); }
     public function organizationUnit() { return $this->belongsTo(\App\Models\OrganizationUnit::class); }
     public function position() { return $this->belongsTo(\App\Models\JobPosition::class, 'position_id'); }

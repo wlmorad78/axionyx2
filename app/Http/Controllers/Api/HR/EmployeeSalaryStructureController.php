@@ -29,8 +29,8 @@ class EmployeeSalaryStructureController extends Controller
         $with = $request->with ? explode(',', $request->with) : [];
         $query = EmployeeSalaryStructure::with($with);
 
-        if ($request->employee_id) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) {
+            $query->where('user_id', $request->user_id);
         }
 
         if ($request->salary_component_id) {
@@ -52,7 +52,7 @@ class EmployeeSalaryStructureController extends Controller
         $data = $request->validate(ValidationRules::for('employee_salary_structure', 'store'));
 
         if (isset($data['is_current']) && $data['is_current']) {
-            EmployeeSalaryStructure::where('employee_id', $data['employee_id'])
+            EmployeeSalaryStructure::where('user_id', $data['user_id'])
                 ->where('salary_component_id', $data['salary_component_id'])
                 ->where('is_current', true)
                 ->update(['is_current' => false]);
@@ -77,7 +77,7 @@ class EmployeeSalaryStructureController extends Controller
         $data = $request->validate(ValidationRules::for('employee_salary_structure', 'update', $employeeSalaryStructure));
 
         if (isset($data['is_current']) && $data['is_current']) {
-            EmployeeSalaryStructure::where('employee_id', $employeeSalaryStructure->employee_id)
+            EmployeeSalaryStructure::where('user_id', $employeeSalaryStructure->user_id)
                 ->where('salary_component_id', $employeeSalaryStructure->salary_component_id)
                 ->where('is_current', true)
                 ->where('id', '!=', $employeeSalaryStructure->id)

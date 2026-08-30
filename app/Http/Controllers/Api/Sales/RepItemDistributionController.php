@@ -29,8 +29,8 @@ class RepItemDistributionController extends Controller
         $query = RepItemDistribution::with(['item', 'issueOrder', 'returnOrder', 'employee'])
             ->where('company_id', $request->user()->company_id);
 
-        if ($request->filled('employee_id')) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
         }
 
         if ($request->filled('issue_order_id')) {
@@ -52,7 +52,7 @@ class RepItemDistributionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'employee_id' => 'required|integer',
+            'user_id' => 'required|integer',
             'item_id' => 'required|integer',
             'issue_order_id' => 'nullable|integer',
             'loaded_qty' => 'required|numeric|min:0',
@@ -64,7 +64,7 @@ class RepItemDistributionController extends Controller
         $companyId = $request->user()->company_id;
 
         $record = RepItemDistribution::where('company_id', $companyId)
-            ->where('employee_id', $validated['employee_id'])
+            ->where('user_id', $validated['user_id'])
             ->where('item_id', $validated['item_id'])
             ->where('issue_order_id', $validated['issue_order_id'] ?? null)
             ->where('status', 'active')
@@ -83,7 +83,7 @@ class RepItemDistributionController extends Controller
         } else {
             $record = RepItemDistribution::create([
                 'company_id' => $companyId,
-                'employee_id' => $validated['employee_id'],
+                'user_id' => $validated['user_id'],
                 'item_id' => $validated['item_id'],
                 'issue_order_id' => $validated['issue_order_id'] ?? null,
                 'loaded_qty' => $validated['loaded_qty'],
@@ -104,7 +104,7 @@ class RepItemDistributionController extends Controller
     public function bulkStore(Request $request)
     {
         $validated = $request->validate([
-            'employee_id' => 'required|integer',
+            'user_id' => 'required|integer',
             'issue_order_id' => 'nullable|integer',
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|integer',
@@ -122,7 +122,7 @@ class RepItemDistributionController extends Controller
                 $remaining = $item['loaded_qty'] - $item['sold_qty'] - $item['returned_qty'];
 
                 $record = RepItemDistribution::where('company_id', $companyId)
-                    ->where('employee_id', $validated['employee_id'])
+                    ->where('user_id', $validated['user_id'])
                     ->where('item_id', $item['item_id'])
                     ->where('issue_order_id', $validated['issue_order_id'] ?? null)
                     ->where('status', 'active')
@@ -139,7 +139,7 @@ class RepItemDistributionController extends Controller
                 } else {
                     $record = RepItemDistribution::create([
                         'company_id' => $companyId,
-                        'employee_id' => $validated['employee_id'],
+                        'user_id' => $validated['user_id'],
                         'item_id' => $item['item_id'],
                         'issue_order_id' => $validated['issue_order_id'] ?? null,
                         'loaded_qty' => $item['loaded_qty'],
@@ -164,7 +164,7 @@ class RepItemDistributionController extends Controller
     public function linkReturnOrder(Request $request, $returnOrderId)
     {
         $validated = $request->validate([
-            'employee_id' => 'required|integer',
+            'user_id' => 'required|integer',
             'issue_order_id' => 'nullable|integer',
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|integer',
@@ -178,7 +178,7 @@ class RepItemDistributionController extends Controller
                 if ($item['returned_qty'] <= 0) continue;
 
                 RepItemDistribution::where('company_id', $companyId)
-                    ->where('employee_id', $validated['employee_id'])
+                    ->where('user_id', $validated['user_id'])
                     ->where('item_id', $item['item_id'])
                     ->where('issue_order_id', $validated['issue_order_id'] ?? null)
                     ->where('status', 'active')

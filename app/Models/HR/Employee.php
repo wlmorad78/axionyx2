@@ -20,7 +20,7 @@ class Employee extends Model
     protected $appends = ['full_name_ar', 'full_name_en'];
 
     protected $fillable = [
-        'company_id', 'user_id', 'employee_code',
+        'company_id', 'employee_code',
         'first_name_ar', 'second_name_ar', 'third_name_ar', 'last_name_ar',
         'first_name_en', 'second_name_en', 'third_name_en', 'last_name_en',
         'national_id', 'passport_number', 'birth_date', 'gender', 'marital_status',
@@ -43,7 +43,6 @@ class Employee extends Model
     }
 
     public function company() { return $this->belongsTo(Company::class); }
-    public function user() { return $this->belongsTo(User::class, 'user_id', 'id'); }
     public function country() { return $this->belongsTo(Country::class); }
     public function governorate() { return $this->belongsTo(Governorate::class); }
     public function city() { return $this->belongsTo(City::class); }

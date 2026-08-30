@@ -40,6 +40,7 @@ return [
         'customer.customer.import'            => 'استيراد بيانات العملاء',
         'customer.customer.statement'         => 'كشف حساب العميل',
         'customer.customer.balance'           => 'عرض رصيد العميل',
+        'sales.collection.cross_customer_payment' => 'السداد عن عميل آخر',
 
         'customer.group.view'                 => 'عرض مجموعات العملاء',
         'customer.group.create'               => 'إضافة مجموعة عملاء',

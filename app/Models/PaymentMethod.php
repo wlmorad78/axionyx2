@@ -12,13 +12,16 @@ class PaymentMethod extends Model
 
     protected $fillable = [
         'name',
+        'code',
         'is_active',
+        'requires_bank_account',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'requires_bank_account' => 'boolean',
         ];
     }
 

@@ -6,9 +6,11 @@ use App\Models\Collection;
 use App\Models\CustomerLedger;
 use App\Models\BankAccount;
 use App\Models\Sales\SalesInvoice;
+use App\Models\Treasury\PaymentMethod;
 use App\Models\Treasury\Treasury;
 use App\Models\Treasury\TreasuryTransaction;
 use App\Support\ValidationRules;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -47,19 +49,59 @@ class CollectionController extends Controller
         return $query->paginate($request->per_page ?? 15);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, PermissionService $permissions)
     {
         $data = $request->validate(ValidationRules::for('collection', 'store'));
 
         return DB::transaction(function () use ($data, $request) {
+            $payerCustomerId = (int) ($data['payer_customer_id'] ?? $data['customer_id']);
+            if ($payerCustomerId !== (int) $data['customer_id'] &&
+                !$permissions->check($request->user(), 'sales.collection.cross_customer_payment')) {
+                abort(403, 'السداد عن عميل آخر غير مسموح حالياً');
+            }
+            $data['payer_customer_id'] = $payerCustomerId;
+
+            if (!empty($data['sales_invoice_id'])) {
+                $invoice = SalesInvoice::findOrFail($data['sales_invoice_id']);
+                if ((int) $invoice->customer_id !== (int) $data['customer_id']) {
+                    abort(422, 'العميل المحدد يجب أن يكون صاحب الفاتورة');
+                }
+            }
+
+            $paymentMethod = !empty($data['payment_method_id'])
+                ? PaymentMethod::find($data['payment_method_id'])
+                : null;
+            if ($paymentMethod && !$paymentMethod->is_active) {
+                abort(422, 'وسيلة الدفع غير مفعلة');
+            }
+            if ($paymentMethod?->requires_bank_account && empty($data['bank_account_id'])) {
+                $bankQuery = BankAccount::where('company_id', $data['company_id'])
+                    ->where('is_active', true);
+                if (!empty($data['branch_id'])) {
+                    $bankQuery->orderByRaw('CASE WHEN branch_id = ? THEN 0 ELSE 1 END', [$data['branch_id']]);
+                }
+                $data['bank_account_id'] = $bankQuery->orderByDesc('id')->value('id');
+                if (!$data['bank_account_id']) {
+                    abort(422, 'لا يوجد حساب بنكي نشط للفرع أو الشركة');
+                }
+            }
+            if (!empty($data['bank_account_id'])) {
+                $bankBelongsToCompany = DB::table('bank_accounts')
+                    ->where('id', $data['bank_account_id'])
+                    ->where('company_id', $data['company_id'])
+                    ->exists();
+                if (!$bankBelongsToCompany) {
+                    abort(422, 'الحساب البنكي لا يتبع الشركة');
+                }
+            }
+
             $collection = Collection::create($data);
 
             if ($collection->status === 'approved' && !empty($data['sales_invoice_id'])) {
                 $invoice = SalesInvoice::find($data['sales_invoice_id']);
                 if ($invoice) {
                     $paidAmount = (float) ($invoice->paid_amount ?? 0) + (float) $collection->amount;
-                    $remaining = (float) $invoice->net_total - $paidAmount;
-                    if ($remaining < 0) $remaining = 0;
+                    $remaining = max(0, (float) $invoice->net_total - $paidAmount);
                     $invoice->update([
                         'paid_amount' => $paidAmount,
                         'remaining_amount' => $remaining,
@@ -114,7 +156,7 @@ class CollectionController extends Controller
 
     public function show(Collection $collection)
     {
-        return $collection->load(['company', 'branch', 'salesRep', 'customer', 'salesInvoice', 'paymentMethod']);
+        return $collection->load(['company', 'branch', 'salesRep', 'customer', 'payerCustomer', 'salesInvoice', 'paymentMethod']);
     }
 
     public function update(Request $request, Collection $collection)

@@ -38,7 +38,7 @@ class PayrollService
 
             foreach ($employees as $employee) {
                 $salary = EmployeeSalary::query()
-                    ->where('employee_id', $employee->id)
+                    ->where('user_id', $employee->id)
                     ->where('is_active', true)
                     ->where('effective_from', '<=', $periodEnd)
                     ->where(function ($query) use ($periodStart) {
@@ -61,13 +61,13 @@ class PayrollService
                     + $salary->other_deductions;
 
                 $bonusAmount = Bonus::query()
-                    ->where('employee_id', $employee->id)
+                    ->where('user_id', $employee->id)
                     ->where('status', HrStatus::BONUS_APPROVED)
                     ->whereBetween('bonus_date', [$periodStart, $periodEnd])
                     ->sum('amount');
 
                 $advanceDeduction = EmployeeAdvance::query()
-                    ->where('employee_id', $employee->id)
+                    ->where('user_id', $employee->id)
                     ->where('status', HrStatus::ADVANCE_ACTIVE)
                     ->where('remaining_amount', '>', 0)
                     ->get()
@@ -77,7 +77,7 @@ class PayrollService
                     ));
 
                 $attendance = AttendanceRecord::query()
-                    ->where('employee_id', $employee->id)
+                    ->where('user_id', $employee->id)
                     ->whereBetween('attendance_date', [$periodStart, $periodEnd])
                     ->get();
 
@@ -90,7 +90,7 @@ class PayrollService
                 $lateDays = $attendance->where('status', HrStatus::ATTENDANCE_LATE)->count();
 
                 $leaveDays = LeaveRequest::query()
-                    ->where('employee_id', $employee->id)
+                    ->where('user_id', $employee->id)
                     ->where('status', HrStatus::LEAVE_APPROVED)
                     ->where(function ($query) use ($periodStart, $periodEnd) {
                         $query->whereBetween('start_date', [$periodStart, $periodEnd])
@@ -102,7 +102,7 @@ class PayrollService
 
                 PayrollItem::create([
                     'payroll_run_id' => $run->id,
-                    'employee_id' => $employee->id,
+                    'user_id' => $employee->id,
                     'basic_salary' => $salary->basic_salary,
                     'total_allowances' => $allowances,
                     'total_deductions' => $deductions,

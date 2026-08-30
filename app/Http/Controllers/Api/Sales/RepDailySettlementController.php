@@ -80,7 +80,7 @@ class RepDailySettlementController extends Controller
         try {
             $repDailySettlement->update([
                 'status' => 'approved',
-                'approved_by' => $request->user()->employee_id ?? null,
+                'approved_by' => null,
             ]);
 
             $actualCash = (float) $repDailySettlement->actual_cash;
@@ -104,7 +104,7 @@ class RepDailySettlementController extends Controller
                             'reference_id' => $repDailySettlement->id,
                             'description' => "تسوية مندوب {$repName} - {$repDailySettlement->settlement_no}",
                             'transaction_date' => $repDailySettlement->settlement_date,
-                            'created_by' => $request->user()->employee_id ?? null,
+                            'created_by' => null,
                         ]);
                     }
                 }
@@ -213,7 +213,7 @@ class RepDailySettlementController extends Controller
     private function resolveTreasury(RepDailySettlement $settlement): ?int
     {
         $assignment = DB::table('salesman_assignments')
-            ->where('employee_id', $settlement->sales_rep_id)
+            ->where('user_id', $settlement->sales_rep_id)
             ->where('is_active', true)
             ->where('job_role', 'salesman')
             ->first();

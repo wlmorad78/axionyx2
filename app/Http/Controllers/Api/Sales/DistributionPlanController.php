@@ -231,7 +231,7 @@ class DistributionPlanController extends Controller
 
             foreach ($schedules as $sch) {
                 $routeId = $sch->route_id;
-                $employeeId = $sch->employee_id;
+                $employeeId = $sch->user_id;
                 $repRouteMap[$employeeId] = $routeId;
                 $dayCustomers = $routeCustomersMap->get($routeId, []);
                 foreach ($dayCustomers as $custId) {
@@ -567,7 +567,7 @@ class DistributionPlanController extends Controller
                 $loadRequest = LoadRequest::create([
                     'company_id' => $plan->company_id,
                     'warehouse_id' => $warehouseId,
-                    'employee_id' => $rep->sales_rep_id,
+                    'user_id' => $rep->sales_rep_id,
                     'request_date' => now()->toDateString(),
                     'status' => 'pending',
                     'total_items_count' => count($items),

@@ -111,10 +111,21 @@ class CustomerController extends Controller
             ->get()
             ->keyBy('customer_id');
 
-        $result = $customers->map(function ($customer) use ($invoiceStats) {
+        // Collections linked to an invoice are already included in paid_amount.
+        // Only standalone receipts are added here to avoid counting a payment twice.
+        $standaloneCollections = Collection::whereIn('customer_id', $customerIds)
+            ->whereNull('sales_invoice_id')
+            ->where('status', 'approved')
+            ->selectRaw('customer_id, COALESCE(SUM(amount), 0) as total')
+            ->groupBy('customer_id')
+            ->get()
+            ->keyBy('customer_id');
+
+        $result = $customers->map(function ($customer) use ($invoiceStats, $standaloneCollections) {
             $stats = $invoiceStats->get($customer->id);
+            $standalone = $standaloneCollections->get($customer->id);
             $totalInvoices = $stats->total_invoices ?? 0;
-            $totalPaid = $stats->total_paid ?? 0;
+            $totalPaid = ($stats->total_paid ?? 0) + ($standalone->total ?? 0);
             $balance = $totalInvoices - $totalPaid;
 
             return [
@@ -129,6 +140,8 @@ class CustomerController extends Controller
                 'customer_account_type' => $customer->customerAccountType,
                 'total_invoices' => (float) $totalInvoices,
                 'total_paid' => (float) $totalPaid,
+                'debit_amount' => (float) $totalInvoices,
+                'credit_amount' => (float) $totalPaid,
                 'balance' => (float) $balance,
                 'invoice_count' => (int) ($stats->invoice_count ?? 0),
             ];
@@ -158,17 +171,42 @@ class CustomerController extends Controller
 
         $from = $request->from;
         $to = $request->to;
+        $page = max(1, (int) $request->input('page', 1));
+        $perPage = $request->filled('per_page')
+            ? min(max((int) $request->input('per_page'), 1), 200)
+            : null;
+
+        $formatDate = function ($date): ?string {
+            if ($date instanceof \DateTimeInterface) {
+                return $date->format('Y-m-d');
+            }
+            if (is_string($date) && $date !== '') {
+                return substr($date, 0, 10);
+            }
+            return null;
+        };
+
+        $invoiceModeLabel = function (?string $mode): string {
+            $value = trim((string) $mode);
+            if ($value === '') {
+                return '-';
+            }
+            return match (strtolower($value)) {
+                'cash', 'نقدي' => 'نقدي',
+                'credit', 'آجل' => 'آجل',
+                default => $value,
+            };
+        };
 
         $allInvoices = \App\Models\Sales\SalesInvoice::withoutGlobalScope(\App\Scopes\BranchIsolationScope::class)
             ->where('customer_id', $id)
             ->where('status', '!=', 'cancelled')
             ->orderBy('invoice_date')
-            ->get(['id', 'invoice_no', 'invoice_date', 'net_total', 'paid_amount', 'remaining_amount', 'status']);
+            ->get(['id', 'invoice_no', 'invoice_date', 'net_total', 'paid_amount', 'remaining_amount', 'status', 'mode']);
 
         $openingBalance = 0;
         $periodInvoices = $allInvoices;
 
-        // Include opening balance document lines for this customer
         $obLines = \App\Models\OpeningBalanceDocumentLine::where('customer_id', $id)
             ->whereHas('document', fn($q) => $q->where('status', 'posted'))
             ->get();
@@ -180,10 +218,10 @@ class CustomerController extends Controller
             $beforeInvoices = $allInvoices->filter(fn($inv) => $inv->invoice_date < $from);
             foreach ($beforeInvoices as $inv) {
                 $openingBalance += $inv->net_total;
+                $openingBalance -= (float) ($inv->paid_amount ?? 0);
             }
             $periodInvoices = $allInvoices->filter(fn($inv) => $inv->invoice_date >= $from);
 
-            // Include receipt vouchers before from date
             $beforeReceipts = \App\Models\Treasury\ReceiptVoucher::where('customer_id', $id)
                 ->where('status', '!=', 'cancelled')
                 ->where('voucher_date', '<', $from)
@@ -192,7 +230,6 @@ class CustomerController extends Controller
                 $openingBalance -= (float) $receipt->amount;
             }
 
-            // Include collections before from date
             $beforeCollections = Collection::withoutGlobalScope(\App\Scopes\BranchIsolationScope::class)
                 ->where('customer_id', $id)
                 ->where('status', '!=', 'cancelled')
@@ -207,44 +244,121 @@ class CustomerController extends Controller
             $periodInvoices = $periodInvoices->filter(fn($inv) => $inv->invoice_date <= $to);
         }
 
-        $runningBalance = $openingBalance;
-        $transactions = [];
-
-        foreach ($periodInvoices as $invoice) {
-            $runningBalance += $invoice->net_total;
-            $transactions[] = [
-                'date' => $invoice->invoice_date,
-                'description' => 'فاتورة بيع ' . $invoice->invoice_no,
-                'reference_no' => $invoice->invoice_no,
-                'debit' => (float) $invoice->net_total,
-                'credit' => 0,
-                'balance' => (float) $runningBalance,
-            ];
-        }
-
         $collectionsQuery = Collection::withoutGlobalScope(\App\Scopes\BranchIsolationScope::class)
             ->where('customer_id', $id)
             ->where('status', '!=', 'cancelled');
         if ($from) $collectionsQuery->where('collection_date', '>=', $from);
         if ($to) $collectionsQuery->where('collection_date', '<=', $to);
-        $collections = $collectionsQuery->get(['id', 'collection_no', 'collection_date', 'amount', 'sales_invoice_id']);
+        $collections = $collectionsQuery
+            ->get(['id', 'collection_no', 'collection_date', 'amount', 'sales_invoice_id', 'payment_method_id']);
 
+        $paymentMethodIds = $collections->pluck('payment_method_id')->filter()->unique()->values();
+        $paymentMethodNames = $paymentMethodIds->isEmpty()
+            ? collect()
+            : DB::table('payment_methods')->whereIn('id', $paymentMethodIds)->pluck('name', 'id');
+
+        $pmName = function ($id) use ($paymentMethodNames): ?string {
+            if ($id === null || $id === '') {
+                return null;
+            }
+            return $paymentMethodNames[$id]
+                ?? $paymentMethodNames[(int) $id]
+                ?? $paymentMethodNames[(string) $id]
+                ?? null;
+        };
+
+        $methodsByInvoice = [];
         foreach ($collections as $col) {
-            $runningBalance -= (float) $col->amount;
+            $name = $pmName($col->payment_method_id);
+            if ($col->sales_invoice_id && $name) {
+                $methodsByInvoice[$col->sales_invoice_id][] = $name;
+            }
+        }
+
+        $invoicesWithPaid = $periodInvoices
+            ->filter(fn($inv) => (float) ($inv->paid_amount ?? 0) > 0)
+            ->keyBy('id');
+
+        $transactions = [];
+
+        foreach ($periodInvoices as $invoice) {
+            $invoicePm = $invoiceModeLabel($invoice->mode);
+            if ($invoicePm === '-') {
+                $fromCollections = array_values(array_unique($methodsByInvoice[$invoice->id] ?? []));
+                if ($fromCollections) {
+                    $invoicePm = implode(' / ', $fromCollections);
+                }
+            }
             $transactions[] = [
-                'date' => $col->collection_date,
+                'date' => $formatDate($invoice->invoice_date),
+                'description' => 'فاتورة بيع ' . $invoice->invoice_no,
+                'reference_no' => $invoice->invoice_no,
+                'debit' => (float) $invoice->net_total,
+                'credit' => 0,
+                'payment_method' => $invoicePm,
+                'sort_seq' => 1,
+            ];
+        }
+
+        foreach ($periodInvoices as $invoice) {
+            $paid = (float) ($invoice->paid_amount ?? 0);
+            if ($paid <= 0) {
+                continue;
+            }
+            $names = array_values(array_unique($methodsByInvoice[$invoice->id] ?? []));
+            $transactions[] = [
+                'date' => $formatDate($invoice->invoice_date),
+                'description' => 'سداد فاتورة ' . $invoice->invoice_no,
+                'reference_no' => $invoice->invoice_no,
+                'debit' => 0,
+                'credit' => $paid,
+                'payment_method' => $names ? implode(' / ', $names) : $invoiceModeLabel($invoice->mode),
+                'sort_seq' => 2,
+            ];
+        }
+
+        $standaloneCollections = $collections->filter(function ($col) use ($invoicesWithPaid) {
+            return !($col->sales_invoice_id && $invoicesWithPaid->has($col->sales_invoice_id));
+        });
+
+        foreach ($standaloneCollections as $col) {
+            $transactions[] = [
+                'date' => $formatDate($col->collection_date),
                 'description' => 'سند سداد ' . $col->collection_no,
                 'reference_no' => $col->collection_no,
                 'debit' => 0,
                 'credit' => (float) $col->amount,
-                'balance' => (float) $runningBalance,
+                'payment_method' => $pmName($col->payment_method_id) ?? '-',
+                'sort_seq' => 3,
             ];
         }
 
-        $transactions = collect($transactions)->sortBy('date')->values()->toArray();
+        $sorted = collect($transactions)->sortBy([
+            ['date', 'asc'],
+            ['sort_seq', 'asc'],
+        ])->values();
 
-        $totalDebit = $periodInvoices->sum('net_total');
-        $totalCredit = $collections->sum('amount');
+        $runningBalance = $openingBalance;
+        $sorted = $sorted->map(function ($row) use (&$runningBalance) {
+            $runningBalance += (float) ($row['debit'] ?? 0) - (float) ($row['credit'] ?? 0);
+            $row['balance'] = (float) $runningBalance;
+            unset($row['sort_seq']);
+            return $row;
+        });
+
+        $totalRows = $sorted->count();
+        if ($perPage) {
+            $pageData = $sorted->forPage($page, $perPage)->values();
+            $lastPage = max(1, (int) ceil($totalRows / $perPage));
+        } else {
+            $pageData = $sorted->values();
+            $page = 1;
+            $perPage = max($totalRows, 1);
+            $lastPage = 1;
+        }
+
+        $totalDebit = (float) $periodInvoices->sum('net_total');
+        $totalCredit = (float) $periodInvoices->sum('paid_amount') + (float) $standaloneCollections->sum('amount');
 
         return response()->json([
             'customer' => [
@@ -254,10 +368,15 @@ class CustomerController extends Controller
                 'name_en' => $customer->name_en,
             ],
             'opening_balance' => (float) $openingBalance,
-            'total_debit' => (float) $totalDebit,
-            'total_credit' => (float) $totalCredit,
+            'total_debit' => $totalDebit,
+            'total_credit' => $totalCredit,
             'final_balance' => (float) $runningBalance,
-            'data' => $transactions,
+            'data' => $pageData->all(),
+            'current_page' => $page,
+            'last_page' => $lastPage,
+            'per_page' => $perPage,
+            'total' => $totalRows,
+            'has_more' => $page < $lastPage,
         ]);
     }
 
@@ -267,6 +386,9 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate(ValidationRules::for('customer', 'store'));
+        if (empty($data['company_id']) && $request->user()) {
+            $data['company_id'] = $request->user()->company_id;
+        }
         return response()->json(Customer::create($data), 201);
     }
 

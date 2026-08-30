@@ -33,8 +33,8 @@ class EmployeeContractController extends Controller
             $query->where('company_id', $request->company_id);
         }
 
-        if ($request->employee_id) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) {
+            $query->where('user_id', $request->user_id);
         }
 
         if ($request->contract_type_id) {

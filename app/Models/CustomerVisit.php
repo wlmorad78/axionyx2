@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
 
 class CustomerVisit extends Model
 {
@@ -12,6 +13,7 @@ class CustomerVisit extends Model
 
     protected $fillable = [
         'route_id',
+        'user_id',
         'employee_id',
         'customer_id',
         'visit_date',
@@ -20,6 +22,7 @@ class CustomerVisit extends Model
         'latitude',
         'longitude',
         'visit_status',
+        'visit_reason',
         'notes',
     ];
 
@@ -36,9 +39,9 @@ class CustomerVisit extends Model
         return $this->belongsTo(Route::class);
     }
 
-    public function employee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 
     public function customer(): BelongsTo

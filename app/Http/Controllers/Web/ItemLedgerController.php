@@ -416,8 +416,8 @@ class ItemLedgerController extends Controller
                 if ($m->reference_type && str_contains($m->reference_type, 'IssueOrder')) {
                     try {
                         $ref = $m->reference_type::find($m->reference_id);
-                        if ($ref && $ref->employee_id) {
-                            $eid = (int) $ref->employee_id;
+                        if ($ref && $ref->user_id) {
+                            $eid = (int) $ref->user_id;
                             if (!isset($repMap[$eid])) {
                                 $repMap[$eid] = ['rep_id' => $eid, 'rep_name' => '', 'loaded' => 0, 'sold' => 0, 'returned' => 0, 'unloaded' => 0, 'balance' => 0];
                             }

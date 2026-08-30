@@ -4,6 +4,7 @@ namespace App\Models\HR;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
 
 class PayrollRunDetail extends Model
 {
@@ -11,7 +12,7 @@ class PayrollRunDetail extends Model
 
     protected $fillable = [
         'payroll_run_id',
-        'employee_id',
+        'user_id',
         'gross_salary',
         'total_allowances',
         'total_deductions',
@@ -30,8 +31,8 @@ class PayrollRunDetail extends Model
         return $this->belongsTo(PayrollRun::class);
     }
 
-    public function employee()
+    public function user()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 }

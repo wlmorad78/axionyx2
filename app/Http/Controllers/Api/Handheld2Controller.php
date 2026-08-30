@@ -23,6 +23,7 @@ use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\Sales\SalesInvoice;
 use App\Models\Sales\SalesInvoiceItem;
+use App\Models\Sales\SalesInvoicePaymentMethod;
 use App\Models\Sales\RepItemDistribution;
 use App\Models\Inventory\Device;
 use App\Models\Warehouse;
@@ -34,7 +35,7 @@ class Handheld2Controller extends Controller
     public function representatives(Request $request)
     {
         $user = $request->user();
-        $currentEmployeeId = DB::table('employees')->where('user_id', $user->id)->value('id');
+        $currentEmployeeId = DB::table('employees')->where('id', $user->id)->value('id');
         $employees = DB::table('employees')->where('company_id', $user->company_id)
             ->where('is_active', true)->where('id', '!=', $currentEmployeeId)
             ->orderBy('first_name_ar')->get(['id', 'employee_code', 'first_name_ar', 'second_name_ar', 'third_name_ar', 'last_name_ar']);
@@ -49,7 +50,7 @@ class Handheld2Controller extends Controller
     {
         $user = $request->user();
         $rows = DB::table('rep_item_distributions as d')->join('items as i', 'i.id', '=', 'd.item_id')
-            ->where('d.company_id', $user->company_id)->where('d.employee_id', $employeeId)
+            ->where('d.company_id', $user->company_id)->where('d.user_id', $employeeId)
             ->where('d.status', 'active')->where('d.remaining_qty', '>', 0)
             ->select('d.item_id', 'i.code', 'i.name_ar', 'i.name_en', DB::raw('SUM(d.remaining_qty) as available_qty'))
             ->groupBy('d.item_id', 'i.code', 'i.name_ar', 'i.name_en')->orderBy('i.name_ar')->get();
@@ -62,7 +63,7 @@ class Handheld2Controller extends Controller
     public function representativeStockSummary(Request $request)
     {
         $companyId = $request->user()->company_id;
-        $employeeId = (int) DB::table('employees')->where('user_id', $request->user()->id)->value('id');
+        $employeeId = (int) DB::table('employees')->where('id', $request->user()->id)->value('id');
         $base = fn (int $itemId) => DB::table('inventory_transaction_items as iti')
             ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
             ->where('it.company_id', $companyId)->where('it.status', 'posted')
@@ -79,33 +80,51 @@ class Handheld2Controller extends Controller
                         });
                 })->orWhereExists(function ($sub) use ($employeeId, $companyId) {
                     $sub->selectRaw('1')->from('rep_item_distributions as d')->whereColumn('d.item_id', 'i.id')
-                        ->where('d.company_id', $companyId)->where('d.employee_id', $employeeId);
+                        ->where('d.company_id', $companyId)->where('d.user_id', $employeeId);
                 });
-            })->get(['i.id', 'i.code', 'i.name_ar', 'i.name_en']);
+            })->orderBy('i.id')->get(['i.id', 'i.code', 'i.name_ar', 'i.name_en']);
 
-        $data = $rows->map(function ($item) use ($base, $employeeId, $companyId) {
+        $itemIds = $rows->pluck('id')->toArray();
+        $unitPriceMap = [];
+        if (!empty($itemIds)) {
+            $units = DB::table('item_units')->whereIn('item_id', $itemIds)->get();
+            foreach ($units as $u) {
+                if ((float) $u->sale_price > 0) {
+                    if ($u->is_sales_unit && !isset($unitPriceMap[$u->item_id])) {
+                        $unitPriceMap[$u->item_id] = (float) $u->sale_price;
+                    } elseif (!isset($unitPriceMap[$u->item_id])) {
+                        $unitPriceMap[$u->item_id] = (float) $u->sale_price;
+                    }
+                }
+            }
+        }
+
+        $data = $rows->map(function ($item) use ($base, $employeeId, $companyId, $unitPriceMap) {
             $load = (float) $base($item->id)->where('iti.from_location_type', 'warehouse')->where('iti.to_location_type', 'rep')->where('iti.to_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
             $loadReturn = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'warehouse')->where('iti.from_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
             $load = max(0, $load - $loadReturn);
             $tin = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'rep')->where('iti.to_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
             $tout = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'rep')->where('iti.from_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
-            $sales = (float) RepItemDistribution::where('company_id', $companyId)->where('employee_id', $employeeId)->where('item_id', $item->id)->sum('sold_qty');
+            $sales = (float) RepItemDistribution::where('company_id', $companyId)->where('user_id', $employeeId)->where('item_id', $item->id)->sum('sold_qty');
             return [
                 'item_id' => $item->id, 'item_code' => $item->code,
                 'item_name' => $item->name_ar ?? $item->name_en,
+                'code' => $item->code, 'name' => $item->name_ar ?? $item->name_en,
                 'load_qty' => $load, 't_in_qty' => $tin, 't_out_qty' => $tout,
                 'sales_qty' => $sales, 'remaining_qty' => max(0, $load + $tin - $tout - $sales),
+                'unit_price' => $unitPriceMap[$item->id] ?? 0,
             ];
-        })->filter(fn ($row) => $row['load_qty'] > 0 || $row['t_in_qty'] > 0 || $row['t_out_qty'] > 0 || $row['sales_qty'] > 0)->values();
+        })->filter(fn ($row) => $row['load_qty'] > 0 || $row['t_in_qty'] > 0 || $row['t_out_qty'] > 0 || $row['sales_qty'] > 0)
+            ->sortBy('item_id')->values();
 
         return response()->json(['data' => $data]);
     }
 
     public function representativeTransfer(Request $request)
     {
-        $currentEmployeeId = (int) DB::table('employees')->where('user_id', $request->user()->id)->value('id');
+        $currentEmployeeId = (int) DB::table('employees')->where('id', $request->user()->id)->value('id');
         $data = $request->validate([
-            'from_employee_id' => 'required|integer', 'to_employee_id' => 'required|integer',
+            'from_user_id' => 'required|integer', 'to_user_id' => 'required|integer',
             'client_uuid' => 'nullable|uuid', 'branch_id' => 'nullable|integer',
             'warehouse_id' => 'nullable|integer', 'notes' => 'nullable|string',
             'items' => 'required|array|min:1', 'items.*.item_id' => 'required|integer',
@@ -113,7 +132,7 @@ class Handheld2Controller extends Controller
             'items.*.unit_id' => 'nullable|integer', 'items.*.unit_cost' => 'nullable|numeric|min:0',
             'items.*.batch_no' => 'nullable|string', 'items.*.expiry_date' => 'nullable|date',
         ]);
-        if ((int) $data['from_employee_id'] !== $currentEmployeeId) {
+        if ((int) $data['from_user_id'] !== $currentEmployeeId) {
             return response()->json(['message' => 'لا يمكن تحويل مخزون مندوب آخر من هذا الحساب.'], 403);
         }
         return response()->json(['data' => app(RepresentativeTransferService::class)->post($request->user(), $data)], 201);
@@ -121,10 +140,10 @@ class Handheld2Controller extends Controller
 
     public function incomingRepresentativeTransfers(Request $request)
     {
-        $employeeId = (int) DB::table('employees')->where('user_id', $request->user()->id)->value('id');
+        $employeeId = (int) DB::table('employees')->where('id', $request->user()->id)->value('id');
         $transfers = RepresentativeTransfer::with(['fromEmployee', 'items.item'])
             ->where('company_id', $request->user()->company_id)
-            ->where('to_employee_id', $employeeId)
+            ->where('to_user_id', $employeeId)
             ->whereIn('status', ['posted', 'received'])
             ->latest('id')->get();
 
@@ -149,9 +168,9 @@ class Handheld2Controller extends Controller
 
     public function receiveRepresentativeTransfer(Request $request, int $id)
     {
-        $employeeId = (int) DB::table('employees')->where('user_id', $request->user()->id)->value('id');
+        $employeeId = (int) DB::table('employees')->where('id', $request->user()->id)->value('id');
         $transfer = RepresentativeTransfer::where('company_id', $request->user()->company_id)
-            ->where('to_employee_id', $employeeId)->findOrFail($id);
+            ->where('to_user_id', $employeeId)->findOrFail($id);
         if ($transfer->status === 'posted') {
             $transfer->update(['status' => 'received']);
         }
@@ -216,10 +235,11 @@ class Handheld2Controller extends Controller
         $counts = $this->getCounts($user, $defaultBranch, $resources);
 
         $routeIds = $resources['route_ids'] ?? collect();
-        $employeeId = $resources['employee_id'];
+        $employeeId = $resources['user_id'];
 
         $routes = [];
         $customersList = [];
+        $customerBalances = $this->customerBalances($user->company_id);
         if ($routeIds->isNotEmpty()) {
             $routes = DB::table('routes')
                 ->whereIn('routes.id', $routeIds)
@@ -228,7 +248,7 @@ class Handheld2Controller extends Controller
                 ->leftJoin('sales_territories', 'routes.sales_territory_id', '=', 'sales_territories.id')
                 ->select('routes.id', 'routes.code', 'routes.name_ar', 'routes.name_en', 'routes.sales_territory_id', 'sales_territories.name_ar as territory_name')
                 ->get()
-                ->map(function ($route) {
+                ->map(function ($route) use ($customerBalances) {
                     $customerIds = DB::table('route_customers')
                         ->where('route_id', $route->id)
                         ->where('is_active', true)
@@ -240,7 +260,7 @@ class Handheld2Controller extends Controller
                         ->where('is_active', true)
                         ->whereNull('deleted_at')
                         ->get(['id', 'code', 'name_ar', 'name_en', 'phone', 'mobile', 'address_line', 'latitude', 'longitude'])
-                        ->map(function ($c) {
+                        ->map(function ($c) use ($customerBalances) {
                             return [
                                 'id' => $c->id,
                                 'code' => $c->code,
@@ -250,6 +270,9 @@ class Handheld2Controller extends Controller
                                 'address' => $c->address_line,
                                 'latitude' => $c->latitude,
                                 'longitude' => $c->longitude,
+                                'debit_amount' => $customerBalances[(int) $c->id]['debit_amount'] ?? 0,
+                                'credit_amount' => $customerBalances[(int) $c->id]['credit_amount'] ?? 0,
+                                'balance' => $customerBalances[(int) $c->id]['balance'] ?? 0,
                             ];
                         });
 
@@ -276,7 +299,7 @@ class Handheld2Controller extends Controller
                 ->where('is_active', true)
                 ->whereNull('deleted_at')
                 ->get(['id', 'code', 'name_ar', 'name_en', 'phone', 'mobile', 'address_line', 'latitude', 'longitude'])
-                ->map(function ($c) {
+                ->map(function ($c) use ($customerBalances) {
                     return [
                         'id' => $c->id,
                         'code' => $c->code,
@@ -286,6 +309,9 @@ class Handheld2Controller extends Controller
                         'address' => $c->address_line,
                         'latitude' => $c->latitude,
                         'longitude' => $c->longitude,
+                        'debit_amount' => $customerBalances[(int) $c->id]['debit_amount'] ?? 0,
+                        'credit_amount' => $customerBalances[(int) $c->id]['credit_amount'] ?? 0,
+                        'balance' => $customerBalances[(int) $c->id]['balance'] ?? 0,
                     ];
                 })
                 ->toArray();
@@ -294,7 +320,7 @@ class Handheld2Controller extends Controller
             $loadRequests = [];
         if ($employeeId) {
             $loadRequests = DB::table('load_requests')
-                ->where('employee_id', $employeeId)
+                ->where('user_id', $employeeId)
                 ->whereNull('deleted_at')
                 ->orderByDesc('request_date')
                 ->get(['id', 'request_no', 'status', 'total_items_count', 'total_quantity', 'total_amount', 'request_date'])
@@ -402,20 +428,300 @@ class Handheld2Controller extends Controller
     }
 
     /**
+     * Returns customer debit/credit totals using invoices and approved receipts.
+     * Payments linked to invoices are already represented by paid_amount.
+     */
+    private function customerBalances(int $companyId): array
+    {
+        $invoices = DB::table('sales_invoices')
+            ->where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw('customer_id, COALESCE(SUM(net_total), 0) AS debit_amount, COALESCE(SUM(paid_amount), 0) AS invoice_credit')
+            ->groupBy('customer_id')
+            ->get()
+            ->keyBy('customer_id');
+
+        $receipts = DB::table('collections')
+            ->where('company_id', $companyId)
+            ->where('status', 'approved')
+            ->whereNull('sales_invoice_id')
+            ->selectRaw('customer_id, COALESCE(SUM(amount), 0) AS standalone_credit')
+            ->groupBy('customer_id')
+            ->get()
+            ->keyBy('customer_id');
+
+        $ledger = DB::table('customer_ledger')
+            ->selectRaw('customer_id, COALESCE(SUM(debit), 0) AS ledger_debit, COALESCE(SUM(credit), 0) AS ledger_credit')
+            ->groupBy('customer_id')
+            ->get()
+            ->keyBy('customer_id');
+
+        $balances = [];
+        $customerIds = $invoices->keys()
+            ->merge($receipts->keys())
+            ->merge($ledger->keys())
+            ->unique();
+
+        foreach ($customerIds as $customerId) {
+            $debit = (float) ($invoices[$customerId]->debit_amount ?? 0)
+                + (float) ($ledger[$customerId]->ledger_debit ?? 0);
+            $credit = (float) ($invoices[$customerId]->invoice_credit ?? 0)
+                + (float) ($receipts[$customerId]->standalone_credit ?? 0)
+                + (float) ($ledger[$customerId]->ledger_credit ?? 0);
+            $balances[(int) $customerId] = [
+                'debit_amount' => round($debit, 2),
+                'credit_amount' => round($credit, 2),
+                'balance' => round($debit - $credit, 2),
+            ];
+        }
+
+        return $balances;
+    }
+
+    public function bankAccounts(Request $request)
+    {
+        $user = $request->user();
+        $accounts = DB::table('bank_accounts')
+            ->where('company_id', $user->company_id)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->select('id', 'bank_name', 'branch_name', 'account_name', 'account_no', 'current_balance')
+            ->orderBy('bank_name')
+            ->get();
+        return response()->json(['data' => $accounts]);
+    }
+
+    /**
+     * Create collection records for a handheld sale from a payments array.
+     * Each payment: ['method' => 'cash'|'bank_transfer'|'customer_balance',
+     * 'amount' => float, 'bank_account_id' => int?].
+     * Returns the total collected amount (added to the invoice paid_amount).
+     */
+    private function createSaleCollections(array $payments, SalesInvoice $invoice, int $customerId, $user, $employee): float
+    {
+        if (empty($payments)) {
+            return 0;
+        }
+
+        $balances = $this->customerBalances($user->company_id);
+        $bal = $balances[$customerId] ?? ['balance' => 0];
+        $availableCredit = ($bal['balance'] ?? 0) < 0 ? -(float) ($bal['balance']) : 0;
+
+        $totalPaid = 0;
+        $now = now();
+
+        foreach ($payments as $p) {
+            $method = $p['method'] ?? 'cash';
+            $amount = (float) ($p['amount'] ?? 0);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $pm = DB::table('payment_methods')
+                ->where('code', $method)
+                ->where('is_active', true)
+                ->first();
+            $paymentMethodId = $pm?->id;
+
+            $bankAccountId = null;
+            if ($method === 'bank_transfer') {
+                $bankAccountId = (int) ($p['bank_account_id'] ?? 0);
+                $bank = DB::table('bank_accounts')
+                    ->where('id', $bankAccountId)
+                    ->where('company_id', $user->company_id)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at')
+                    ->first();
+                if (!$bank) {
+                    $bank = DB::table('bank_accounts')
+                        ->where('company_id', $user->company_id)
+                        ->where('is_active', true)
+                        ->whereNull('deleted_at')
+                        ->first();
+                    $bankAccountId = $bank?->id;
+                }
+                if ($bankAccountId) {
+                    DB::table('bank_accounts')->where('id', $bankAccountId)->increment('current_balance', $amount);
+                }
+            }
+
+            if ($method === 'customer_balance') {
+                if ($amount > $availableCredit) {
+                    $amount = $availableCredit;
+                }
+                if ($amount <= 0) {
+                    continue;
+                }
+                DB::table('customer_ledger')->insert([
+                    'customer_id' => $customerId,
+                    'transaction_date' => $now->toDateString(),
+                    'reference_type' => 'balance_payment',
+                    'reference_id' => $invoice->id,
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'balance' => 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+
+            DB::table('collections')->insert([
+                'company_id' => $user->company_id,
+                'branch_id' => $invoice->branch_id,
+                'collection_no' => 'HH-' . $now->format('YmdHis') . '-' . $invoice->id . '-' . rand(100, 999),
+                'collection_date' => $now->toDateString(),
+                'collection_time' => $now->format('H:i:s'),
+                'sales_rep_id' => $employee->id,
+                'customer_id' => $customerId,
+                'sales_invoice_id' => $invoice->id,
+                'payment_method_id' => $paymentMethodId,
+                'bank_account_id' => $bankAccountId,
+                'amount' => $amount,
+                'collection_type' => 'receipt',
+                'reference_no' => null,
+                'notes' => $method === 'customer_balance'
+                    ? 'تحصيل من رصيد العميل'
+                    : ($method === 'bank_transfer' ? 'تحويل بنكي' : 'نقدي'),
+                'status' => 'approved',
+                'created_by' => $employee->id,
+                'approved_by' => $employee->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $totalPaid += $amount;
+        }
+
+        return $totalPaid;
+    }
+
+    /**
+     * Save payment methods to the sales_invoice_payment_methods table.
+     * This provides a structured record of how an invoice was paid,
+     * separate from the collections table which tracks actual receipts.
+     */
+    private function saveInvoicePaymentMethods(array $payments, SalesInvoice $invoice, int $companyId): void
+    {
+        if (empty($payments)) {
+            return;
+        }
+
+        // Delete existing payment methods for this invoice (for updates)
+        SalesInvoicePaymentMethod::where('sales_invoice_id', $invoice->id)->delete();
+
+        foreach ($payments as $p) {
+            $method = $p['method'] ?? 'cash';
+            $amount = (float) ($p['amount'] ?? 0);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $pm = DB::table('payment_methods')
+                ->where('code', $method)
+                ->where('is_active', true)
+                ->first();
+
+            $bankAccountId = null;
+            if ($method === 'bank_transfer') {
+                $bankAccountId = (int) ($p['bank_account_id'] ?? 0);
+                $bank = DB::table('bank_accounts')
+                    ->where('id', $bankAccountId)
+                    ->where('company_id', $companyId)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at')
+                    ->first();
+                if (!$bank) {
+                    $bank = DB::table('bank_accounts')
+                        ->where('company_id', $companyId)
+                        ->where('is_active', true)
+                        ->whereNull('deleted_at')
+                        ->first();
+                    $bankAccountId = $bank?->id;
+                }
+            }
+
+            SalesInvoicePaymentMethod::create([
+                'company_id' => $companyId,
+                'sales_invoice_id' => $invoice->id,
+                'payment_method_id' => $pm?->id,
+                'bank_account_id' => $bankAccountId,
+                'amount' => $amount,
+                'method_code' => $method,
+                'notes' => $method === 'customer_balance'
+                    ? 'تحصيل من رصيد العميل'
+                    : ($method === 'bank_transfer' ? 'تحويل بنكي' : 'نقدي'),
+            ]);
+        }
+    }
+
+    /**
+     * Resolve the handheld sale price for an issue order's items.
+     * Priority: stored sales_price > item_units.sale_price (sales/default unit)
+     * > stored purchase_price. Falls back so a price always appears when one exists.
+     */
+    private function issueOrderHandheldItems(int $issueOrderId): array
+    {
+        $issueItems = DB::table('issue_order_items')
+            ->where('issue_order_id', $issueOrderId)
+            ->whereNull('deleted_at')
+            ->get();
+
+        $itemIds = $issueItems->pluck('item_id')->unique()->all();
+        $unitPriceMap = [];
+        if ($itemIds) {
+            $units = DB::table('item_units')->whereIn('item_id', $itemIds)->get();
+            foreach ($units as $u) {
+                if ($u->is_sales_unit && (float) $u->sale_price > 0) {
+                    $unitPriceMap[$u->item_id] = (float) $u->sale_price;
+                } elseif (!isset($unitPriceMap[$u->item_id])) {
+                    $unitPriceMap[$u->item_id] = (float) $u->sale_price;
+                }
+            }
+        }
+
+        return $issueItems->map(function ($item) use ($unitPriceMap) {
+            $product = DB::table('items')->where('id', $item->item_id)->first();
+            $stored = (float) ($item->sales_price ?? 0);
+            $price = $stored > 0
+                ? $stored
+                : ($unitPriceMap[$item->item_id] ?? (float) ($item->purchase_price ?? 0));
+
+            $qty = (float) ($item->issued_quantity ?? 0);
+            if ($qty <= 0) {
+                $baseQty = (float) ($item->base_quantity ?? 0);
+                if ($baseQty > 0) {
+                    $qty = $baseQty;
+                } elseif ((float) ($item->load_quantity ?? 0) > 0) {
+                    $qty = (float) $item->load_quantity;
+                }
+            }
+
+            return [
+                'item_id' => $item->item_id,
+                'item_name' => $product ? ($product->name_ar ?? $product->name_en ?? '') : '',
+                'item_code' => $product ? $product->code : '',
+                'quantity' => $qty,
+                'unit_price' => $price,
+                'line_total' => $item->total_amount ?? 0,
+            ];
+        })->all();
+    }
+
+    /**
      * دالة معالجة: loadOrders — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Handheld2).
      */
     public function loadOrders(Request $request)
     {
         $user = $request->user();
         $resources = $this->getAssignmentResources($user->id);
-        $employeeId = $request->input('employee_id') ?? $resources['employee_id'];
+        $employeeId = $request->input('user_id') ?? $resources['user_id'];
 
         if (!$employeeId) {
             return response()->json(['open' => [], 'closed' => []]);
         }
 
         $issueOrders = DB::table('issue_orders')
-            ->where('issue_orders.employee_id', $employeeId)
+            ->where('issue_orders.user_id', $employeeId)
             ->whereNull('issue_orders.deleted_at')
             ->leftJoin('load_requests', 'issue_orders.load_request_id', '=', 'load_requests.id')
             ->select(
@@ -442,20 +748,7 @@ class Handheld2Controller extends Controller
             $isCancelled = $io->status === 'cancelled'
                 || ($io->load_request_id && ($io->load_request_status ?? null) === 'cancelled');
 
-            $items = DB::table('issue_order_items')
-                ->where('issue_order_id', $io->id)
-                ->whereNull('deleted_at')
-                ->get()
-                ->map(function ($item) {
-                    $product = DB::table('items')->where('id', $item->item_id)->first();
-                    return [
-                        'item_name' => $product ? ($product->name_ar ?? $product->name_en ?? '') : '',
-                        'item_code' => $product ? $product->code : '',
-                        'quantity' => $item->issued_quantity ?? 0,
-                        'unit_price' => $item->purchase_price ?? 0,
-                        'line_total' => $item->total_amount ?? 0,
-                    ];
-                });
+            $items = $this->issueOrderHandheldItems($io->id);
 
             $orderData = [
                 'id' => $io->id,
@@ -487,18 +780,155 @@ class Handheld2Controller extends Controller
         ]);
     }
 
+    public function loadOrder(Request $request, string $loadRequestNo)
+    {
+        $user = $request->user();
+        $employeeId = (int) DB::table('employees')->where('id', $user->id)->value('id');
+        if (!$employeeId) {
+            return response()->json(['message' => 'الموظف غير موجود'], 404);
+        }
+
+        $loadRequest = DB::table('load_requests')
+            ->where('request_no', $loadRequestNo)
+            ->where('employee_id', $employeeId)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$loadRequest) {
+            return response()->json(['message' => 'أمر التحميل غير موجود'], 404);
+        }
+
+        $status = $loadRequest->status;
+        if (!in_array($status, ['approved', 'loading'])) {
+            return response()->json([
+                'message' => 'لا يمكن تحميل الأمر في الحالة الحالية',
+            ], 422);
+        }
+
+        $issueOrder = DB::table('issue_orders')
+            ->where('load_request_id', $loadRequest->id)
+            ->where('employee_id', $employeeId)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$issueOrder) {
+            return response()->json(['message' => 'لم يتم العثور على أمر صرف لهذا الطلب'], 404);
+        }
+
+        DB::transaction(function () use ($user, $loadRequest, $issueOrder, $employeeId) {
+            $warehouseId = $loadRequest->warehouse_id;
+            $companyId = $user->company_id;
+
+            $type = \App\Models\Inventory\InventoryTransactionType::where('code', 'TRANSFER_TO_REP')->first();
+            if (!$type) {
+                $type = \App\Models\Inventory\InventoryTransactionType::firstOrCreate(
+                    ['code' => 'TRANSFER_TO_REP'],
+                    ['name' => 'تحميل للمندوب', 'effect' => 'subtraction', 'is_active' => true]
+                );
+            }
+
+            $txn = \App\Models\Inventory\InventoryTransaction::create([
+                'company_id' => $companyId,
+                'warehouse_id' => $warehouseId,
+                'transaction_type_id' => $type->id,
+                'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($companyId),
+                'transaction_date' => now()->toDateString(),
+                'transaction_time' => now()->format('H:i:s'),
+                'reference_type' => \App\Models\Sales\LoadRequest::class,
+                'reference_id' => $loadRequest->id,
+                'notes' => "تحميل أمر التحميل {$loadRequest->request_no} من المخزن",
+                'status' => 'posted',
+                'created_by' => $employeeId,
+            ]);
+
+            $items = DB::table('issue_order_items')
+                ->where('issue_order_id', $issueOrder->id)
+                ->whereNull('deleted_at')
+                ->get();
+
+            $unitService = app(\App\Services\UnitConversionService::class);
+
+            foreach ($items as $item) {
+                $baseQty = (float) ($item->base_quantity ?? 0);
+                if ($baseQty <= 0) {
+                    $cf = (float) ($item->conversion_factor ?? 1);
+                    $baseQty = (float) ($item->issued_quantity ?? 0) * ($cf > 0 ? $cf : 1);
+                }
+                if ($baseQty <= 0) {
+                    continue;
+                }
+
+                $baseUnitId = $unitService->getBaseUnitId($item->item_id) ?? $item->unit_id;
+
+                \App\Models\Inventory\InventoryTransactionItem::create([
+                    'inventory_transaction_id' => $txn->id,
+                    'item_id' => $item->item_id,
+                    'unit_id' => $baseUnitId,
+                    'conversion_factor' => (float) ($item->conversion_factor ?? 1),
+                    'qty' => $baseQty,
+                    'unit_cost' => $item->purchase_price,
+                    'total_cost' => $item->total_amount,
+                    'from_location_type' => 'warehouse',
+                    'from_location_id' => $warehouseId,
+                    'to_location_type' => 'rep',
+                    'to_location_id' => $employeeId,
+                ]);
+
+                $distribution = \App\Models\Sales\RepItemDistribution::where('company_id', $companyId)
+                    ->where('user_id', $employeeId)
+                    ->where('item_id', $item->item_id)
+                    ->where('issue_order_id', $issueOrder->id)
+                    ->where('status', 'active')
+                    ->latest('id')
+                    ->first();
+
+                if ($distribution) {
+                    $distribution->update([
+                        'loaded_qty' => $distribution->loaded_qty + $baseQty,
+                        'remaining_qty' => $distribution->remaining_qty + $baseQty,
+                    ]);
+                } else {
+                    \App\Models\Sales\RepItemDistribution::create([
+                        'company_id' => $companyId,
+                        'user_id' => $employeeId,
+                        'employee_id' => $employeeId,
+                        'item_id' => $item->item_id,
+                        'issue_order_id' => $issueOrder->id,
+                        'load_request_id' => $loadRequest->id,
+                        'loaded_qty' => $baseQty,
+                        'sold_qty' => 0,
+                        'remaining_qty' => $baseQty,
+                        'status' => 'active',
+                    ]);
+                }
+            }
+
+            DB::table('load_requests')->where('id', $loadRequest->id)->update([
+                'status' => 'loaded',
+                'updated_at' => now(),
+            ]);
+
+            DB::table('issue_orders')->where('id', $issueOrder->id)->update([
+                'status' => 'loaded',
+                'updated_at' => now(),
+            ]);
+        });
+
+        return response()->json(['message' => 'تم تحميل الأمر بنجاح']);
+    }
+
     public function complementaryOrders(Request $request)
     {
         $user = $request->user();
         $resources = $this->getAssignmentResources($user->id);
-        $employeeId = $request->input('employee_id') ?? $resources['employee_id'];
+        $employeeId = $request->input('user_id') ?? $resources['user_id'];
 
         if (!$employeeId) {
             return response()->json(['orders' => []]);
         }
 
         $complementaryRequests = DB::table('load_requests')
-            ->where('load_requests.employee_id', $employeeId)
+            ->where('load_requests.user_id', $employeeId)
             ->where('load_requests.load_type', 'complementary')
             ->whereIn('load_requests.status', ['approved', 'loading'])
             ->whereNull('load_requests.deleted_at')
@@ -521,21 +951,7 @@ class Handheld2Controller extends Controller
 
             if ($hasReturn) continue;
 
-            $items = DB::table('issue_order_items')
-                ->where('issue_order_id', $issueOrder->id)
-                ->whereNull('deleted_at')
-                ->get()
-                ->map(function ($item) {
-                    $product = DB::table('items')->where('id', $item->item_id)->first();
-                    return [
-                        'item_id' => $item->item_id,
-                        'item_name' => $product ? ($product->name_ar ?? $product->name_en ?? '') : '',
-                        'item_code' => $product ? $product->code : '',
-                        'quantity' => $item->issued_quantity ?? 0,
-                        'unit_price' => $item->purchase_price ?? 0,
-                        'line_total' => $item->total_amount ?? 0,
-                    ];
-                });
+            $items = $this->issueOrderHandheldItems($issueOrder->id);
 
             $parentRequest = null;
             if ($lr->parent_load_request_id) {
@@ -595,7 +1011,7 @@ class Handheld2Controller extends Controller
     public function cancelLoadRequest(Request $request, $id)
     {
         $user = $request->user();
-        $employeeId = (int) DB::table('employees')->where('user_id', $user->id)->value('id');
+        $employeeId = (int) DB::table('employees')->where('id', $user->id)->value('id');
 
         $loadRequest = DB::table('load_requests')
             ->where('id', $id)
@@ -607,7 +1023,7 @@ class Handheld2Controller extends Controller
             return response()->json(['message' => 'أمر التحميل غير موجود'], 404);
         }
 
-        $employeeId = (int) $loadRequest->employee_id;
+        $employeeId = (int) $loadRequest->user_id;
 
         $status = $loadRequest->status;
         if (!in_array($status, ['approved', 'loading', 'loaded'])) {
@@ -648,7 +1064,7 @@ class Handheld2Controller extends Controller
                 'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($companyId),
                 'transaction_date' => now()->toDateString(),
                 'transaction_time' => now()->format('H:i:s'),
-                'reference_type' => \App\Models\LoadRequest::class,
+                'reference_type' => \App\Models\Sales\LoadRequest::class,
                 'reference_id' => $loadRequest->id,
                 'notes' => "إرجاع أمر التحميل {$loadRequest->request_no} للمخزن",
                 'status' => 'posted',
@@ -688,7 +1104,7 @@ class Handheld2Controller extends Controller
                 ]);
 
                 $distribution = \App\Models\Sales\RepItemDistribution::where('company_id', $companyId)
-                    ->where('employee_id', $employeeId)
+                    ->where('user_id', $employeeId)
                     ->where('item_id', $item->item_id)
                     ->where('issue_order_id', $issueOrder->id)
                     ->where('status', 'active')
@@ -758,13 +1174,13 @@ class Handheld2Controller extends Controller
     public function startDayCounts(Request $request)
     {
         $user = $request->user();
-        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+        $employee = DB::table('employees')->where('id', $user->id)->first();
         $routeIds = collect();
         $territoryIds = collect();
 
         if ($employee) {
             $routeIds = DB::table('route_schedules')
-                ->where('employee_id', $employee->id)
+                ->where('user_id', $employee->id)
                 ->where('is_active', true)
                 ->whereNull('deleted_at')
                 ->distinct('route_id')
@@ -814,7 +1230,7 @@ class Handheld2Controller extends Controller
         ]);
 
         $user = $request->user();
-        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+        $employee = DB::table('employees')->where('id', $user->id)->first();
 
         if (!$employee) {
             return response()->json(['error' => 'employee not found'], 404);
@@ -879,12 +1295,12 @@ class Handheld2Controller extends Controller
     public function routesWithCustomers(Request $request)
     {
         $user = $request->user();
-        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+        $employee = DB::table('employees')->where('id', $user->id)->first();
         $routeIds = collect();
 
         if ($employee) {
             $routeIds = DB::table('route_schedules')
-                ->where('employee_id', $employee->id)
+                ->where('user_id', $employee->id)
                 ->where('is_active', true)
                 ->whereNull('deleted_at')
                 ->distinct('route_id')
@@ -892,6 +1308,7 @@ class Handheld2Controller extends Controller
         }
 
         $routes = [];
+        $customerBalances = $this->customerBalances($user->company_id);
         if ($routeIds->isNotEmpty()) {
             $routes = DB::table('routes')
                 ->whereIn('routes.id', $routeIds)
@@ -900,7 +1317,7 @@ class Handheld2Controller extends Controller
                 ->leftJoin('sales_territories', 'routes.sales_territory_id', '=', 'sales_territories.id')
                 ->select('routes.id', 'routes.code', 'routes.name_ar', 'routes.name_en', 'routes.sales_territory_id', 'sales_territories.name_ar as territory_name')
                 ->get()
-                ->map(function ($route) {
+                ->map(function ($route) use ($customerBalances) {
                     $customerIds = DB::table('route_customers')
                         ->where('route_id', $route->id)
                         ->where('is_active', true)
@@ -912,7 +1329,7 @@ class Handheld2Controller extends Controller
                         ->where('is_active', true)
                         ->whereNull('deleted_at')
                         ->get(['id', 'code', 'name_ar', 'name_en', 'phone', 'mobile', 'address_line', 'latitude', 'longitude'])
-                        ->map(function ($c) {
+                        ->map(function ($c) use ($customerBalances) {
                             return [
                                 'id' => $c->id,
                                 'code' => $c->code,
@@ -922,6 +1339,9 @@ class Handheld2Controller extends Controller
                                 'address' => $c->address_line,
                                 'latitude' => $c->latitude,
                                 'longitude' => $c->longitude,
+                                'debit_amount' => $customerBalances[(int) $c->id]['debit_amount'] ?? 0,
+                                'credit_amount' => $customerBalances[(int) $c->id]['credit_amount'] ?? 0,
+                                'balance' => $customerBalances[(int) $c->id]['balance'] ?? 0,
                             ];
                         });
 
@@ -1049,27 +1469,31 @@ class Handheld2Controller extends Controller
      */
     private function getAssignmentResources(int $userId): array
     {
-        $employee = DB::table('employees')->where('user_id', $userId)->first();
+        $employee = DB::table('employees')->where('id', $userId)->first();
+        if (!$employee && DB::getSchemaBuilder()->hasColumn('employees', 'user_id')) {
+            $employee = DB::table('employees')->where('user_id', $userId)->first();
+        }
 
         if (!$employee) {
             return [
                 'warehouse' => null,
                 'treasury' => null,
                 'sales_area' => null,
+                'user_id' => null,
                 'employee_id' => null,
                 'route_ids' => collect(),
             ];
         }
 
         $routeIds = DB::table('route_schedules')
-            ->where('employee_id', $employee->id)
+            ->where('user_id', $employee->id)
             ->where('is_active', true)
             ->whereNull('deleted_at')
             ->distinct('route_id')
             ->pluck('route_id');
 
         $assignment = DB::table('salesman_assignments')
-            ->where('employee_id', $employee->id)
+            ->where('user_id', $employee->id)
             ->where('is_active', true)
             ->whereNull('deleted_at')
             ->first();
@@ -1105,6 +1529,7 @@ class Handheld2Controller extends Controller
             'warehouse' => $warehouse,
             'treasury' => $treasury,
             'sales_area' => $salesArea,
+            'user_id' => $employee->id,
             'employee_id' => $employee->id,
             'route_ids' => $routeIds,
         ];
@@ -1134,7 +1559,10 @@ class Handheld2Controller extends Controller
         ]);
 
         $user = $request->user();
-        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+        $employee = DB::table('employees')->where('id', $user->id)->first();
+        if (!$employee && DB::getSchemaBuilder()->hasColumn('employees', 'user_id')) {
+            $employee = DB::table('employees')->where('id', $user->id)->first();
+        }
 
         if (!$employee) {
             return response()->json(['message' => 'الموظف غير موجود'], 404);
@@ -1322,6 +1750,27 @@ class Handheld2Controller extends Controller
                 ]);
             }
 
+            $payments = $payload['payments'] ?? [];
+            if (!empty($payments)) {
+                $collectedTotal = $this->createSaleCollections(
+                    $payments,
+                    $invoice,
+                    (int) $customer_id,
+                    $user,
+                    $employee
+                );
+                if ($collectedTotal > 0) {
+                    $paidAmount = $collectedTotal;
+                    $remainingAmount = max(0, $netTotal - $paidAmount);
+                    $invoice->update([
+                        'paid_amount' => $paidAmount,
+                        'remaining_amount' => $remainingAmount,
+                    ]);
+                }
+
+                $this->saveInvoicePaymentMethods($payments, $invoice, $user->company_id);
+            }
+
             try { $invoice->post(); } catch (\Exception $e) {
                 Log::warning('[INVOICE SYNC] post failed', ['invoice_id' => $invoice->id, 'error' => $e->getMessage()]);
             }
@@ -1461,6 +1910,30 @@ class Handheld2Controller extends Controller
                 ]);
             }
 
+            $payments = $payload['payments'] ?? [];
+            if (!empty($payments)) {
+                $collectedTotal = $this->createSaleCollections(
+                    $payments,
+                    $invoice,
+                    (int) $customer_id,
+                    $user,
+                    $employee
+                );
+                if ($collectedTotal > 0) {
+                    $paidAmount = $collectedTotal;
+                    $remainingAmount = max(0, $netTotal - $paidAmount);
+                    $invoice->update([
+                        'paid_amount' => $paidAmount,
+                        'remaining_amount' => $remainingAmount,
+                    ]);
+                }
+
+                $this->saveInvoicePaymentMethods($payments, $invoice, $user->company_id);
+            } else {
+                // If no payments sent, clear existing payment methods
+                SalesInvoicePaymentMethod::where('sales_invoice_id', $invoice->id)->delete();
+            }
+
             $this->applyDistribution($user, $employee, $itemsData);
 
             Log::info('[INVOICE SYNC] updated', [
@@ -1565,7 +2038,7 @@ class Handheld2Controller extends Controller
         }
 
         $distribution = RepItemDistribution::where('company_id', $user->company_id)
-            ->where('employee_id', $employee->id)
+            ->where('user_id', $employee->id)
             ->where('item_id', $itemId)
             ->where('status', 'active')
             ->latest('id')
@@ -1668,12 +2141,12 @@ class Handheld2Controller extends Controller
         ]);
 
         $user = $request->user();
-        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+        $employee = DB::table('employees')->where('id', $user->id)->first();
         $routeIds = collect();
 
         if ($employee) {
             $routeIds = DB::table('route_schedules')
-                ->where('employee_id', $employee->id)
+                ->where('user_id', $employee->id)
                 ->where('is_active', true)
                 ->whereNull('deleted_at')
                 ->distinct('route_id')
@@ -1737,6 +2210,378 @@ class Handheld2Controller extends Controller
         return response()->json([
             'changes' => $changes,
             'new_cursors' => $newCursors,
+        ]);
+    }
+
+    /**
+     * كشف حساب العميل في فترة زمنية (من/إلى).
+     * يجمع فواتير البيع والتحصيلات ويحسب الرصيد الجاري لكل حركة.
+     */
+    public function customerStatement(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|integer',
+            'from_date' => 'required|date',
+            'to_date' => 'required|date',
+        ]);
+
+        $user = $request->user();
+        $companyId = $user->company_id;
+        $branchId = $request->header('X-Branch-Id');
+        $branchId = $branchId ? (int) $branchId : null;
+
+        $customerId = (int) $validated['customer_id'];
+        $from = $validated['from_date'];
+        $to = $validated['to_date'];
+
+        $customer = DB::table('customers')
+            ->where('id', $customerId)
+            ->where('company_id', $companyId)
+            ->first(['id', 'code', 'name_ar', 'name_en']);
+
+        if (!$customer) {
+            return response()->json(['message' => 'العميل غير موجود'], 404);
+        }
+
+        $invoiceScope = function ($q) use ($companyId, $branchId, $customerId) {
+            return $q->where('company_id', $companyId)
+                ->when($branchId, fn ($qq) => $qq->where('branch_id', $branchId))
+                ->where('customer_id', $customerId)
+                ->where('status', '!=', 'cancelled')
+                ->whereNull('deleted_at');
+        };
+
+        $collectionScope = function ($q) use ($companyId, $branchId, $customerId) {
+            return $q->where('company_id', $companyId)
+                ->when($branchId, fn ($qq) => $qq->where('branch_id', $branchId))
+                ->where('customer_id', $customerId)
+                ->where('status', 'approved')
+                ->whereNull('collections.deleted_at');
+        };
+
+        // الرصيد الافتتاحي قبل تاريخ البداية
+        $openingDebit = (float) $invoiceScope(DB::table('sales_invoices'))
+            ->where('invoice_date', '<', $from)
+            ->sum('net_total');
+        $openingCredit = (float) $collectionScope(DB::table('collections'))
+            ->where('collection_date', '<', $from)
+            ->sum('amount');
+        $openingBalance = round($openingDebit - $openingCredit, 2);
+
+        $invoices = $invoiceScope(DB::table('sales_invoices'))
+            ->whereBetween('invoice_date', [$from, $to])
+            ->orderBy('invoice_date')
+            ->orderBy('id')
+            ->get([
+                'id',
+                'invoice_no',
+                'invoice_date',
+                'net_total',
+                'paid_amount',
+                'remaining_amount',
+            ]);
+
+        $collections = $collectionScope(DB::table('collections'))
+            ->whereBetween('collection_date', [$from, $to])
+            ->leftJoin('payment_methods', 'collections.payment_method_id', '=', 'payment_methods.id')
+            ->orderBy('collection_date')
+            ->orderBy('collections.id')
+            ->get([
+                'collections.id',
+                'collections.collection_no',
+                'collections.collection_date',
+                'collections.amount',
+                'payment_methods.name as payment_method_name',
+            ]);
+
+        $events = [];
+        foreach ($invoices as $inv) {
+            $events[] = ['date' => $inv->invoice_date, 'type' => 'invoice', 'ref' => $inv];
+        }
+        foreach ($collections as $col) {
+            $events[] = ['date' => $col->collection_date, 'type' => 'collection', 'ref' => $col];
+        }
+
+        usort($events, function ($a, $b) {
+            if ($a['date'] === $b['date']) {
+                // الفواتير قبل التحصيلات في نفس اليوم
+                return $a['type'] === $b['type'] ? 0 : ($a['type'] === 'invoice' ? -1 : 1);
+            }
+            return strcmp($a['date'], $b['date']);
+        });
+
+        $balance = $openingBalance;
+        $rows = [];
+        foreach ($events as $ev) {
+            if ($ev['type'] === 'invoice') {
+                $inv = $ev['ref'];
+                $debit = round((float) $inv->net_total, 2);
+                $credit = 0.0;
+                $isPaid = $inv->net_total > 0 && (float) $inv->paid_amount >= (float) $inv->net_total;
+                $movementType = 'فاتورة بيع';
+                $paymentMethod = $isPaid ? 'نقدي' : 'آجل (ذمم مدينة)';
+                $referenceNo = $inv->invoice_no;
+            } else {
+                $col = $ev['ref'];
+                $debit = 0.0;
+                $credit = round((float) $col->amount, 2);
+                $movementType = 'تحصيل';
+                $paymentMethod = $col->payment_method_name ?: 'نقدي';
+                $referenceNo = $col->collection_no;
+            }
+
+            $balance = round($balance + $debit - $credit, 2);
+            $rows[] = [
+                'date' => $ev['date'],
+                'reference_no' => $referenceNo,
+                'movement_type' => $movementType,
+                'payment_method' => $paymentMethod,
+                'debit' => $debit,
+                'credit' => $credit,
+                'balance' => $balance,
+            ];
+        }
+
+        return response()->json([
+            'customer' => [
+                'id' => $customer->id,
+                'code' => $customer->code,
+                'name' => $customer->name_ar ?? $customer->name_en,
+            ],
+            'from_date' => $from,
+            'to_date' => $to,
+            'opening_balance' => $openingBalance,
+            'closing_balance' => round($balance, 2),
+            'rows' => $rows,
+        ]);
+    }
+
+    /**
+     * تقرير مبيعات العميل في فترة زمنية (من/إلى).
+     * كل منتج يظهر في عمود مستقل، وعمود الإجمالي لقيمة المبيعات اليومية.
+     */
+    public function customerSalesReport(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|integer',
+            'from_date' => 'required|date',
+            'to_date' => 'required|date',
+        ]);
+
+        $user = $request->user();
+        $companyId = $user->company_id;
+        $branchId = $request->header('X-Branch-Id');
+        $branchId = $branchId ? (int) $branchId : null;
+
+        $customerId = (int) $validated['customer_id'];
+        $from = $validated['from_date'];
+        $to = $validated['to_date'];
+
+        $invoices = DB::table('sales_invoices')
+            ->where('company_id', $companyId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->where('customer_id', $customerId)
+            ->where('status', '!=', 'cancelled')
+            ->whereNull('deleted_at')
+            ->whereBetween('invoice_date', [$from, $to])
+            ->orderBy('invoice_date')
+            ->orderBy('id')
+            ->get(['id', 'invoice_no', 'invoice_date', 'net_total']);
+
+        if ($invoices->isEmpty()) {
+            return response()->json([
+                'from_date' => $from,
+                'to_date' => $to,
+                'products' => [],
+                'rows' => [],
+            ]);
+        }
+
+        $invoiceIds = $invoices->pluck('id')->all();
+
+        $items = DB::table('sales_invoice_items')
+            ->whereIn('sales_invoice_id', $invoiceIds)
+            ->whereNull('sales_invoice_items.deleted_at')
+            ->join('items', 'sales_invoice_items.item_id', '=', 'items.id')
+            ->select(
+                'sales_invoice_items.sales_invoice_id',
+                'sales_invoice_items.item_id',
+                'items.code',
+                'items.name_ar',
+                'items.name_en',
+                'sales_invoice_items.qty',
+                'sales_invoice_items.net_amount'
+            )
+            ->get();
+
+        $productMap = [];
+        foreach ($items as $it) {
+            if (!isset($productMap[$it->item_id])) {
+                $productMap[$it->item_id] = [
+                    'id' => $it->item_id,
+                    'code' => $it->code,
+                    'name' => $it->name_ar ?? $it->name_en,
+                ];
+            }
+        }
+        $products = array_values($productMap);
+
+        $byDate = [];
+        foreach ($invoices as $inv) {
+            $date = $inv->invoice_date;
+            if (!isset($byDate[$date])) {
+                $byDate[$date] = [
+                    'date' => $date,
+                    'invoice_count' => 0,
+                    'quantities' => [],
+                    'amounts' => [],
+                    'total_qty' => 0.0,
+                    'total_amount' => 0.0,
+                    'invoice_nos' => [],
+                ];
+            }
+            $byDate[$date]['invoice_count']++;
+            $byDate[$date]['total_amount'] += (float) $inv->net_total;
+            $byDate[$date]['invoice_nos'][] = $inv->invoice_no;
+        }
+
+        foreach ($items as $it) {
+            $inv = $invoices->firstWhere('id', $it->sales_invoice_id);
+            if (!$inv) {
+                continue;
+            }
+            $date = $inv->invoice_date;
+            $pid = $it->item_id;
+            $qty = (float) $it->qty;
+            $amount = (float) ($it->net_amount ?? 0);
+            $byDate[$date]['quantities'][$pid] = ($byDate[$date]['quantities'][$pid] ?? 0) + $qty;
+            $byDate[$date]['amounts'][$pid] = ($byDate[$date]['amounts'][$pid] ?? 0) + $amount;
+            $byDate[$date]['total_qty'] += $qty;
+        }
+
+        $rows = array_values($byDate);
+        foreach ($rows as &$row) {
+            $row['total_qty'] = round($row['total_qty'], 2);
+            $row['total_amount'] = round($row['total_amount'], 2);
+        }
+        unset($row);
+
+        return response()->json([
+            'from_date' => $from,
+            'to_date' => $to,
+            'products' => $products,
+            'rows' => $rows,
+        ]);
+    }
+
+    /**
+     * تفاصيل فاتورة بيع واحدة لطباعتها من شاشة كشف الحساب.
+     */
+    public function invoiceDetails(Request $request)
+    {
+        $validated = $request->validate([
+            'invoice_no' => 'required|string',
+        ]);
+
+        $user = $request->user();
+        $companyId = $user->company_id;
+
+        $invoice = DB::table('sales_invoices')
+            ->where('company_id', $companyId)
+            ->where('invoice_no', $validated['invoice_no'])
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$invoice) {
+            return response()->json(['message' => 'الفاتورة غير موجودة'], 404);
+        }
+
+        $customer = DB::table('customers')
+            ->where('id', $invoice->customer_id)
+            ->first(['name_ar', 'name_en', 'code', 'phone', 'mobile', 'address_line']);
+
+        $items = DB::table('sales_invoice_items')
+            ->where('sales_invoice_id', $invoice->id)
+            ->whereNull('sales_invoice_items.deleted_at')
+            ->join('items', 'sales_invoice_items.item_id', '=', 'items.id')
+            ->select(
+                'sales_invoice_items.qty',
+                'sales_invoice_items.price',
+                'sales_invoice_items.gross_amount',
+                'sales_invoice_items.net_amount',
+                'items.code',
+                'items.name_ar',
+                'items.name_en'
+            )
+            ->get();
+
+        $mappedItems = $items->map(function ($it) {
+            return [
+                'item_name' => $it->name_ar ?? $it->name_en,
+                'code' => $it->code,
+                'qty' => (float) $it->qty,
+                'price' => (float) $it->price,
+                'gross_amount' => (float) ($it->net_amount ?? $it->gross_amount),
+            ];
+        });
+
+        return response()->json([
+            'invoice' => [
+                'invoice_no' => $invoice->invoice_no,
+                'invoice_date' => $invoice->invoice_date,
+                'invoice_time' => $invoice->invoice_time,
+                'customer_name' => $customer ? ($customer->name_ar ?? $customer->name_en) : '',
+                'customer_code' => $customer ? $customer->code : '',
+                'customer_phone' => $customer ? ($customer->phone ?? $customer->mobile) : '',
+                'customer_address' => $customer ? $customer->address_line : '',
+                'subtotal' => (float) $invoice->subtotal,
+                'tax_total' => (float) ($invoice->tax_total ?? 0),
+                'discount_total' => (float) ($invoice->invoice_discount_total ?? 0),
+                'net_total' => (float) $invoice->net_total,
+                'total' => (float) $invoice->net_total,
+                'paid_amount' => (float) $invoice->paid_amount,
+                'remaining_amount' => (float) $invoice->remaining_amount,
+                'items' => $mappedItems,
+            ],
+        ]);
+    }
+
+    /**
+     * Get payment methods for a specific invoice by client_uuid.
+     */
+    public function invoicePaymentMethods(Request $request, string $clientUuid)
+    {
+        $user = $request->user();
+        $companyId = $user->company_id;
+
+        $invoice = SalesInvoice::where('company_id', $companyId)
+            ->where('client_uuid', $clientUuid)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$invoice) {
+            return response()->json(['message' => 'الفاتورة غير موجودة'], 404);
+        }
+
+        $paymentMethods = SalesInvoicePaymentMethod::where('sales_invoice_id', $invoice->id)
+            ->with('paymentMethod')
+            ->get()
+            ->map(fn ($pm) => [
+                'id' => $pm->id,
+                'method_code' => $pm->method_code,
+                'method_name' => $pm->paymentMethod?->name ?? $pm->method_code,
+                'amount' => (float) $pm->amount,
+                'bank_account_id' => $pm->bank_account_id,
+                'notes' => $pm->notes,
+            ]);
+
+        return response()->json([
+            'invoice_id' => $invoice->id,
+            'invoice_no' => $invoice->invoice_no,
+            'client_uuid' => $clientUuid,
+            'paid_amount' => (float) $invoice->paid_amount,
+            'remaining_amount' => (float) $invoice->remaining_amount,
+            'payment_methods' => $paymentMethods,
         ]);
     }
 }

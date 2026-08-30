@@ -71,8 +71,8 @@ class PurchaseOrderController extends Controller
             'net_total' => ['sometimes', 'numeric'],
             'notes' => ['nullable', 'string'],
             'status' => ['sometimes', 'string', 'max:20', Rule::in(['draft', 'submitted', 'approved', 'rejected', 'closed', 'partially_received', 'received'])],
-            'created_by' => ['nullable', 'exists:employees,id'],
-            'approved_by' => ['nullable', 'exists:employees,id'],
+            'created_by' => ['nullable', 'exists:users,id'],
+            'approved_by' => ['nullable', 'exists:users,id'],
         ]);
 
         $purchaseOrder = PurchaseOrder::create($validated);
@@ -111,8 +111,8 @@ class PurchaseOrderController extends Controller
             'net_total' => ['sometimes', 'numeric'],
             'notes' => ['nullable', 'string'],
             'status' => ['sometimes', 'string', 'max:20', Rule::in(['draft', 'submitted', 'approved', 'rejected', 'closed', 'partially_received', 'received'])],
-            'created_by' => ['nullable', 'exists:employees,id'],
-            'approved_by' => ['nullable', 'exists:employees,id'],
+            'created_by' => ['nullable', 'exists:users,id'],
+            'approved_by' => ['nullable', 'exists:users,id'],
         ]);
 
         $purchaseOrder->update($validated);

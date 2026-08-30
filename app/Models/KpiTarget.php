@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\User;
 
 class KpiTarget extends Model
 {
@@ -14,7 +15,7 @@ class KpiTarget extends Model
 
     protected $fillable = [
         'kpi_definition_id',
-        'employee_id',
+        'user_id',
         'period_from',
         'period_to',
         'target_value',
@@ -31,8 +32,8 @@ class KpiTarget extends Model
         return $this->belongsTo(KpiDefinition::class);
     }
 
-    public function employee()
+    public function user()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 }

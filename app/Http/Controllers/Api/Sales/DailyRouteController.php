@@ -32,8 +32,8 @@ class DailyRouteController extends Controller
         if ($request->route_id) {
             $query->where('route_id', $request->route_id);
         }
-        if ($request->employee_id) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) {
+            $query->where('user_id', $request->user_id);
         }
         if ($request->route_date) {
             $query->where('route_date', $request->route_date);

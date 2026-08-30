@@ -5,7 +5,7 @@ namespace App\Models\Assets;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\HR\Employee;
+use App\Models\User;
 
 class AssetAssignment extends Model
 {
@@ -15,7 +15,7 @@ class AssetAssignment extends Model
 
     protected $fillable = [
         'asset_id',
-        'employee_id',
+        'user_id',
         'assigned_date',
         'returned_date',
         'status',
@@ -31,8 +31,8 @@ class AssetAssignment extends Model
         return $this->belongsTo(Asset::class);
     }
 
-    public function employee()
+    public function user()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 }

@@ -80,6 +80,44 @@ class PurchaseInvoice extends Document
         $this->syncStock($items);
     }
 
+    public function receiveQuantities(array $received): void
+    {
+        if (!in_array($this->status, ['draft', 'partial'], true)) {
+            throw new \DomainException('لا يمكن استلام فاتورة بهذه الحالة');
+        }
+
+        $stockItems = [];
+        foreach ($this->items as $item) {
+            $qty = (float) ($received[$item->item_id] ?? 0);
+            $alreadyReceived = (float) ($item->received_qty ?? 0);
+            $remaining = max(0, (float) $item->qty - $alreadyReceived);
+            if ($qty < 0 || $qty > $remaining) {
+                throw new \DomainException("الكمية المستلمة للصنف {$item->item_id} أكبر من المتبقي");
+            }
+            if ($qty > 0) {
+                $stockItems[] = array_merge($item->toArray(), [
+                    'qty' => $qty,
+                    'base_quantity' => 0,
+                    'conversion_factor' => 0,
+                ]);
+            }
+        }
+
+        if (!$stockItems) throw new \DomainException('أدخل كمية مستلمة واحدة على الأقل');
+        $this->syncStock($stockItems, now());
+        foreach ($this->items as $item) {
+            $qty = (float) ($received[$item->item_id] ?? 0);
+            if ($qty > 0) $item->increment('received_qty', $qty);
+        }
+        $this->refresh()->load('items');
+        $complete = $this->items->every(fn ($item) =>
+            (float) $item->received_qty >= (float) $item->qty);
+        $this->update([
+            'status' => $complete ? self::STATUS_POSTED : 'partial',
+            'posted_at' => $complete ? now() : null,
+        ]);
+    }
+
     protected function onCancel(): void
     {
         Log::info('PurchaseInvoice onCancel called', ['id' => $this->id, 'invoice_no' => $this->invoice_no]);
@@ -96,7 +134,7 @@ class PurchaseInvoice extends Document
 
     // ─── Stock Sync ─────────────────────────────────────────
 
-    private function syncStock(array $items): void
+    private function syncStock(array $items, ?\Carbon\Carbon $transactionDate = null): void
     {
         if (empty($items) || !$this->warehouse_id) return;
 
@@ -116,7 +154,7 @@ class PurchaseInvoice extends Document
             'transaction_type_id' => $type->id,
             'warehouse_id' => $this->warehouse_id,
             'transaction_no' => InventoryTransaction::nextTransactionNo($this->company_id),
-            'transaction_date' => $this->invoice_date,
+            'transaction_date' => $transactionDate ?? $this->invoice_date,
             'transaction_time' => now()->format('H:i:s'),
             'reference_type' => PurchaseInvoice::class,
             'reference_id' => $this->id,

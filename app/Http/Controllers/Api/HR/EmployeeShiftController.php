@@ -29,7 +29,7 @@ class EmployeeShiftController extends Controller
         $with = $request->with ? explode(',', $request->with) : [];
         $query = EmployeeShift::with($with);
 
-        if ($request->employee_id) $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) $query->where('user_id', $request->user_id);
         if ($request->is_current !== null) $query->where('is_current', $request->boolean('is_current'));
 
         if ($request->trashed) {
@@ -47,7 +47,7 @@ class EmployeeShiftController extends Controller
         $data = $request->validate(ValidationRules::for('employee_shift', 'store'));
 
         if (!empty($data['is_current']) && $data['is_current']) {
-            EmployeeShift::where('employee_id', $data['employee_id'])
+            EmployeeShift::where('user_id', $data['user_id'])
                 ->where('is_current', true)->update(['is_current' => false]);
         }
 
@@ -70,7 +70,7 @@ class EmployeeShiftController extends Controller
         $data = $request->validate(ValidationRules::for('employee_shift', 'update', $employeeShift));
 
         if (!empty($data['is_current']) && $data['is_current']) {
-            EmployeeShift::where('employee_id', $employeeShift->employee_id)
+            EmployeeShift::where('user_id', $employeeShift->user_id)
                 ->where('is_current', true)
                 ->where('id', '!=', $employeeShift->id)
                 ->update(['is_current' => false]);

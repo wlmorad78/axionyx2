@@ -27,11 +27,8 @@ if (!function_exists('resolveEmployee')) {
             $salesmanUser = \App\Models\User::find($salesmanUserId);
 
             if ($salesmanUser) {
-                $employee = $salesmanUser->employee;
-
-                if (!$employee) {
-                    $employee = \App\Models\Employee::where('email', $salesmanUser->email)->first();
-                }
+                // لا توجد علاقة مباشرة بين المستخدم والموظف — يُحل الموظف عبر البريد أو المندوب.
+                $employee = \App\Models\Employee::where('email', $salesmanUser->email)->first();
 
                 if (!$employee) {
                     $representative = \App\Models\Representative::where('user_id', $salesmanUser->id)->first();

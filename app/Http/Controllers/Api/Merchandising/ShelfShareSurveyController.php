@@ -54,7 +54,7 @@ class ShelfShareSurveyController extends Controller
         $data = $request->validate([
             'company_id' => 'required|exists:companies,id',
             'customer_id' => 'required|exists:customers,id',
-            'sales_rep_id' => 'required|exists:employees,id',
+            'sales_rep_id' => 'required|exists:users,id',
             'survey_date' => 'required|date',
             'notes' => 'nullable|string',
         ]);
@@ -78,7 +78,7 @@ class ShelfShareSurveyController extends Controller
         $data = $request->validate([
             'company_id' => 'sometimes|required|exists:companies,id',
             'customer_id' => 'sometimes|required|exists:customers,id',
-            'sales_rep_id' => 'sometimes|required|exists:employees,id',
+            'sales_rep_id' => 'sometimes|required|exists:users,id',
             'survey_date' => 'sometimes|required|date',
             'notes' => 'nullable|string',
         ]);

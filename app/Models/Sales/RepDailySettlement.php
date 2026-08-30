@@ -63,5 +63,6 @@ class RepDailySettlement extends Model
     public function createdBy() { return $this->belongsTo(Employee::class, 'created_by'); }
     public function approvedBy() { return $this->belongsTo(Employee::class, 'approved_by'); }
     public function expenses() { return $this->hasMany(RepDailyExpense::class, 'settlement_id'); }
+    public function items() { return $this->hasMany(RepDailySettlementItem::class, 'settlement_id'); }
     public function salesmanDebt() { return $this->belongsTo(SalesmanDebt::class, 'salesman_debt_id'); }
 }

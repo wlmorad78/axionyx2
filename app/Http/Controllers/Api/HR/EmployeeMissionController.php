@@ -29,7 +29,7 @@ class EmployeeMissionController extends Controller
         $with = $request->with ? explode(',', $request->with) : [];
         $query = EmployeeMission::with($with);
 
-        if ($request->employee_id) $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) $query->where('user_id', $request->user_id);
         if ($request->status) $query->where('status', $request->status);
 
         if ($request->search) {

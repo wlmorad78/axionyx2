@@ -32,7 +32,13 @@ class PurchaseInvoiceController extends Controller
      */
     public function index(Request $request)
     {
-        $query = PurchaseInvoice::with(['supplier', 'purchaseReceipt', 'createdByEmployee']);
+        $query = PurchaseInvoice::with([
+            'supplier',
+            'purchaseReceipt',
+            'createdByEmployee',
+            'items.item',
+            'items.unit',
+        ]);
 
         if ($request->filled('company_id')) {
             $query->where('company_id', $request->company_id);
@@ -45,6 +51,11 @@ class PurchaseInvoiceController extends Controller
         }
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+        if ($request->boolean('incomplete')) {
+            $query->whereHas('items', function ($items) {
+                $items->whereColumn('received_qty', '<', 'qty');
+            });
         }
         if ($request->filled('search')) {
             $query->where('invoice_no', 'like', '%' . $request->search . '%');
@@ -219,12 +230,69 @@ class PurchaseInvoiceController extends Controller
     public function post(PurchaseInvoice $purchaseInvoice)
     {
         try {
-            DB::transaction(fn() => $purchaseInvoice->post());
+            DB::transaction(function () use ($purchaseInvoice) {
+                // Posting a draft is also its first receipt. This prevents the
+                // whole invoice quantity from entering stock before partial
+                // receipt quantities are recorded.
+                if ($purchaseInvoice->status === 'draft') {
+                    $purchaseInvoice->load('items');
+                    $purchaseInvoice->receiveQuantities(
+                        $purchaseInvoice->items->mapWithKeys(fn ($item) => [
+                            (int) $item->item_id => (float) $item->qty,
+                        ])->all()
+                    );
+                    return;
+                }
+
+                if ($purchaseInvoice->status === 'partial') {
+                    throw new \DomainException(
+                        'الفاتورة مستلمة جزئيًا. استخدم استلام الكمية المتبقية.'
+                    );
+                }
+
+                $purchaseInvoice->post();
+            });
         } catch (\DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
         return response()->json($purchaseInvoice->fresh());
+    }
+
+    public function receive(Request $request, PurchaseInvoice $purchaseInvoice)
+    {
+        $data = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.item_id' => ['required', 'integer'],
+            'items.*.qty' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($purchaseInvoice, $data) {
+                $received = collect($data['items'])->mapWithKeys(fn ($item) => [
+                    (int) $item['item_id'] => (float) $item['qty'],
+                ])->all();
+                $purchaseInvoice->load('items');
+                $purchaseInvoice->receiveQuantities($received);
+            });
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($purchaseInvoice->fresh()->load('items.item', 'items.unit'));
+    }
+
+    public function receipts(PurchaseInvoice $purchaseInvoice)
+    {
+        $transactions = InventoryTransaction::with('items.item')
+            ->where('reference_type', PurchaseInvoice::class)
+            ->where('reference_id', $purchaseInvoice->id)
+            ->where('status', 'posted')
+            ->latest('transaction_date')
+            ->latest('id')
+            ->get();
+
+        return response()->json($transactions);
     }
 
     /**

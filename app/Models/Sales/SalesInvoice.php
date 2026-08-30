@@ -67,6 +67,7 @@ class SalesInvoice extends Document
     public function discounts() { return $this->hasMany(SalesInvoiceDiscount::class); }
     public function taxes() { return $this->hasMany(SalesInvoiceTax::class); }
     public function invoiceIncentives() { return $this->hasMany(SalesInvoiceIncentive::class); }
+    public function paymentMethods() { return $this->hasMany(SalesInvoicePaymentMethod::class); }
     public function device() { return $this->belongsTo(Device::class, 'device_id', 'id'); }
 
     // ─── Document Implementation ────────────────────────────

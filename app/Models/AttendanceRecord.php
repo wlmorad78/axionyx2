@@ -5,13 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\User;
 
 class AttendanceRecord extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'employee_id',
+        'user_id',
         'attendance_date',
         'shift_id',
         'check_in',
@@ -35,9 +36,9 @@ class AttendanceRecord extends Model
         ];
     }
 
-    public function employee()
+    public function user()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 
     public function shift()

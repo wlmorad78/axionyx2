@@ -27,6 +27,10 @@ class User extends Authenticatable
         'phone',
         'is_active',
         'company_id',
+        'user_type_id',
+        'branch_id',
+        'warehouse_id',
+        'treasury_id',
         'last_login_at',
         'last_login_ip',
     ];
@@ -48,9 +52,9 @@ class User extends Authenticatable
 
     // ==================== Relationships ====================
 
-    public function roles(): BelongsToMany
+    public function userType(): BelongsTo
     {
-        return $this->belongsToMany(Role::class, 'user_roles');
+        return $this->belongsTo(UserType::class);
     }
 
     public function company(): BelongsTo
@@ -58,9 +62,40 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Inventory\Warehouse::class);
+    }
+
+    public function treasury(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Treasury\Treasury::class);
+    }
+
     public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class, 'company_user');
+    }
+
+    /**
+     * Virtual roles accessor for backward compatibility with old code
+     * that expects a 'roles' relationship. Returns userType as a collection.
+     */
+    public function getRolesAttribute()
+    {
+        if (!$this->userType) {
+            return collect();
+        }
+        return collect([(object) [
+            'id' => $this->userType->id,
+            'name' => $this->userType->name_ar,
+            'code' => $this->userType->code,
+        ]]);
     }
 
     public function branches(): BelongsToMany
@@ -91,22 +126,24 @@ class User extends Authenticatable
         return $this->hasOne(Representative::class);
     }
 
-    public function employee(): HasOne
-    {
-        return $this->hasOne(Employee::class);
-    }
-
     public function loginLogs(): HasMany
     {
         return $this->hasMany(LoginLog::class);
     }
 
-    // ==================== Role Methods ====================
+    // ==================== Role / User-Type Methods ====================
+    // الأدوار استبدلت بنوع المستخدم (user_type). الدوال تُبقي نفس التوقيع
+    // لكن تعمل فوق user_type لتقليل كسر باقي الكود. لا يوجد فحص صلاحيات (permissions)
+    // في هذه المرحلة — الصلاحيات تُحدَّد لاحقاً عبر user_type_permissions.
 
     public function isAdmin(): bool
     {
-        return $this->roles->contains('name', RoleNames::ADMIN)
-            || $this->roles->contains('name', 'super_admin');
+        if ($this->company_id === null) {
+            return true; // super admin
+        }
+
+        return $this->userType
+            && in_array(strtolower($this->userType->name_ar), ['owner', 'admin', 'super_admin']);
     }
 
     public function isSuperAdmin(): bool
@@ -116,27 +153,39 @@ class User extends Authenticatable
 
     public function hasRole(string $roleName): bool
     {
-        return $this->roles->contains('name', $roleName);
+        return $this->userType
+            && strcasecmp($this->userType->name_ar, $roleName) === 0;
     }
 
     public function hasAnyRole(array $roleNames): bool
     {
-        return $this->roles->whereIn('name', $roleNames)->isNotEmpty();
+        if (!$this->userType) {
+            return false;
+        }
+
+        $current = strtolower($this->userType->name_ar);
+
+        return collect($roleNames)->map(fn ($n) => strtolower($n))->contains($current);
     }
 
     public function assignRole(string $roleName): void
     {
-        $role = Role::where('name', $roleName)->first();
-        if ($role && !$this->roles->contains('id', $role->id)) {
-            $this->roles()->attach($role);
+        $type = UserType::where(function ($q) {
+            $q->where('company_id', $this->company_id)
+              ->orWhereNull('company_id');
+        })->where('name_ar', $roleName)->first();
+
+        if ($type) {
+            $this->user_type_id = $type->id;
+            $this->save();
         }
     }
 
     public function removeRole(string $roleName): void
     {
-        $role = Role::where('name', $roleName)->first();
-        if ($role) {
-            $this->roles()->detach($role);
+        if ($this->hasRole($roleName)) {
+            $this->user_type_id = null;
+            $this->save();
         }
     }
 
@@ -144,35 +193,24 @@ class User extends Authenticatable
 
     public function allPermissions(): \Illuminate\Support\Collection
     {
-        return $this->roles->flatMap->permissions->unique('id');
+        // لا يوجد نظام صلاحيات في هذه المرحلة
+        return collect();
     }
 
     public function hasPermissionTo(string $permissionCode): bool
     {
-        if ($this->isAdmin()) {
-            return true;
-        }
-
-        return $this->allPermissions()->contains('code', $permissionCode);
+        // لا يوجد فحص صلاحيات حالياً
+        return true;
     }
 
     public function hasAnyPermission(array $permissionCodes): bool
     {
-        if ($this->isAdmin()) {
-            return true;
-        }
-
-        return $this->allPermissions()->whereIn('code', $permissionCodes)->isNotEmpty();
+        return true;
     }
 
     public function hasAllPermissions(array $permissionCodes): bool
     {
-        if ($this->isAdmin()) {
-            return true;
-        }
-
-        $userPermissions = $this->allPermissions()->pluck('code')->toArray();
-        return empty(array_diff($permissionCodes, $userPermissions));
+        return true;
     }
 
     // ==================== Company & Branch Methods ====================

@@ -18,7 +18,7 @@ class Route extends Model
         'company_id',
         'branch_id',
         'sales_territory_id',
-        'employee_id',
+        'user_id',
         'code',
         'name_ar',
         'name_en',
@@ -66,9 +66,9 @@ class Route extends Model
         return $this->belongsTo(SalesTerritory::class);
     }
 
-    public function employee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\HR\Employee::class);
+        return $this->belongsTo(\App\Models\User::class);
     }
 
     public function schedules(): HasMany

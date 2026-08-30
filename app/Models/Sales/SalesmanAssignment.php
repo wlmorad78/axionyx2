@@ -6,14 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\HR\Employee;
+use App\Models\User;
 
 class SalesmanAssignment extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
-        'employee_id',
+        'user_id',
         'sales_territory_id',
         'warehouse_id',
         'treasury_id',
@@ -31,9 +31,9 @@ class SalesmanAssignment extends Model
         'is_active' => 'boolean',
     ];
 
-    public function employee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 
     public function salesTerritory(): BelongsTo

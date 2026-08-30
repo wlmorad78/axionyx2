@@ -373,7 +373,7 @@ class ReturnAuthorizationController extends Controller
         if (!$invoiceItem) return;
 
         $distribution = \App\Models\Sales\RepItemDistribution::where('item_id', $authItem->item_id)
-            ->where('employee_id', $authItem->returnAuthorization->salesman_id)
+            ->where('user_id', $authItem->returnAuthorization->salesman_id)
             ->where('status', 'active')
             ->first();
 

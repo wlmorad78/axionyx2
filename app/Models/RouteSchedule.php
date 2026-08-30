@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
 
 class RouteSchedule extends Model
 {
@@ -12,7 +13,7 @@ class RouteSchedule extends Model
 
     protected $fillable = [
         'route_id',
-        'employee_id',
+        'user_id',
         'day_of_week',
         'weeks',
         'visit_order',
@@ -33,8 +34,8 @@ class RouteSchedule extends Model
         return $this->belongsTo(Route::class);
     }
 
-    public function employee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(\App\Models\User::class);
     }
 }

@@ -31,8 +31,8 @@ class SalesmanAssignmentController extends Controller
         $mergedWith = array_unique(array_merge($defaultWith, $with));
         $query = SalesmanAssignment::with($mergedWith);
 
-        if ($request->employee_id) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->user_id) {
+            $query->where('user_id', $request->user_id);
         }
         if ($request->sales_territory_id) {
             $query->where('sales_territory_id', $request->sales_territory_id);

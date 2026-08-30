@@ -54,7 +54,7 @@ class CompetitorNewProductController extends Controller
         $data = $request->validate([
             'competitor_id' => 'required|exists:competitors,id',
             'competitor_product_id' => 'required|exists:competitor_products,id',
-            'reported_by' => 'required|exists:employees,id',
+            'reported_by' => 'required|exists:users,id',
             'customer_id' => 'nullable|exists:customers,id',
             'report_date' => 'required|date',
             'notes' => 'nullable|string',
@@ -79,7 +79,7 @@ class CompetitorNewProductController extends Controller
         $data = $request->validate([
             'competitor_id' => 'sometimes|required|exists:competitors,id',
             'competitor_product_id' => 'sometimes|required|exists:competitor_products,id',
-            'reported_by' => 'sometimes|required|exists:employees,id',
+            'reported_by' => 'sometimes|required|exists:users,id',
             'customer_id' => 'nullable|exists:customers,id',
             'report_date' => 'sometimes|required|date',
             'notes' => 'nullable|string',

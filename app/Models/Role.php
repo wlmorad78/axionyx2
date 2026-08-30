@@ -35,11 +35,6 @@ class Role extends Model
         return $this->belongsToMany(Permission::class, 'role_permissions');
     }
 
-    public function users(): BelongsToMany
-    {
-        return $this->belongsToMany(User::class, 'user_roles');
-    }
-
     public function widgets(): BelongsToMany
     {
         return $this->belongsToMany(DashboardWidget::class, 'role_widgets', 'role_id', 'dashboard_widget_id')

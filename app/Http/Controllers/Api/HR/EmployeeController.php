@@ -82,7 +82,6 @@ class EmployeeController extends Controller
             ]);
             $roleName = $request->input('user_role', 'sales_rep');
             $user->assignRole($roleName);
-            $employee->update(['user_id' => $user->id]);
         }
 
         return response()->json($employee, 201);
@@ -93,7 +92,7 @@ class EmployeeController extends Controller
      */
     public function show(Employee $employee)
     {
-        return $employee->load(['company', 'user', 'country', 'governorate', 'city', 'area', 'status']);
+        return $employee->load(['company', 'country', 'governorate', 'city', 'area', 'status']);
     }
 
     /**
