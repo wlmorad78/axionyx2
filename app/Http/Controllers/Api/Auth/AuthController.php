@@ -74,7 +74,10 @@ class AuthController extends Controller
             ? $company->subscriptions()->where('status', 'active')->with('plan')->first()
             : null;
 
+        $branch = $user->branches()->first();
+
         return response()->json([
+            'token' => $token,
             'user' => [
                 'id' => $user->id,
                 'usercode' => $user->usercode,
@@ -86,10 +89,15 @@ class AuthController extends Controller
             'company' => $company ? [
                 'id' => $company->id,
                 'code' => $company->code,
+                'name' => $company->name_ar ?? $company->name_en ?? $company->code,
                 'name_ar' => $company->name_ar,
                 'name_en' => $company->name_en,
                 'phone' => $company->phone,
                 'email' => $company->email,
+            ] : null,
+            'branch' => $branch ? [
+                'id' => $branch->id,
+                'name' => $branch->name ?? $branch->name_ar ?? '',
             ] : null,
             'plan' => $subscription?->plan ? [
                 'id' => $subscription->plan->id,
