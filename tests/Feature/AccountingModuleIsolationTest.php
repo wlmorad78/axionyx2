@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Accounting\Account;
-use App\Models\Accounting\Budget;
-use App\Models\Accounting\CostCenter;
-use App\Models\Accounting\FiscalYear;
-use App\Models\Accounting\OpeningBalance;
-use App\Models\Company\Company;
+use App\Models\Account;
+use App\Models\Budget;
+use App\Models\CostCenter;
+use App\Models\FiscalYear;
+use App\Models\OpeningBalance;
+use App\Models\Company;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Company;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\CompanySubscriptionLimit;
+use App\Models\CompanySubscriptionLimit;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

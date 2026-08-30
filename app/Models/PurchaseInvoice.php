@@ -171,6 +171,81 @@ class PurchaseInvoice extends Document
         }
     }
 
+    // ─── Receive Quantities ────────────────────────────────
+
+    public function receiveQuantities(array $received): void
+    {
+        $this->load('items');
+
+        foreach ($this->items as $item) {
+            $qty = (float) ($received[$item->item_id] ?? 0);
+            if ($qty > 0) {
+                $item->increment('received_qty', $qty);
+                $this->addItemToStock($item, $qty);
+            }
+        }
+
+        $this->refresh()->load('items');
+
+        $allFullyReceived = $this->items->every(fn ($item) => (float) $item->received_qty >= (float) $item->qty);
+        $anyReceived = $this->items->contains(fn ($item) => (float) $item->received_qty > 0);
+
+        if ($allFullyReceived) {
+            $this->update(['status' => 'posted']);
+        } elseif ($anyReceived) {
+            $this->update(['status' => 'partial']);
+        }
+    }
+
+    private function addItemToStock(PurchaseInvoiceItem $item, float $receivedQty): void
+    {
+        if (!$this->warehouse_id || $receivedQty <= 0) return;
+
+        $type = InventoryTransactionType::firstWhere('code', 'PURCHASE_RECEIPT') ?? null;
+        if (!$type) {
+            $type = InventoryTransactionType::firstOrCreate(
+                ['code' => 'PURCHASE_RECEIPT'],
+                ['name' => 'Purchase Receipt', 'effect' => 'addition', 'is_active' => true]
+            );
+        }
+
+        $txn = InventoryTransaction::create([
+            'company_id' => $this->company_id,
+            'branch_id' => $this->branch_id,
+            'transaction_type_id' => $type->id,
+            'warehouse_id' => $this->warehouse_id,
+            'transaction_no' => InventoryTransaction::nextTransactionNo($this->company_id),
+            'transaction_date' => now()->toDateString(),
+            'transaction_time' => now()->format('H:i:s'),
+            'reference_type' => PurchaseInvoice::class,
+            'reference_id' => $this->id,
+            'notes' => "استلام جزئي - فاتورة مشتريات رقم {$this->invoice_no}",
+            'status' => 'posted',
+            'created_by' => $this->created_by,
+        ]);
+
+        $unitService = app(UnitConversionService::class);
+        $enteredUnitId = $item->unit_id ?? null;
+        $resolved = $unitService->resolveUnit($item->item_id, $enteredUnitId);
+        $unitId = $resolved?->unit_id ?? $enteredUnitId;
+        $conversionFactor = $resolved?->conversion_factor ?? 1;
+        $qtyInBase = $unitService->toBase($item->item_id, $unitId, $receivedQty);
+
+        InventoryTransactionItem::create([
+            'inventory_transaction_id' => $txn->id,
+            'item_id' => $item->item_id,
+            'unit_id' => $unitId,
+            'conversion_factor' => $conversionFactor,
+            'qty' => $qtyInBase,
+            'unit_cost' => $item->price ?? 0,
+            'total_cost' => $receivedQty * ($item->price ?? 0),
+            'from_location_type' => 'supplier',
+            'from_location_id'   => $this->supplier_id,
+            'to_location_type'   => 'warehouse',
+            'to_location_id'     => $this->warehouse_id,
+        ]);
+    }
+
     // ─── Auto-generate Invoice Number ───────────────────────
 
     protected static function booted(): void

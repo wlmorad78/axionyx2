@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Traits\BelongsToCompany;
 use App\Scopes\CompanyIsolationScope;
-use App\Models\Company\Company;
+use App\Models\Company;
 
 class UserType extends Model
 {

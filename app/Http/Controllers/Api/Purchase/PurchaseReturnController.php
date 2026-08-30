@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Purchase;
 
 use App\Http\Controllers\Controller;
-use App\Models\Purchase\PurchaseReturn;
+use App\Models\PurchaseReturn;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

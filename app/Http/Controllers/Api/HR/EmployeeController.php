@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\HR;
 
 use App\Http\Controllers\Controller;
-use App\Models\HR\Employee;
+use App\Models\Employee;
 use App\Models\User;
 use App\Services\CompanyContext;
 use App\Support\ValidationRules;

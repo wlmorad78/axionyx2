@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Purchase;
 
 use App\Http\Controllers\Controller;
-use App\Models\Purchase\PurchaseOrder;
+use App\Models\PurchaseOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;

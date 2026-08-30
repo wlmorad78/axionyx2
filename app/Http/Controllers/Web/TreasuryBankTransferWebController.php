@@ -15,8 +15,8 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\Treasury\TreasuryBankTransfer;
-use App\Models\Treasury\Treasury;
+use App\Models\TreasuryBankTransfer;
+use App\Models\Treasury;
 use App\Models\BankAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -96,7 +96,7 @@ class TreasuryBankTransferWebController extends Controller
             $amount = (float) $transfer->amount;
 
             if ($transfer->transfer_type === 'treasury_to_bank') {
-                \App\Models\Treasury\TreasuryTransaction::create([
+                \App\Models\TreasuryTransaction::create([
                     'company_id' => $transfer->company_id,
                     'treasury_id' => $transfer->treasury_id,
                     'type' => 'debit',
@@ -111,7 +111,7 @@ class TreasuryBankTransferWebController extends Controller
                 BankAccount::where('id', $transfer->bank_account_id)
                     ->increment('current_balance', $amount);
             } else {
-                \App\Models\Treasury\TreasuryTransaction::create([
+                \App\Models\TreasuryTransaction::create([
                     'company_id' => $transfer->company_id,
                     'treasury_id' => $transfer->treasury_id,
                     'type' => 'credit',
@@ -154,7 +154,7 @@ class TreasuryBankTransferWebController extends Controller
             if ($treasuryBankTransfer->status === 'completed') {
                 $amount = (float) $treasuryBankTransfer->amount;
 
-                \App\Models\Treasury\TreasuryTransaction::where('reference_type', TreasuryBankTransfer::class)
+                \App\Models\TreasuryTransaction::where('reference_type', TreasuryBankTransfer::class)
                     ->where('reference_id', $treasuryBankTransfer->id)
                     ->each(fn($txn) => $txn->forceDelete());
 

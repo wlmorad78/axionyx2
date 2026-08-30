@@ -47,7 +47,7 @@ class SalesmanAssignment extends Model
 
     public function treasury(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Treasury\Treasury::class);
+        return $this->belongsTo(\App\Models\Treasury::class);
     }
 
     public function parentAssignment(): BelongsTo

@@ -15,12 +15,12 @@
 namespace App\Http\Controllers\Api\Purchase;
 
 use App\Http\Controllers\Controller;
-use App\Models\Purchase\PurchaseInvoice;
-use App\Models\Purchase\PurchaseInvoiceItem;
-use App\Models\Inventory\InventoryTransaction;
-use App\Models\Inventory\InventoryTransactionItem;
-use App\Models\Inventory\InventoryTransactionType;
-use App\Models\Treasury\TreasuryTransaction;
+use App\Models\PurchaseInvoice;
+use App\Models\PurchaseInvoiceItem;
+use App\Models\InventoryTransaction;
+use App\Models\InventoryTransactionItem;
+use App\Models\InventoryTransactionType;
+use App\Models\TreasuryTransaction;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -231,16 +231,8 @@ class PurchaseInvoiceController extends Controller
     {
         try {
             DB::transaction(function () use ($purchaseInvoice) {
-                // Posting a draft is also its first receipt. This prevents the
-                // whole invoice quantity from entering stock before partial
-                // receipt quantities are recorded.
                 if ($purchaseInvoice->status === 'draft') {
-                    $purchaseInvoice->load('items');
-                    $purchaseInvoice->receiveQuantities(
-                        $purchaseInvoice->items->mapWithKeys(fn ($item) => [
-                            (int) $item->item_id => (float) $item->qty,
-                        ])->all()
-                    );
+                    $purchaseInvoice->update(['status' => 'posted', 'posted_at' => now()]);
                     return;
                 }
 

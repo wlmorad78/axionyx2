@@ -13,7 +13,7 @@
 namespace App\Http\Controllers\Api\OwnerAccount;
 
 use App\Http\Controllers\Controller;
-use App\Models\OwnerAccount\OwnerTransaction;
+use App\Models\OwnerTransaction;
 use App\Services\OwnerAccountService;
 use Illuminate\Http\Request;
 

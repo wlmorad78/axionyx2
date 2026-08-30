@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Surveys;
 
 use App\Http\Controllers\Controller;
-use App\Models\Surveys\Competitor;
+use App\Models\Competitor;
 use Illuminate\Http\Request;
 
 class CompetitorController extends Controller

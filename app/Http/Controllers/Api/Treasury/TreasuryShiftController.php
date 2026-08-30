@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
-use App\Models\Treasury\TreasuryShift;
+use App\Models\TreasuryShift;
 use Illuminate\Http\Request;
 
 class TreasuryShiftController extends Controller

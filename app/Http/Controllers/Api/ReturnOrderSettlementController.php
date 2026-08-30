@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ReturnOrderSettlement;
-use App\Models\Sales\ReturnOrder;
-use App\Models\Sales\ReturnOrderItem;
+use App\Models\ReturnOrder;
+use App\Models\ReturnOrderItem;
 use App\Services\ReturnOrderSettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -217,8 +217,8 @@ class ReturnOrderSettlementController extends Controller
     {
         $settlement->load('items.replacements');
 
-        $employee = \App\Models\HR\Employee::find($settlement->user_id);
-        $warehouse = \App\Models\Inventory\Warehouse::find($settlement->warehouse_id);
+        $employee = \App\Models\Employee::find($settlement->user_id);
+        $warehouse = \App\Models\Warehouse::find($settlement->warehouse_id);
 
         return response()->json([
             'success' => true,

@@ -15,12 +15,12 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\SalesInvoice;
-use App\Models\Sales\SalesInvoiceItem;
-use App\Models\Inventory\InventoryTransaction;
-use App\Models\Inventory\InventoryTransactionItem;
-use App\Models\Inventory\InventoryTransactionType;
-use App\Models\Treasury\TreasuryTransaction;
+use App\Models\SalesInvoice;
+use App\Models\SalesInvoiceItem;
+use App\Models\InventoryTransaction;
+use App\Models\InventoryTransactionItem;
+use App\Models\InventoryTransactionType;
+use App\Models\TreasuryTransaction;
 use Illuminate\Support\Facades\Log;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;

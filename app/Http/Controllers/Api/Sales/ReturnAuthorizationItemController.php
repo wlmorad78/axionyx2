@@ -15,9 +15,9 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\ReturnAuthorization;
-use App\Models\Sales\ReturnAuthorizationItem;
-use App\Models\HR\Employee;
+use App\Models\ReturnAuthorization;
+use App\Models\ReturnAuthorizationItem;
+use App\Models\Employee;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

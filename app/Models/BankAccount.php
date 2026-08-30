@@ -1,10 +1,10 @@
 <?php
 namespace App\Models;
 
-use App\Models\Accounting\Account;
-use App\Models\Company\Branch;
-use App\Models\Company\Company;
-use App\Models\Settings\Currency;
+use App\Models\Account;
+use App\Models\Branch;
+use App\Models\Company;
+use App\Models\Currency;
 use App\Traits\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
-use App\Models\CRM\OpportunityStage;
+use App\Models\OpportunityStage;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

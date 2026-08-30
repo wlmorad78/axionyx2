@@ -15,10 +15,10 @@
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
-use App\Models\Treasury\PaymentVoucher;
-use App\Models\Purchase\PurchaseInvoice;
-use App\Models\Treasury\TreasuryTransaction;
-use App\Models\Treasury\Treasury;
+use App\Models\PaymentVoucher;
+use App\Models\PurchaseInvoice;
+use App\Models\TreasuryTransaction;
+use App\Models\Treasury;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

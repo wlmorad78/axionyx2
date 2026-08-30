@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\Currency;
+use App\Models\Currency;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

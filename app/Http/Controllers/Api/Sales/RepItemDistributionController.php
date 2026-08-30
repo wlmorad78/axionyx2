@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\RepItemDistribution;
+use App\Models\RepItemDistribution;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -83,6 +83,7 @@ class RepItemDistributionController extends Controller
         } else {
             $record = RepItemDistribution::create([
                 'company_id' => $companyId,
+                'employee_id' => $validated['user_id'],
                 'user_id' => $validated['user_id'],
                 'item_id' => $validated['item_id'],
                 'issue_order_id' => $validated['issue_order_id'] ?? null,
@@ -139,6 +140,7 @@ class RepItemDistributionController extends Controller
                 } else {
                     $record = RepItemDistribution::create([
                         'company_id' => $companyId,
+                        'employee_id' => $validated['user_id'],
                         'user_id' => $validated['user_id'],
                         'item_id' => $item['item_id'],
                         'issue_order_id' => $validated['issue_order_id'] ?? null,

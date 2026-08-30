@@ -1254,8 +1254,8 @@ foreach ($softDeleteResources as $resource) {
             'vehicles' => \App\Models\Vehicle::class,
             'vehicle-types' => \App\Models\VehicleType::class,
             'vehicle-warehouses' => \App\Models\VehicleWarehouse::class,
-            'load-requests' => \App\Models\Sales\LoadRequest::class,
-            'load-request-items' => \App\Models\Sales\LoadRequestItem::class,
+            'load-requests' => \App\Models\LoadRequest::class,
+            'load-request-items' => \App\Models\LoadRequestItem::class,
             'countries' => \App\Models\Country::class,
             'governorates' => \App\Models\Governorate::class,
             'cities' => \App\Models\City::class,
@@ -1295,8 +1295,8 @@ foreach ($softDeleteResources as $resource) {
             'vehicles' => \App\Models\Vehicle::class,
             'vehicle-types' => \App\Models\VehicleType::class,
             'vehicle-warehouses' => \App\Models\VehicleWarehouse::class,
-            'load-requests' => \App\Models\Sales\LoadRequest::class,
-            'load-request-items' => \App\Models\Sales\LoadRequestItem::class,
+            'load-requests' => \App\Models\LoadRequest::class,
+            'load-request-items' => \App\Models\LoadRequestItem::class,
             'countries' => \App\Models\Country::class,
             'governorates' => \App\Models\Governorate::class,
             'cities' => \App\Models\City::class,
@@ -1553,11 +1553,17 @@ Route::post('load-requests/create', function (\Illuminate\Http\Request $request)
         'notes' => 'nullable|string',
     ]);
 
-    $loadRequest = \App\Models\Sales\LoadRequest::create([
+    $requestNo = \App\Models\NumberSeries::nextNumber(
+        companyId: (int) $request->input('company_id', 1),
+        documentType: 'load_request',
+    );
+
+    $loadRequest = \App\Models\LoadRequest::create([
         'company_id' => $request->input('company_id', 1),
         'branch_id' => $request->input('branch_id'),
         'warehouse_id' => $data['warehouse_id'],
         'employee_id' => $request->input('employee_id', 1),
+        'request_no' => $requestNo,
         'request_date' => now()->toDateString(),
         'trip_date' => now()->toDateString(),
         'status' => 'draft',
@@ -1569,7 +1575,7 @@ Route::post('load-requests/create', function (\Illuminate\Http\Request $request)
         $incentiveQty = (float)($item['incentive_qty'] ?? 0);
         $totalQty = $qty + $incentiveQty;
         if ($totalQty > 0) {
-            \App\Models\Sales\LoadRequestItem::create([
+            \App\Models\LoadRequestItem::create([
                 'load_request_id' => $loadRequest->id,
                 'item_id' => $item['item_id'],
                 'unit_id' => $item['unit_id'] ?? null,

@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Permissions;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\Module;
+use App\Models\Module;
 use App\Services\ModuleRegistry;
 use App\Services\ModuleInstaller;
 use Illuminate\Http\Request;

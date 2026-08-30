@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Tax;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tax\TaxRate;
+use App\Models\TaxRate;
 use Illuminate\Http\Request;
 
 class TaxRateController extends Controller

@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory\Item;
+use App\Models\Item;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

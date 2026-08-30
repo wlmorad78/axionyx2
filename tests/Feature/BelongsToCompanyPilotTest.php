@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\Tax\TaxType;
-use App\Models\Inventory\ItemCategory;
-use App\Models\CRM\CustomerType;
-use App\Models\HR\Holiday;
-use App\Models\Pricing\PricingMethod;
+use App\Models\Company;
+use App\Models\TaxType;
+use App\Models\ItemCategory;
+use App\Models\CustomerType;
+use App\Models\Holiday;
+use App\Models\PricingMethod;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -293,7 +293,7 @@ class BelongsToCompanyPilotTest extends TestCase
         $this->assertNotNull($model->company_id);
         $this->assertEquals($this->companyA, $model->company_id);
 
-        $company = \App\Models\Company\Company::find($this->companyA);
+        $company = \App\Models\Company::find($this->companyA);
         $this->assertEquals('PILOT-A', $company->code);
     }
 }

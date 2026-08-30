@@ -15,8 +15,8 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\LoadRequest;
-use App\Models\Sales\LoadRequestItem;
+use App\Models\LoadRequest;
+use App\Models\LoadRequestItem;
 use App\Models\IssueOrder;
 use App\Models\IssueOrderItem;
 use App\Models\Item;
@@ -340,11 +340,17 @@ class LoadRequestWebController extends Controller
                 'create_notes' => $request->notes ?? 'تمت الموافقة من أمين المخزن',
             ]);
 
+            $issueNo = \App\Models\NumberSeries::nextNumber(
+                companyId: (int) $loadRequest->company_id,
+                documentType: 'issue_order',
+            );
+
             $issueOrder = IssueOrder::create([
                 'company_id' => $loadRequest->company_id,
                 'warehouse_id' => $loadRequest->warehouse_id,
                 'load_request_id' => $loadRequest->id,
                 'employee_id' => $loadRequest->employee_id,
+                'issue_no' => $issueNo,
                 'issue_date' => now()->toDateString(),
                 'issue_time' => now()->toTimeString(),
                 'user_id' => $loadRequest->user_id,
@@ -453,22 +459,22 @@ class LoadRequestWebController extends Controller
             $companyId = $loadRequest->company_id;
             $employeeId = $loadRequest->user_id;
 
-            $type = \App\Models\Inventory\InventoryTransactionType::where('code', 'RETURN_TO_WAREHOUSE')->first();
+            $type = \App\Models\InventoryTransactionType::where('code', 'RETURN_TO_WAREHOUSE')->first();
             if (!$type) {
-                $type = \App\Models\Inventory\InventoryTransactionType::firstOrCreate(
+                $type = \App\Models\InventoryTransactionType::firstOrCreate(
                     ['code' => 'RETURN_TO_WAREHOUSE'],
                     ['name' => 'إرجاع لأمر التحميل للمخزن', 'effect' => 'addition', 'is_active' => true]
                 );
             }
 
-            $txn = \App\Models\Inventory\InventoryTransaction::create([
+            $txn = \App\Models\InventoryTransaction::create([
                 'company_id' => $companyId,
                 'warehouse_id' => $warehouseId,
                 'transaction_type_id' => $type->id,
-                'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($companyId),
+                'transaction_no' => \App\Models\InventoryTransaction::nextTransactionNo($companyId),
                 'transaction_date' => now()->toDateString(),
                 'transaction_time' => now()->format('H:i:s'),
-                'reference_type' => \App\Models\Sales\LoadRequest::class,
+                'reference_type' => \App\Models\LoadRequest::class,
                 'reference_id' => $loadRequest->id,
                 'notes' => "إلغاء أمر التحميل {$loadRequest->request_no} وإرجاع للمخزن",
                 'status' => 'posted',
@@ -489,7 +495,7 @@ class LoadRequestWebController extends Controller
                     $unitService = app(\App\Services\UnitConversionService::class);
                     $baseUnitId = $unitService->getBaseUnitId($item->item_id) ?? $item->unit_id;
 
-                    \App\Models\Inventory\InventoryTransactionItem::create([
+                    \App\Models\InventoryTransactionItem::create([
                         'inventory_transaction_id' => $txn->id,
                         'item_id' => $item->item_id,
                         'unit_id' => $baseUnitId,
@@ -503,7 +509,7 @@ class LoadRequestWebController extends Controller
                         'to_location_id' => $warehouseId,
                     ]);
 
-                    $distribution = \App\Models\Sales\RepItemDistribution::where('company_id', $companyId)
+                    $distribution = \App\Models\RepItemDistribution::where('company_id', $companyId)
                         ->where('user_id', $employeeId)
                         ->where('item_id', $item->item_id)
                         ->where('issue_order_id', $issueOrder->id)
@@ -556,7 +562,7 @@ class LoadRequestWebController extends Controller
      */
     protected function getWarehouseStock(int $warehouseId, int $itemId): float
     {
-        $txnQty = \App\Models\Inventory\InventoryTransactionItem::query()
+        $txnQty = \App\Models\InventoryTransactionItem::query()
             ->selectRaw('COALESCE(SUM(inventory_transaction_items.qty), 0) as total')
             ->join('inventory_transactions', 'inventory_transactions.id', '=', 'inventory_transaction_items.inventory_transaction_id')
             ->where('inventory_transaction_items.item_id', $itemId)
@@ -567,7 +573,7 @@ class LoadRequestWebController extends Controller
 
         $unitService = app(\App\Services\UnitConversionService::class);
 
-        $obRecords = \App\Models\Inventory\InventoryOpeningBalance::query()
+        $obRecords = \App\Models\InventoryOpeningBalance::query()
             ->where('item_id', $itemId)
             ->where('warehouse_id', $warehouseId)
             ->get();

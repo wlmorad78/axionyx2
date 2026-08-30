@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Suppliers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Suppliers\SupplierContact;
+use App\Models\SupplierContact;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

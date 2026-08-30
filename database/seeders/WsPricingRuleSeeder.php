@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\Company;
-use App\Models\Pricing\PricingRule;
-use App\Models\Pricing\PricingRuleCondition;
+use App\Models\PricingRule;
+use App\Models\PricingRuleCondition;
 use Illuminate\Database\Seeder;
 
 class WsPricingRuleSeeder extends Seeder

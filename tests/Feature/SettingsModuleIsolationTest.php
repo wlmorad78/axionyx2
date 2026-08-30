@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\Settings\ActivityLog;
-use App\Models\Settings\AuditLog;
-use App\Models\Settings\CompanySetting;
-use App\Models\Settings\CompanySubscription;
-use App\Models\Settings\ExternalDocument;
-use App\Models\Settings\NumberSeries;
-use App\Models\Settings\SubscriptionPlan;
+use App\Models\Company;
+use App\Models\ActivityLog;
+use App\Models\AuditLog;
+use App\Models\CompanySetting;
+use App\Models\CompanySubscription;
+use App\Models\ExternalDocument;
+use App\Models\NumberSeries;
+use App\Models\SubscriptionPlan;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

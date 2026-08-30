@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Integration;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\AuditLog;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 
 class AuditLogController extends Controller

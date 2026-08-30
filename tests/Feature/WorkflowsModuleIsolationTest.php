@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\Workflows\MasterDataWorkflow;
-use App\Models\Workflows\Workflow;
-use App\Models\Workflows\WorkflowDefinition;
-use App\Models\Workflows\WorkflowTemplate;
-use App\Models\Workflows\WorkflowType;
+use App\Models\Company;
+use App\Models\MasterDataWorkflow;
+use App\Models\Workflow;
+use App\Models\WorkflowDefinition;
+use App\Models\WorkflowTemplate;
+use App\Models\WorkflowType;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

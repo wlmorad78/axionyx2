@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Reports;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\DashboardWidget;
+use App\Models\DashboardWidget;
 use App\Models\Role;
 use App\Services\DashboardService;
 use Illuminate\Http\Request;

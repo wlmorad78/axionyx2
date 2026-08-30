@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Accounting;
 
 use App\Http\Controllers\Controller;
-use App\Models\Accounting\JournalEntryType;
+use App\Models\JournalEntryType;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

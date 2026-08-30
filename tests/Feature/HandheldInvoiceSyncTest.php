@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Company;
 use App\Models\User;
-use App\Models\HR\Employee;
-use App\Models\CRM\Customer;
+use App\Models\Employee;
+use App\Models\Customer;
 use App\Models\Item;
-use App\Models\Sales\SalesInvoice;
+use App\Models\SalesInvoice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;

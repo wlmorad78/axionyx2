@@ -14,7 +14,7 @@ class ReturnOrderSettlementService
         return DB::transaction(function () use ($data) {
             $loadRequestNo = $data['load_request_no'] ?? null;
             if (empty($loadRequestNo) && !empty($data['load_request_id'])) {
-                $loadRequest = \App\Models\Sales\LoadRequest::find($data['load_request_id']);
+                $loadRequest = \App\Models\LoadRequest::find($data['load_request_id']);
                 if ($loadRequest) {
                     $loadRequestNo = $loadRequest->request_no;
                 }

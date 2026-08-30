@@ -16,9 +16,9 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
-use App\Models\Company\Branch;
-use App\Models\Accounting\Account;
-use App\Models\Settings\Currency;
+use App\Models\Branch;
+use App\Models\Account;
+use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 

@@ -301,7 +301,7 @@ class ReportController extends Controller
         $customersQuery = DB::table('customers')
             ->whereNull('customers.deleted_at')
             ->leftJoin('employees', function ($q) use ($companyId, $dateFrom, $dateTo) {
-                $q->on('employees.id', '=', DB::raw('(SELECT sales_invoices.sales_rep_id FROM sales_invoices WHERE sales_invoices.customer_id = customers.id AND sales_invoices.company_id = ' . $companyId . ' AND sales_invoices.invoice_date >= \'' . $dateFrom . '\' AND sales_invoices.invoice_date <= \'' . $dateTo . '\' AND sales_invoices.status = \'posted\' AND sales_invoices.deleted_at IS NULL ORDER BY sales_invoices.id DESC LIMIT 1)'));
+                $q->on('employees.user_id', '=', DB::raw('(SELECT sales_invoices.sales_rep_id FROM sales_invoices WHERE sales_invoices.customer_id = customers.id AND sales_invoices.company_id = ' . $companyId . ' AND DATE(sales_invoices.invoice_date) >= \'' . $dateFrom . '\' AND DATE(sales_invoices.invoice_date) <= \'' . $dateTo . '\' AND sales_invoices.status = \'posted\' AND sales_invoices.deleted_at IS NULL ORDER BY sales_invoices.id DESC LIMIT 1)'));
             })
             ->whereNull('employees.deleted_at')
             ->whereIn('customers.id', $customerIds)
@@ -521,14 +521,14 @@ class ReportController extends Controller
         // 2) employees (reps)
         $employees = DB::table('employees')
             ->whereNull('employees.deleted_at')
-            ->whereIn('employees.id', $repIds)
+            ->whereIn('employees.user_id', $repIds)
             ->where('employees.company_id', $companyId)
             ->select(
-                'employees.id',
+                'employees.user_id',
                 DB::raw("TRIM(COALESCE(employees.first_name_ar, '') || ' ' || COALESCE(employees.second_name_ar, '') || ' ' || COALESCE(employees.third_name_ar, '') || ' ' || COALESCE(employees.last_name_ar, '')) as rep_name")
             )
             ->get()
-            ->keyBy('id');
+            ->keyBy('user_id');
 
         // 3) customers
         $customers = DB::table('customers')
@@ -893,7 +893,7 @@ class ReportController extends Controller
         $date = $request->input('date');
 
         // 1. جلب كل الأصناف النشطة للشركة
-        $allItems = \App\Models\Inventory\Item::where('company_id', $companyId)
+        $allItems = \App\Models\Item::where('company_id', $companyId)
             ->where('is_active', true)
             ->with('baseUnit:id,name_ar,name_en')
             ->with('itemCategory:id,name_ar,name_en')
@@ -904,7 +904,7 @@ class ReportController extends Controller
         $currentStockMap = [];
 
         // 2.1 الأرصدة الافتتاحية المُدخَلة
-        $obQuery = \App\Models\Inventory\InventoryOpeningBalance::where('company_id', $companyId);
+        $obQuery = \App\Models\InventoryOpeningBalance::where('company_id', $companyId);
         if ($warehouseId) {
             $obQuery->where('warehouse_id', $warehouseId);
         }
@@ -915,7 +915,7 @@ class ReportController extends Controller
         }
 
         // 2.2 جميع الحركات المُرحَّلة (قبل التاريخ) لحساب رصيد بداية اليوم
-        $allTxQuery = \App\Models\Inventory\InventoryTransaction::where('company_id', $companyId)
+        $allTxQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
             ->where('status', 'posted')
             ->whereDate('transaction_date', '<', $date)
             ->whereHas('transactionType', fn($q) => $q->whereIn('effect', ['addition', 'subtraction']))
@@ -943,7 +943,7 @@ class ReportController extends Controller
         }
 
         // 3. حركات اليوم - الوارد
-        $inQuery = \App\Models\Inventory\InventoryTransaction::where('company_id', $companyId)
+        $inQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
             ->whereDate('transaction_date', $date)
             ->where('status', 'posted')
             ->whereHas('transactionType', fn($q) => $q->where('effect', 'addition')->whereNotIn('code', ['SALES_RETURN', 'RETURN']))
@@ -954,7 +954,7 @@ class ReportController extends Controller
         $inTransactions = $inQuery->get();
 
         // 4. حركات اليوم - الصادر (مبيعات فقط، بدون تحميل)
-        $salesOutQuery = \App\Models\Inventory\InventoryTransaction::where('company_id', $companyId)
+        $salesOutQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
             ->whereDate('transaction_date', $date)
             ->where('status', 'posted')
             ->whereHas('transactionType', fn($q) => $q->where('effect', 'subtraction')->where('code', 'SALES_INVOICE'))
@@ -967,7 +967,7 @@ class ReportController extends Controller
         // 4.1 سعر الشراء من الوحدة الافتراضية في item_units
         $itemIds = $allItems->keys()->all();
         $defaultUnitCostMap = [];
-        $unitRows = \App\Models\Inventory\ItemUnit::whereIn('item_id', $itemIds)
+        $unitRows = \App\Models\ItemUnit::whereIn('item_id', $itemIds)
             ->where('is_default', true)
             ->get(['item_id', 'purchase_price']);
         foreach ($unitRows as $u) {

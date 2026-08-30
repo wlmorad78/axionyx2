@@ -57,7 +57,7 @@ if (!function_exists('calculateCustomerBalance')) {
             ->selectRaw('COALESCE(SUM(net_total), 0) as total_invoiced, COALESCE(SUM(paid_amount), 0) as total_paid')
             ->first();
 
-        $collectionsBalance = \App\Models\Sales\Collection::where('customer_id', $customerId)
+        $collectionsBalance = \App\Models\Collection::where('customer_id', $customerId)
             ->where('company_id', $companyId)
             ->where('status', 'approved')
             ->whereNull('deleted_at')

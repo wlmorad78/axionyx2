@@ -5,8 +5,8 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use App\Models\Settings\SubscriptionPlan;
-use App\Models\Settings\CompanySubscription;
+use App\Models\SubscriptionPlan;
+use App\Models\CompanySubscription;
 
 class CompanyAndUserSeeder extends Seeder
 {

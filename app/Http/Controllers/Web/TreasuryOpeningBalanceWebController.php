@@ -18,7 +18,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TreasuryOpeningBalance;
 use App\Models\Treasury;
 use App\Models\FiscalYear;
-use App\Models\Company\Branch;
+use App\Models\Branch;
 use App\Services\CompanyContext;
 use App\Services\BranchContext;
 use Illuminate\Http\Request;

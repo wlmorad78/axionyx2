@@ -70,9 +70,21 @@ class UserController extends Controller
         if ($request->has('roles')) {
             $roles = $request->input('roles');
             if (is_string($roles)) $roles = explode(',', $roles);
-            $query->whereHas('userType', function ($rq) use ($roles) {
-                $rq->whereIn('name_ar', $roles);
-            });
+            $roleIds = array_filter(array_map('intval', $roles));
+            if ($roleIds) {
+                $query->whereIn('users.user_type_id', $roleIds);
+            } else {
+                $codes = array_map(fn ($r) => strtolower(str_replace(' ', '_', $r)), $roles);
+                $query->whereIn('users.user_type_id', function ($q) use ($roles, $codes) {
+                    $q->select('id')
+                      ->from('user_types')
+                      ->where(function ($sub) use ($roles, $codes) {
+                          $sub->whereIn('name_ar', $roles)
+                              ->orWhereIn('name_en', $roles)
+                              ->orWhereIn('code', $codes);
+                      });
+                });
+            }
         }
 
         if ($request->has('trashed') && $request->trashed) {

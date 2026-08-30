@@ -120,7 +120,7 @@ class AccountController extends Controller
 
         // Derive nature from account_type
         if (!empty($data['account_type_id'])) {
-            $type = \App\Models\Accounting\AccountType::find($data['account_type_id']);
+            $type = \App\Models\AccountType::find($data['account_type_id']);
             if ($type && in_array($type->nature, ['asset', 'expense'])) {
                 $data['normal_balance'] = $data['normal_balance'] ?? 'debit';
             } else {

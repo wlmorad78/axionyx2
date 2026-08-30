@@ -121,7 +121,7 @@ class ReturnOrderWebController extends Controller
             ]);
 
             if ($returnOrder->load_request_id) {
-                \App\Models\Sales\LoadRequest::where('id', $returnOrder->load_request_id)
+                \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
                     ->update(['status' => 'closed']);
             }
 

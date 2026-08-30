@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
+use App\Models\Company;
 use App\Models\Customer;
-use App\Models\HR\Employee;
+use App\Models\Employee;
 use App\Models\Item;
-use App\Models\Sales\SalesInvoice;
+use App\Models\SalesInvoice;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -85,7 +85,7 @@ class HandheldSyncInvoicesClosureTest extends TestCase
             'is_active' => true,
         ]);
 
-        $branch = \App\Models\Company\Branch::create([
+        $branch = \App\Models\Branch::create([
             'company_id' => $company->id,
             'code' => 'BR' . uniqid(),
             'name' => 'Main Branch',

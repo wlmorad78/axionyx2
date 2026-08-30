@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\Suppliers\Supplier;
-use App\Models\Suppliers\SupplierGroup;
-use App\Models\Suppliers\SupplierQuotation;
+use App\Models\Company;
+use App\Models\Supplier;
+use App\Models\SupplierGroup;
+use App\Models\SupplierQuotation;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -118,7 +118,7 @@ class SuppliersModuleIsolationTest extends TestCase
         $sB->contacts()->create(['contact_name' => 'Contact B']);
 
         CompanyContext::override($this->companyA->id);
-        $this->assertCount(1, \App\Models\Suppliers\SupplierContact::whereIn('supplier_id', Supplier::forCompany()->pluck('id'))->get());
+        $this->assertCount(1, \App\Models\SupplierContact::whereIn('supplier_id', Supplier::forCompany()->pluck('id'))->get());
     }
 
     // ── Cross-company ──

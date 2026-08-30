@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\Tax\TaxExemption;
-use App\Models\Tax\TaxGroup;
-use App\Models\Tax\TaxPeriod;
-use App\Models\Tax\TaxReturn;
-use App\Models\Tax\TaxRule;
+use App\Models\Company;
+use App\Models\TaxExemption;
+use App\Models\TaxGroup;
+use App\Models\TaxPeriod;
+use App\Models\TaxReturn;
+use App\Models\TaxRule;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

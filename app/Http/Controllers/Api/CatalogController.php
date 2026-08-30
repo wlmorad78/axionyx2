@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory\Item;
+use App\Models\Item;
 use App\Models\ItemPrice;
 use Illuminate\Http\Request;
 

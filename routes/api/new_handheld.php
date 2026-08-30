@@ -12,13 +12,13 @@ use Illuminate\Support\Facades\DB;
 
 if (!function_exists('calculateNewHandheldBalance')) {
     function calculateNewHandheldBalance($customerId, $companyId) {
-        $allInvoices = \App\Models\Sales\SalesInvoice::where('customer_id', $customerId)
+        $allInvoices = \App\Models\SalesInvoice::where('customer_id', $customerId)
             ->where('company_id', $companyId)
             ->whereNull('deleted_at')
             ->selectRaw('COALESCE(SUM(net_total), 0) as total_invoiced, COALESCE(SUM(paid_amount), 0) as total_paid')
             ->first();
 
-        $collectionsBalance = \App\Models\Sales\Collection::where('customer_id', $customerId)
+        $collectionsBalance = \App\Models\Collection::where('customer_id', $customerId)
             ->where('company_id', $companyId)
             ->where('status', 'approved')
             ->whereNull('deleted_at')

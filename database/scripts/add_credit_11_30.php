@@ -7,7 +7,7 @@ $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
 use Illuminate\Support\Facades\DB;
-use App\Models\Sales\Collection;
+use App\Models\Collection;
 
 $company_id = 2;
 $branch_id = 1;

@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Pricing;
 
 use App\Http\Controllers\Controller;
-use App\Models\Pricing\QuantityPriceBreak;
+use App\Models\QuantityPriceBreak;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

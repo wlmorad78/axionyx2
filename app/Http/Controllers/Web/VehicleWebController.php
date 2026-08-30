@@ -15,8 +15,8 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\Fleet\Vehicle;
-use App\Models\Fleet\VehicleType;
+use App\Models\Vehicle;
+use App\Models\VehicleType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 

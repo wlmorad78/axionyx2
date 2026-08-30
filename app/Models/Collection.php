@@ -55,6 +55,6 @@ class Collection extends Model
     public function customer() { return $this->belongsTo(Customer::class); }
     public function salesInvoice() { return $this->belongsTo(SalesInvoice::class); }
     public function paymentMethod() { return $this->belongsTo(PaymentMethod::class); }
-    public function bankAccount() { return $this->belongsTo(\App\Models\Treasury\BankAccount::class); }
+    public function bankAccount() { return $this->belongsTo(\App\Models\BankAccount::class); }
     public function payerCustomer() { return $this->belongsTo(Customer::class, 'payer_customer_id'); }
 }

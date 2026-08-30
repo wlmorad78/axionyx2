@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Workflows;
 
 use App\Http\Controllers\Controller;
-use App\Models\Workflows\MasterDataType;
+use App\Models\MasterDataType;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

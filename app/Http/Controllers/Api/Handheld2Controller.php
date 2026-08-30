@@ -21,14 +21,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
-use App\Models\Sales\SalesInvoice;
-use App\Models\Sales\SalesInvoiceItem;
-use App\Models\Sales\SalesInvoicePaymentMethod;
-use App\Models\Sales\RepItemDistribution;
-use App\Models\Inventory\Device;
+use App\Models\SalesInvoice;
+use App\Models\SalesInvoiceItem;
+use App\Models\SalesInvoicePaymentMethod;
+use App\Models\RepItemDistribution;
+use App\Models\Device;
 use App\Models\Warehouse;
 use App\Services\RepresentativeTransferService;
-use App\Models\Inventory\RepresentativeTransfer;
+use App\Models\RepresentativeTransfer;
 
 class Handheld2Controller extends Controller
 {
@@ -819,22 +819,22 @@ class Handheld2Controller extends Controller
             $warehouseId = $loadRequest->warehouse_id;
             $companyId = $user->company_id;
 
-            $type = \App\Models\Inventory\InventoryTransactionType::where('code', 'TRANSFER_TO_REP')->first();
+            $type = \App\Models\InventoryTransactionType::where('code', 'TRANSFER_TO_REP')->first();
             if (!$type) {
-                $type = \App\Models\Inventory\InventoryTransactionType::firstOrCreate(
+                $type = \App\Models\InventoryTransactionType::firstOrCreate(
                     ['code' => 'TRANSFER_TO_REP'],
                     ['name' => 'تحميل للمندوب', 'effect' => 'subtraction', 'is_active' => true]
                 );
             }
 
-            $txn = \App\Models\Inventory\InventoryTransaction::create([
+            $txn = \App\Models\InventoryTransaction::create([
                 'company_id' => $companyId,
                 'warehouse_id' => $warehouseId,
                 'transaction_type_id' => $type->id,
-                'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($companyId),
+                'transaction_no' => \App\Models\InventoryTransaction::nextTransactionNo($companyId),
                 'transaction_date' => now()->toDateString(),
                 'transaction_time' => now()->format('H:i:s'),
-                'reference_type' => \App\Models\Sales\LoadRequest::class,
+                'reference_type' => \App\Models\LoadRequest::class,
                 'reference_id' => $loadRequest->id,
                 'notes' => "تحميل أمر التحميل {$loadRequest->request_no} من المخزن",
                 'status' => 'posted',
@@ -860,7 +860,7 @@ class Handheld2Controller extends Controller
 
                 $baseUnitId = $unitService->getBaseUnitId($item->item_id) ?? $item->unit_id;
 
-                \App\Models\Inventory\InventoryTransactionItem::create([
+                \App\Models\InventoryTransactionItem::create([
                     'inventory_transaction_id' => $txn->id,
                     'item_id' => $item->item_id,
                     'unit_id' => $baseUnitId,
@@ -874,7 +874,7 @@ class Handheld2Controller extends Controller
                     'to_location_id' => $employeeId,
                 ]);
 
-                $distribution = \App\Models\Sales\RepItemDistribution::where('company_id', $companyId)
+                $distribution = \App\Models\RepItemDistribution::where('company_id', $companyId)
                     ->where('user_id', $employeeId)
                     ->where('item_id', $item->item_id)
                     ->where('issue_order_id', $issueOrder->id)
@@ -888,7 +888,7 @@ class Handheld2Controller extends Controller
                         'remaining_qty' => $distribution->remaining_qty + $baseQty,
                     ]);
                 } else {
-                    \App\Models\Sales\RepItemDistribution::create([
+                    \App\Models\RepItemDistribution::create([
                         'company_id' => $companyId,
                         'user_id' => $employeeId,
                         'employee_id' => $employeeId,
@@ -1049,22 +1049,22 @@ class Handheld2Controller extends Controller
             $warehouseId = $loadRequest->warehouse_id;
             $companyId = $user->company_id;
 
-            $type = \App\Models\Inventory\InventoryTransactionType::where('code', 'RETURN_TO_WAREHOUSE')->first();
+            $type = \App\Models\InventoryTransactionType::where('code', 'RETURN_TO_WAREHOUSE')->first();
             if (!$type) {
-                $type = \App\Models\Inventory\InventoryTransactionType::firstOrCreate(
+                $type = \App\Models\InventoryTransactionType::firstOrCreate(
                     ['code' => 'RETURN_TO_WAREHOUSE'],
                     ['name' => 'إرجاع لأمر التحميل للمخزن', 'effect' => 'addition', 'is_active' => true]
                 );
             }
 
-            $txn = \App\Models\Inventory\InventoryTransaction::create([
+            $txn = \App\Models\InventoryTransaction::create([
                 'company_id' => $companyId,
                 'warehouse_id' => $warehouseId,
                 'transaction_type_id' => $type->id,
-                'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($companyId),
+                'transaction_no' => \App\Models\InventoryTransaction::nextTransactionNo($companyId),
                 'transaction_date' => now()->toDateString(),
                 'transaction_time' => now()->format('H:i:s'),
-                'reference_type' => \App\Models\Sales\LoadRequest::class,
+                'reference_type' => \App\Models\LoadRequest::class,
                 'reference_id' => $loadRequest->id,
                 'notes' => "إرجاع أمر التحميل {$loadRequest->request_no} للمخزن",
                 'status' => 'posted',
@@ -1089,7 +1089,7 @@ class Handheld2Controller extends Controller
                 $unitService = app(\App\Services\UnitConversionService::class);
                 $baseUnitId = $unitService->getBaseUnitId($item->item_id) ?? $item->unit_id;
 
-                \App\Models\Inventory\InventoryTransactionItem::create([
+                \App\Models\InventoryTransactionItem::create([
                     'inventory_transaction_id' => $txn->id,
                     'item_id' => $item->item_id,
                     'unit_id' => $baseUnitId,
@@ -1103,7 +1103,7 @@ class Handheld2Controller extends Controller
                     'to_location_id' => $warehouseId,
                 ]);
 
-                $distribution = \App\Models\Sales\RepItemDistribution::where('company_id', $companyId)
+                $distribution = \App\Models\RepItemDistribution::where('company_id', $companyId)
                     ->where('user_id', $employeeId)
                     ->where('item_id', $item->item_id)
                     ->where('issue_order_id', $issueOrder->id)

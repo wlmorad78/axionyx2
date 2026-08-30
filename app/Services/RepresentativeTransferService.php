@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\HR\Employee;
-use App\Models\Inventory\InventoryTransaction;
-use App\Models\Inventory\InventoryTransactionItem;
-use App\Models\Inventory\RepresentativeTransfer;
-use App\Models\Sales\RepItemDistribution;
+use App\Models\Employee;
+use App\Models\InventoryTransaction;
+use App\Models\InventoryTransactionItem;
+use App\Models\RepresentativeTransfer;
+use App\Models\RepItemDistribution;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -119,6 +119,7 @@ class RepresentativeTransferService
                 $this->consumeDistribution($companyId, $fromId, (int) $item['item_id'], $baseQty);
                 RepItemDistribution::create([
                     'company_id' => $companyId, 'user_id' => $toId,
+                    'employee_id' => $toId,
                     'item_id' => $item['item_id'], 'loaded_qty' => $baseQty,
                     'sold_qty' => 0, 'returned_qty' => 0, 'remaining_qty' => $baseQty,
                     'unit_price' => $item['unit_cost'] ?? 0, 'status' => 'active',

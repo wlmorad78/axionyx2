@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\LoadRequest;
+use App\Models\LoadRequest;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 
@@ -83,17 +83,26 @@ class LoadRequestController extends Controller
         }
 
         $loadRequest = \Illuminate\Support\Facades\DB::transaction(function () use ($data, $user, $unitService, $isComplementary, $request) {
+            $requestNo = \App\Models\NumberSeries::nextNumber(
+                companyId: (int) $user->company_id,
+                documentType: 'load_request',
+            );
+
+            $employee = \App\Models\Employee::where('user_id', $data['user_id'])->first();
+
             $lr = LoadRequest::create([
                 'company_id' => $user->company_id,
                 'branch_id' => $data['branch_id'] ?? $user->branch_id,
                 'warehouse_id' => $data['warehouse_id'],
+                'employee_id' => $employee?->id,
                 'user_id' => $data['user_id'],
                 'parent_load_request_id' => $isComplementary ? $request->input('parent_load_request_id') : null,
                 'load_type' => $request->input('load_type', 'standard'),
+                'request_no' => $requestNo,
                 'request_date' => now()->toDateString(),
                 'status' => 'pending',
                 'notes' => $data['notes'] ?? null,
-                'requested_by' => $data['user_id'],
+                'requested_by' => $employee?->id,
             ]);
 
             foreach ($data['items'] as $item) {
@@ -107,7 +116,7 @@ class LoadRequestController extends Controller
                 $conversionFactor = $resolved?->conversion_factor ?? 1;
                 $baseQuantity = $unitService->toBase($itemId, $finalUnitId, $qty);
 
-                \App\Models\Sales\LoadRequestItem::create([
+                \App\Models\LoadRequestItem::create([
                     'load_request_id' => $lr->id,
                     'item_id' => $itemId,
                     'quantity' => $qty,
@@ -173,7 +182,7 @@ class LoadRequestController extends Controller
                 return $existing?->id;
             }, $request->items));
 
-            \App\Models\Sales\LoadRequestItem::whereIn('id', $idsToDelete)->delete();
+            \App\Models\LoadRequestItem::whereIn('id', $idsToDelete)->delete();
 
             foreach ($request->items as $itemData) {
                 $existingItem = $loadRequest->items->firstWhere('item_id', $itemData['item_id']);
@@ -192,7 +201,7 @@ class LoadRequestController extends Controller
                         'total_price' => $qty * $unitPrice,
                     ]);
                 } else {
-                    \App\Models\Sales\LoadRequestItem::create([
+                    \App\Models\LoadRequestItem::create([
                         'load_request_id' => $loadRequest->id,
                         'item_id' => $itemData['item_id'],
                         'unit_id' => $unitId,
@@ -271,7 +280,7 @@ class LoadRequestController extends Controller
      */
     public function approve(Request $request, LoadRequest $loadRequest)
     {
-        $employee = \App\Models\HR\Employee::where('email', $request->user()->email)->first();
+        $employee = \App\Models\Employee::where('email', $request->user()->email)->first();
 
         $unitService = app(\App\Services\UnitConversionService::class);
         $itemsData = $request->input('items', []);
@@ -327,11 +336,17 @@ class LoadRequestController extends Controller
                 'create_notes' => $request->input('notes', ''),
             ]);
 
-            $issueOrder = \App\Models\Inventory\IssueOrder::create([
+            $issueNo = \App\Models\NumberSeries::nextNumber(
+                companyId: (int) $loadRequest->company_id,
+                documentType: 'issue_order',
+            );
+
+            $issueOrder = \App\Models\IssueOrder::create([
                 'company_id' => $loadRequest->company_id,
                 'warehouse_id' => $loadRequest->warehouse_id,
                 'load_request_id' => $loadRequest->id,
                 'employee_id' => $loadRequest->employee_id,
+                'issue_no' => $issueNo,
                 'issue_date' => now()->toDateString(),
                 'issue_time' => now()->toTimeString(),
                 'user_id' => $loadRequest->user_id,
@@ -352,7 +367,7 @@ class LoadRequestController extends Controller
                     $baseQty = (float) $loadItem->quantity * $cf;
                 }
 
-                \App\Models\Inventory\IssueOrderItem::create([
+                \App\Models\IssueOrderItem::create([
                     'issue_order_id' => $issueOrder->id,
                     'item_id' => $loadItem->item_id,
                     'unit_id' => $baseUnitId,
@@ -366,22 +381,22 @@ class LoadRequestController extends Controller
                 ]);
             }
 
-            $type = \App\Models\Inventory\InventoryTransactionType::where('code', 'ISSUE_ORDER')->first();
+            $type = \App\Models\InventoryTransactionType::where('code', 'ISSUE_ORDER')->first();
             if (!$type) {
-                $type = \App\Models\Inventory\InventoryTransactionType::firstOrCreate(
+                $type = \App\Models\InventoryTransactionType::firstOrCreate(
                     ['code' => 'ISSUE_ORDER'],
                     ['name' => 'Ø£Ù…Ø± ØµØ±Ù', 'effect' => 'subtraction', 'is_active' => true]
                 );
             }
 
-            $txn = \App\Models\Inventory\InventoryTransaction::create([
+            $txn = \App\Models\InventoryTransaction::create([
                 'company_id' => $loadRequest->company_id,
                 'warehouse_id' => $loadRequest->warehouse_id,
                 'transaction_type_id' => $type->id,
-                'transaction_no' => \App\Models\Inventory\InventoryTransaction::nextTransactionNo($loadRequest->company_id),
+                'transaction_no' => \App\Models\InventoryTransaction::nextTransactionNo($loadRequest->company_id),
                 'transaction_date' => now()->toDateString(),
                 'transaction_time' => now()->format('H:i:s'),
-                'reference_type' => \App\Models\Inventory\IssueOrder::class,
+                'reference_type' => \App\Models\IssueOrder::class,
                 'reference_id' => $issueOrder->id,
                 'notes' => "Ø¥Ø°Ù† ØµØ±Ù Ø¨Ù†Ø§Ø¡Ù‹ Ø¹Ù„Ù‰ Ø£Ù…Ø± Ø§Ù„ØªØ­Ù…ÙŠÙ„ {$loadRequest->request_no}",
                 'status' => 'posted',
@@ -401,7 +416,7 @@ class LoadRequestController extends Controller
                 $unitService = app(\App\Services\UnitConversionService::class);
                 $baseUnitId = $unitService->getBaseUnitId($itemId) ?? $unitId;
 
-                \App\Models\Inventory\InventoryTransactionItem::create([
+                \App\Models\InventoryTransactionItem::create([
                     'inventory_transaction_id' => $txn->id,
                     'item_id' => $itemId,
                     'unit_id' => $baseUnitId,
@@ -416,8 +431,9 @@ class LoadRequestController extends Controller
                 ]);
 
                 // Keep the representative distribution ledger in sync with the posted load.
-                \App\Models\Sales\RepItemDistribution::create([
+                \App\Models\RepItemDistribution::create([
                     'company_id' => $loadRequest->company_id,
+                    'employee_id' => $loadRequest->employee_id,
                     'user_id' => $loadRequest->user_id,
                     'item_id' => $itemId,
                     'issue_order_id' => $issueOrder->id,
@@ -475,7 +491,7 @@ class LoadRequestController extends Controller
      */
     protected function getWarehouseStock(int $warehouseId, int $itemId): float
     {
-        $txnQty = \App\Models\Inventory\InventoryTransactionItem::query()
+        $txnQty = \App\Models\InventoryTransactionItem::query()
             ->selectRaw('COALESCE(SUM(inventory_transaction_items.qty), 0) as total')
             ->join('inventory_transactions', 'inventory_transactions.id', '=', 'inventory_transaction_items.inventory_transaction_id')
             ->where('inventory_transaction_items.item_id', $itemId)
@@ -486,7 +502,7 @@ class LoadRequestController extends Controller
 
         $unitService = app(\App\Services\UnitConversionService::class);
 
-        $obRecords = \App\Models\Inventory\InventoryOpeningBalance::query()
+        $obRecords = \App\Models\InventoryOpeningBalance::query()
             ->where('item_id', $itemId)
             ->where('warehouse_id', $warehouseId)
             ->get();
@@ -509,7 +525,7 @@ class LoadRequestController extends Controller
             return collect();
         }
 
-        $txnQtys = \App\Models\Inventory\InventoryTransactionItem::query()
+        $txnQtys = \App\Models\InventoryTransactionItem::query()
             ->selectRaw('item_id, COALESCE(SUM(inventory_transaction_items.qty), 0) as total')
             ->join('inventory_transactions', 'inventory_transactions.id', '=', 'inventory_transaction_items.inventory_transaction_id')
             ->whereIn('inventory_transaction_items.item_id', $itemIds)
@@ -519,7 +535,7 @@ class LoadRequestController extends Controller
             ->groupBy('item_id')
             ->pluck('total', 'item_id');
 
-        $obRecords = \App\Models\Inventory\InventoryOpeningBalance::query()
+        $obRecords = \App\Models\InventoryOpeningBalance::query()
             ->whereIn('item_id', $itemIds)
             ->where('warehouse_id', $warehouseId)
             ->get();

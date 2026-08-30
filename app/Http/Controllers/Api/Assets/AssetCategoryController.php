@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Assets;
 
 use App\Http\Controllers\Controller;
-use App\Models\Assets\AssetCategory;
+use App\Models\AssetCategory;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

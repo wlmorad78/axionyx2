@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tax\CustomerTaxProfile;
+use App\Models\CustomerTaxProfile;
 use Illuminate\Http\Request;
 
 class CustomerTaxProfileController extends Controller

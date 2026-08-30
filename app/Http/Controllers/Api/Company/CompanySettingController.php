@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Company;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\CompanySetting;
+use App\Models\CompanySetting;
 use Illuminate\Http\Request;
 
 class CompanySettingController extends Controller

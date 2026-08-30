@@ -15,9 +15,9 @@
 namespace App\Http\Controllers\Api\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\PlanLimit;
+use App\Models\PlanLimit;
 use App\Models\PlanPermission;
-use App\Models\Settings\SubscriptionPlan;
+use App\Models\SubscriptionPlan;
 use Illuminate\Http\Request;
 
 class SubscriptionPlanController extends Controller
@@ -191,7 +191,7 @@ class SubscriptionPlanController extends Controller
         if ($request->has('module_permissions')) {
             $syncData = [];
             foreach ($request->module_permissions as $moduleKey => $perms) {
-                $module = \App\Models\Settings\AdminModule::where('key', $moduleKey)->first();
+                $module = \App\Models\AdminModule::where('key', $moduleKey)->first();
                 if ($module) {
                     $syncData[$module->id] = array_merge($perms, [
                         'sort_order' => $module->sort_order,

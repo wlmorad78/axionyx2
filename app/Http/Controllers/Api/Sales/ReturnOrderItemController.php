@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\ReturnOrderItem;
+use App\Models\ReturnOrderItem;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

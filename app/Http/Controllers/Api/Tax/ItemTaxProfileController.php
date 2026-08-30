@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Tax;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tax\ItemTaxProfile;
+use App\Models\ItemTaxProfile;
 use Illuminate\Http\Request;
 
 class ItemTaxProfileController extends Controller

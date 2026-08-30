@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\ExternalDocumentLog;
+use App\Models\ExternalDocumentLog;
 use Illuminate\Http\Request;
 
 class ExternalDocumentLogController extends Controller

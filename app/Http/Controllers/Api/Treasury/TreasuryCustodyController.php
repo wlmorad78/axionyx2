@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
-use App\Models\Treasury\TreasuryCustody;
+use App\Models\TreasuryCustody;
 use Illuminate\Http\Request;
 
 class TreasuryCustodyController extends Controller

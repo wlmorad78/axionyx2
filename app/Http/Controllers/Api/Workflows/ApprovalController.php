@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Workflows;
 
 use App\Http\Controllers\Controller;
-use App\Models\Workflows\ApprovalRequest;
+use App\Models\ApprovalRequest;
 use App\Models\ApprovalAction;
 use Illuminate\Http\Request;
 

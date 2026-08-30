@@ -15,14 +15,14 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\ReturnOrder;
-use App\Models\HR\Employee;
-use App\Models\Inventory\InventoryTransaction;
-use App\Models\Inventory\InventoryTransactionItem;
-use App\Models\Inventory\InventoryTransactionType;
-use App\Models\Sales\SalesInvoice;
-use App\Models\Sales\SalesInvoiceItem;
-use App\Models\CRM\Customer;
+use App\Models\ReturnOrder;
+use App\Models\Employee;
+use App\Models\InventoryTransaction;
+use App\Models\InventoryTransactionItem;
+use App\Models\InventoryTransactionType;
+use App\Models\SalesInvoice;
+use App\Models\SalesInvoiceItem;
+use App\Models\Customer;
 use App\Support\ValidationRules;
 use App\Services\UnitConversionService;
 use Illuminate\Http\Request;
@@ -78,75 +78,8 @@ class ReturnOrderController extends Controller
             'items.item', 'items.unit',
         ]);
 
-        $employeeId = $returnOrder->employee_id;
-        if (!$employeeId && $returnOrder->user_id) {
-            $emp = \App\Models\HR\Employee::where('user_id', $returnOrder->user_id)->first();
-            $employeeId = $emp?->id;
-        }
-
-        if ($employeeId) {
-            $companyId = $returnOrder->company_id;
-
-            $base = fn ($itemId) => DB::table('inventory_transaction_items as iti')
-                ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
-                ->where('iti.item_id', $itemId)
-                ->where('it.company_id', $companyId)
-                ->where('it.status', 'posted')
-                ->whereNull('it.deleted_at');
-
-            // Collect load request item quantities (parent + current)
-            $loadRequestQty = [];
-            $loadRequest = $returnOrder->loadRequest;
-            if ($loadRequest) {
-                // Current load request items
-                foreach ($loadRequest->items as $li) {
-                    $loadRequestQty[$li->item_id] = ($loadRequestQty[$li->item_id] ?? 0) + (float) $li->quantity;
-                }
-                // Parent (original) load request items
-                if ($loadRequest->parentRequest) {
-                    foreach ($loadRequest->parentRequest->items as $pi) {
-                        $loadRequestQty[$pi->item_id] = ($loadRequestQty[$pi->item_id] ?? 0) + (float) $pi->quantity;
-                    }
-                }
-            }
-
-            foreach ($returnOrder->items as $item) {
-                $itemId = $item->item_id;
-
-                $load = (float) $base($itemId)
-                    ->where('iti.from_location_type', 'warehouse')
-                    ->where('iti.to_location_type', 'rep')
-                    ->where('iti.to_location_id', $employeeId)
-                    ->sum(DB::raw('ABS(iti.qty)'));
-
-                $loadReturn = (float) $base($itemId)
-                    ->where('iti.from_location_type', 'rep')
-                    ->where('iti.to_location_type', 'warehouse')
-                    ->where('iti.from_location_id', $employeeId)
-                    ->sum(DB::raw('ABS(iti.qty)'));
-
-                $load = max(0, $load - $loadReturn);
-
-                // Add load request quantities (parent + child)
-                $load += $loadRequestQty[$itemId] ?? 0;
-
-                $tin = (float) $base($itemId)
-                    ->where('iti.from_location_type', 'rep')
-                    ->where('iti.to_location_type', 'rep')
-                    ->where('iti.to_location_id', $employeeId)
-                    ->sum(DB::raw('ABS(iti.qty)'));
-
-                $tout = (float) $base($itemId)
-                    ->where('iti.from_location_type', 'rep')
-                    ->where('iti.to_location_type', 'rep')
-                    ->where('iti.from_location_id', $employeeId)
-                    ->sum(DB::raw('ABS(iti.qty)'));
-
-                $item->load_qty = $load;
-                $item->t_in_qty = $tin;
-                $item->t_out_qty = $tout;
-            }
-        }
+        // Values (loaded_qty, t_in_qty, t_out_qty, sold_quantity, returned_quantity)
+        // are read directly from return_order_items table
 
         return $returnOrder;
     }
@@ -193,7 +126,7 @@ class ReturnOrderController extends Controller
             ]);
 
             if ($returnOrder->load_request_id) {
-                \App\Models\Sales\LoadRequest::where('id', $returnOrder->load_request_id)
+                \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
                     ->update(['status' => 'closed']);
             }
 
@@ -219,7 +152,7 @@ class ReturnOrderController extends Controller
             foreach ($returnOrder->items as $item) {
                 $unitId = $item->item_unit_id ?? $item->item?->base_unit_id;
                 if (!$unitId) {
-                    $unitId = \App\Models\Inventory\Unit::first()?->id;
+                    $unitId = \App\Models\Unit::first()?->id;
                 }
                 $conversionFactor = $unitService->getConversionFactor($item->item_id, $unitId);
                 $qtyInBase = $unitService->toBase($item->item_id, $unitId, $item->returned_quantity);
@@ -239,11 +172,11 @@ class ReturnOrderController extends Controller
             }
 
             if (($returnOrder->return_purpose ?? 'salesman_return') === 'salesman_return' && $returnOrder->salesman_account_id) {
-                $salesmanAccount = \App\Models\Sales\SalesmanAccount::find($returnOrder->salesman_account_id);
+                $salesmanAccount = \App\Models\SalesmanAccount::find($returnOrder->salesman_account_id);
                 if ($salesmanAccount) {
                     $totalReturns = $returnOrder->total_amount;
 
-                    $salesmanDebt = \App\Models\Sales\SalesmanDebt::create([
+                    $salesmanDebt = \App\Models\SalesmanDebt::create([
                         'company_id' => $returnOrder->company_id,
                         'branch_id' => $returnOrder->branch_id,
                         'salesman_id' => $returnOrder->user_id,
@@ -268,14 +201,14 @@ class ReturnOrderController extends Controller
                         'total_debts' => $salesmanAccount->total_debts + $totalReturns,
                     ]);
 
-                    \App\Models\Sales\SalesmanAccountMovement::create([
+                    \App\Models\SalesmanAccountMovement::create([
                         'company_id' => $returnOrder->company_id,
                         'branch_id' => $returnOrder->branch_id,
                         'salesman_account_id' => $salesmanAccount->id,
                         'salesman_id' => $returnOrder->user_id,
                         'movement_date' => now()->toDateString(),
                         'movement_type' => 'debt_creation',
-                        'reference_type' => \App\Models\Sales\SalesmanDebt::class,
+                        'reference_type' => \App\Models\SalesmanDebt::class,
                         'reference_id' => $salesmanDebt->id,
                         'document_no' => $salesmanDebt->debt_no,
                         'debit' => $totalReturns,
@@ -320,7 +253,7 @@ class ReturnOrderController extends Controller
                 $subtotal += $lineTotal;
                 $unitId = $item->item_unit_id ?? $item->item?->base_unit_id;
                 if (!$unitId) {
-                    $unitId = \App\Models\Inventory\Unit::first()?->id;
+                    $unitId = \App\Models\Unit::first()?->id;
                 }
 
                 SalesInvoiceItem::create([

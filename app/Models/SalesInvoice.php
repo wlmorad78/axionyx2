@@ -49,7 +49,7 @@ class SalesInvoice extends Document
     public function issueOrder() { return $this->belongsTo(IssueOrder::class); }
     public function route() { return $this->belongsTo(Route::class); }
     public function salesTerritory() { return $this->belongsTo(SalesTerritory::class); }
-    public function salesRep() { return $this->belongsTo(Employee::class, 'sales_rep_id'); }
+    public function salesRep() { return $this->belongsTo(Employee::class, 'sales_rep_id', 'user_id'); }
     public function customer() { return $this->belongsTo(Customer::class); }
     public function createdBy() { return $this->belongsTo(Employee::class, 'created_by'); }
     public function items() { return $this->hasMany(SalesInvoiceItem::class); }

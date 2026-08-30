@@ -15,22 +15,22 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\DistributionPlan;
-use App\Models\Sales\DistributionPlanProduct;
-use App\Models\Sales\DistributionPlanRep;
-use App\Models\Sales\DistributionPlanCustomer;
-use App\Models\Sales\DistributionPlanItem;
-use App\Models\Inventory\IssueOrder;
-use App\Models\Inventory\IssueOrderItem;
-use App\Models\Sales\LoadRequest;
-use App\Models\Sales\LoadRequestItem;
-use App\Models\Inventory\InventoryTransaction;
-use App\Models\Inventory\InventoryTransactionItem;
-use App\Models\Inventory\InventoryTransactionType;
-use App\Models\Inventory\Warehouse;
-use App\Models\Inventory\ItemUnit;
-use App\Models\HR\Employee;
-use App\Models\CRM\Customer;
+use App\Models\DistributionPlan;
+use App\Models\DistributionPlanProduct;
+use App\Models\DistributionPlanRep;
+use App\Models\DistributionPlanCustomer;
+use App\Models\DistributionPlanItem;
+use App\Models\IssueOrder;
+use App\Models\IssueOrderItem;
+use App\Models\LoadRequest;
+use App\Models\LoadRequestItem;
+use App\Models\InventoryTransaction;
+use App\Models\InventoryTransactionItem;
+use App\Models\InventoryTransactionType;
+use App\Models\Warehouse;
+use App\Models\ItemUnit;
+use App\Models\Employee;
+use App\Models\Customer;
 use App\Support\DayOfWeekHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -620,7 +620,7 @@ class DistributionPlanController extends Controller
 
         DB::transaction(function () use ($plan) {
             $txnIds = DB::table('inventory_transactions')
-                ->where('reference_type', \App\Models\Inventory\IssueOrder::class)
+                ->where('reference_type', \App\Models\IssueOrder::class)
                 ->whereIn('reference_id', function ($q) use ($plan) {
                     $q->select('id')
                         ->from('issue_orders')
@@ -683,7 +683,7 @@ class DistributionPlanController extends Controller
     public function updateCustomerQty(Request $request, $id, $customerId)
     {
         $plan = DistributionPlan::findOrFail($id);
-        $customer = \App\Models\Sales\DistributionPlanCustomer::findOrFail($customerId);
+        $customer = \App\Models\DistributionPlanCustomer::findOrFail($customerId);
 
         $data = $request->validate([
             'final_qty' => 'required|numeric|min:0',
@@ -726,7 +726,7 @@ class DistributionPlanController extends Controller
     public function updateItemQty(Request $request, $id, $itemId)
     {
         $plan = DistributionPlan::findOrFail($id);
-        $item = \App\Models\Sales\DistributionPlanItem::findOrFail($itemId);
+        $item = \App\Models\DistributionPlanItem::findOrFail($itemId);
 
         $data = $request->validate([
             'final_qty' => 'required|numeric|min:0',

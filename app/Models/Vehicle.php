@@ -48,7 +48,7 @@ class Vehicle extends Model
 
     public function dailyExpenses()
     {
-        return $this->hasMany(\App\Models\Fleet\VehicleDailyExpense::class);
+        return $this->hasMany(\App\Models\VehicleDailyExpense::class);
     }
 
     public function loadings()

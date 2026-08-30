@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Tax;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tax\TaxGroup;
+use App\Models\TaxGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 

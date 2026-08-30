@@ -15,10 +15,10 @@
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
-use App\Models\CRM\Customer;
+use App\Models\Customer;
 use App\Models\Governorate;
-use App\Models\Settings\City;
-use App\Models\Settings\District;
+use App\Models\City;
+use App\Models\District;
 use App\Models\CustomerGroup;
 use App\Models\CustomerClass;
 use App\Models\CustomerType;
@@ -104,7 +104,7 @@ class CustomerController extends Controller
         $customerIds = $customers->pluck('id')->toArray();
 
         // Consolidate 3 separate queries into 1
-        $invoiceStats = \App\Models\Sales\SalesInvoice::whereIn('customer_id', $customerIds)
+        $invoiceStats = \App\Models\SalesInvoice::whereIn('customer_id', $customerIds)
             ->where('status', '!=', 'cancelled')
             ->selectRaw('customer_id, COALESCE(SUM(net_total), 0) as total_invoices, COALESCE(SUM(paid_amount), 0) as total_paid, COUNT(*) as invoice_count')
             ->groupBy('customer_id')
@@ -198,7 +198,7 @@ class CustomerController extends Controller
             };
         };
 
-        $allInvoices = \App\Models\Sales\SalesInvoice::withoutGlobalScope(\App\Scopes\BranchIsolationScope::class)
+        $allInvoices = \App\Models\SalesInvoice::withoutGlobalScope(\App\Scopes\BranchIsolationScope::class)
             ->where('customer_id', $id)
             ->where('status', '!=', 'cancelled')
             ->orderBy('invoice_date')
@@ -222,7 +222,7 @@ class CustomerController extends Controller
             }
             $periodInvoices = $allInvoices->filter(fn($inv) => $inv->invoice_date >= $from);
 
-            $beforeReceipts = \App\Models\Treasury\ReceiptVoucher::where('customer_id', $id)
+            $beforeReceipts = \App\Models\ReceiptVoucher::where('customer_id', $id)
                 ->where('status', '!=', 'cancelled')
                 ->where('voucher_date', '<', $from)
                 ->get(['amount']);

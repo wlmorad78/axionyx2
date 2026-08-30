@@ -260,12 +260,22 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             ->latest('id')
             ->first();
 
+        $lastReturn = ReturnOrder::where('company_id', $user->company_id)
+            ->orderByRaw("CAST(SUBSTR(return_no, 4) AS INTEGER) DESC")
+            ->first();
+        $nextReturnNo = 1;
+        if ($lastReturn && preg_match('/^RO-(\d+)$/', $lastReturn->return_no, $m)) {
+            $nextReturnNo = intval($m[1]) + 1;
+        }
+        $returnNo = 'RO-' . str_pad($nextReturnNo, 5, '0', STR_PAD_LEFT);
+
         $returnOrder = ReturnOrder::create([
             'company_id' => $user->company_id,
             'branch_id' => $branchId,
             'warehouse_id' => $warehouse->id,
             'load_request_id' => $loadRequestId,
             'issue_order_id' => $activeIssueOrder?->id,
+            'return_no' => $returnNo,
             'return_type' => 'excess',
             'return_date' => now()->toDateString(),
             'employee_id' => $employee->id,
@@ -439,7 +449,7 @@ RouteFacade::post('handheld/return-orders/{id}/approve', function (\Illuminate\H
         ]);
 
         if ($returnOrder->load_request_id) {
-            \App\Models\Sales\LoadRequest::where('id', $returnOrder->load_request_id)
+            \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
                 ->update(['status' => 'closed']);
         }
 
@@ -1342,8 +1352,20 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             })
             ->withTrashed()
             ->first();
+
+        // Fallback: also check by invoice_no to avoid UNIQUE constraint violation
+        // when the same invoice_no was previously synced with a different client_uuid
+        if (!$existing) {
+            $invoiceNo = $invoiceData['invoice_no'] ?? $invoiceData['temp_invoice_no'] ?? null;
+            if (!empty($invoiceNo)) {
+                $existing = SalesInvoice::where('company_id', $user->company_id)
+                    ->where('invoice_no', $invoiceNo)
+                    ->whereNull('deleted_at')
+                    ->first();
+            }
+        }
         if ($existing) {
-            $invoice = DB::transaction(function () use ($existing, $invoiceData, $user, $employee, $buildItemsData, $applyDistribution, $clientUuid, $toNullable) {
+            $invoice = DB::transaction(function () use ($existing, $invoiceData, $user, $employee, $buildItemsData, $applyDistribution, $clientUuid, $toNullable, $createCollections) {
                 $oldItems = \App\Models\SalesInvoiceItem::where('sales_invoice_id', $existing->id)->get();
                 foreach ($oldItems as $oldItem) {
                     $dist = \App\Models\RepItemDistribution::where('company_id', $user->company_id)
@@ -1427,7 +1449,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             continue;
         }
 
-        $invoice = DB::transaction(function () use ($invoiceData, $user, $employee, $request, $clientUuid, $toNullable) {
+        $invoice = DB::transaction(function () use ($invoiceData, $user, $employee, $request, $clientUuid, $toNullable, $createCollections) {
             $subtotal = 0;
             $taxTotal = 0;
             $itemsData = [];
@@ -2004,7 +2026,7 @@ RouteFacade::post('handheld/pay-from-balance', function (\Illuminate\Http\Reques
 
     $uuid = $request->input('uuid');
     if ($uuid) {
-        $existing = \App\Models\Sales\Collection::where('company_id', $user->company_id)
+        $existing = \App\Models\Collection::where('company_id', $user->company_id)
             ->where('notes', 'like', "%uuid:$uuid%")
             ->first();
         if ($existing) {
@@ -2030,7 +2052,7 @@ RouteFacade::post('handheld/pay-from-balance', function (\Illuminate\Http\Reques
 
     $notes = 'الدفع من رصيد سابق';
     if ($uuid) $notes .= " uuid:$uuid";
-    $collection = \App\Models\Sales\Collection::create([
+    $collection = \App\Models\Collection::create([
         'company_id' => $user->company_id,
         'branch_id' => $request->input('branch_id'),
         'collection_date' => now()->toDateString(),
@@ -2073,7 +2095,7 @@ RouteFacade::post('handheld/add-customer-credit', function (\Illuminate\Http\Req
     }
 
     // Create a negative collection (credit) to increase customer balance
-    $collection = \App\Models\Sales\Collection::create([
+    $collection = \App\Models\Collection::create([
         'company_id' => $user->company_id,
         'branch_id' => $request->input('branch_id'),
         'collection_date' => now()->toDateString(),
@@ -2218,7 +2240,7 @@ RouteFacade::post('handheld/sync-collections', function (\Illuminate\Http\Reques
             !app(\App\Services\PermissionService::class)->check($user, 'sales.collection.cross_customer_payment')) {
             return response()->json(['message' => 'السداد عن عميل آخر غير مسموح حالياً'], 403);
         }
-        $existing = \App\Models\Sales\Collection::where('company_id', $user->company_id)
+        $existing = \App\Models\Collection::where('company_id', $user->company_id)
             ->where('customer_id', $collectionData['customer_id'])
             ->where('amount', $collectionData['amount'])
             ->whereDate('collection_date', $collectionData['collection_date'])
@@ -2247,7 +2269,7 @@ RouteFacade::post('handheld/sync-collections', function (\Illuminate\Http\Reques
                 ->value('id');
         }
 
-        $collection = \App\Models\Sales\Collection::create([
+        $collection = \App\Models\Collection::create([
             'company_id' => $user->company_id,
             'branch_id' => $collectionData['branch_id'] ?? $request->input('branch_id'),
             'collection_date' => $collectionData['collection_date'],
@@ -2352,7 +2374,7 @@ RouteFacade::get('handheld/rep-summary', function (\Illuminate\Http\Request $req
         'total_remaining' => (float) $invoices->sum('remaining_amount'),
     ];
 
-    $collections = \App\Models\Sales\Collection::where('sales_rep_id', $targetEmployeeId)
+    $collections = \App\Models\Collection::where('sales_rep_id', $targetEmployeeId)
         ->where('company_id', $user->company_id)
         ->where('collection_date', '>=', $dateFrom)
         ->where('collection_date', '<=', $dateTo . ' 23:59:59')
@@ -2466,14 +2488,14 @@ RouteFacade::get('handheld/daily-summary', function (\Illuminate\Http\Request $r
         $totalPaid = (float) $invoices->sum('paid_amount');
         $totalRemaining = $totalSales - $totalPaid;
 
-        $collectionsFromBalance = \App\Models\Sales\Collection::where('sales_rep_id', $employee->id)
+        $collectionsFromBalance = \App\Models\Collection::where('sales_rep_id', $employee->id)
             ->whereDate('collection_date', $today)
             ->where('company_id', $user->company_id)
             ->whereNull('deleted_at')
             ->where('notes', 'like', '%الدفع من رصيد سابق%')
             ->sum('amount');
 
-        $todaySettlement = \App\Models\Sales\RepDailySettlement::where('sales_rep_id', $employee->id)
+        $todaySettlement = \App\Models\RepDailySettlement::where('sales_rep_id', $employee->id)
             ->whereDate('settlement_date', $today)
             ->where('company_id', $user->company_id)
             ->first();
@@ -2508,7 +2530,7 @@ RouteFacade::get('handheld/daily-summary', function (\Illuminate\Http\Request $r
 
         $totalExpenses = collect($expenses)->sum('amount');
 
-        $pendingDebts = \App\Models\Sales\SalesmanDebt::where('salesman_id', $employee->id)
+        $pendingDebts = \App\Models\SalesmanDebt::where('salesman_id', $employee->id)
             ->where('company_id', $user->company_id)
             ->whereIn('status', ['pending', 'partially_paid'])
             ->sum('remaining_debt');
@@ -2545,7 +2567,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
 
     $uuid = $request->input('uuid');
     if ($uuid) {
-        $existing = \App\Models\Sales\RepDailySettlement::where('company_id', $user->company_id)
+        $existing = \App\Models\RepDailySettlement::where('company_id', $user->company_id)
             ->where('sales_rep_id', $employee->id)
             ->where('settlement_uuid', $uuid)
             ->first();
@@ -2614,7 +2636,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             ->first();
     }
 
-    $existingSettlement = \App\Models\Sales\RepDailySettlement::where('sales_rep_id', $employee->id)
+    $existingSettlement = \App\Models\RepDailySettlement::where('sales_rep_id', $employee->id)
         ->whereDate('settlement_date', $today)
         ->where('company_id', $user->company_id)
         ->first();
@@ -2634,7 +2656,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
 
     $totalExpenses = collect($request->expenses ?? [])->sum('amount');
 
-    $collectionsFromBalance = \App\Models\Sales\Collection::where('sales_rep_id', $employee->id)
+    $collectionsFromBalance = \App\Models\Collection::where('sales_rep_id', $employee->id)
         ->whereDate('collection_date', $today)
         ->where('company_id', $user->company_id)
         ->whereNull('deleted_at')
@@ -2707,11 +2729,11 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             'return_notes' => $request->input('return_notes'),
         ], fn($v) => $v !== null) : [];
         $createData = array_merge($createData, $newFields);
-        $settlement = \App\Models\Sales\RepDailySettlement::create($createData);
+        $settlement = \App\Models\RepDailySettlement::create($createData);
     }
 
     foreach ($request->expenses ?? [] as $expense) {
-        \App\Models\Sales\RepDailyExpense::create([
+        \App\Models\RepDailyExpense::create([
             'company_id' => $user->company_id,
             'settlement_id' => $settlement->id,
             'expense_type' => $expense['expense_type'],
@@ -2729,7 +2751,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             $itemId = $item['item_id'] ?? null;
             if (!$itemId) continue;
 
-            \App\Models\Sales\RepDailySettlementItem::create([
+            \App\Models\RepDailySettlementItem::create([
                 'company_id' => $user->company_id,
                 'settlement_id' => $settlement->id,
                 'item_id' => $itemId,
@@ -2750,11 +2772,11 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
     }
 
     if ($shortage > 0) {
-        $salesmanAccount = \App\Models\Sales\SalesmanAccount::where('salesman_id', $employee->id)
+        $salesmanAccount = \App\Models\SalesmanAccount::where('salesman_id', $employee->id)
             ->where('company_id', $user->company_id)
             ->first();
 
-        $debt = \App\Models\Sales\SalesmanDebt::create([
+        $debt = \App\Models\SalesmanDebt::create([
             'company_id' => $user->company_id,
             'branch_id' => $branchId,
             'salesman_id' => $employee->id,
@@ -2779,14 +2801,14 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
                 'current_balance' => $salesmanAccount->current_balance + $shortage,
             ]);
 
-            \App\Models\Sales\SalesmanAccountMovement::create([
+            \App\Models\SalesmanAccountMovement::create([
                 'company_id' => $user->company_id,
                 'branch_id' => $branchId,
                 'salesman_account_id' => $salesmanAccount->id,
                 'salesman_id' => $employee->id,
                 'movement_date' => $today,
                 'movement_type' => 'debt_creation',
-                'reference_type' => \App\Models\Sales\SalesmanDebt::class,
+                'reference_type' => \App\Models\SalesmanDebt::class,
                 'reference_id' => $debt->id,
                 'document_no' => $debt->debt_no,
                 'debit' => round($shortage, 2),
@@ -2821,7 +2843,7 @@ RouteFacade::get('handheld/my-settlements', function (\Illuminate\Http\Request $
         return response()->json(['data' => []]);
     }
 
-    $settlements = \App\Models\Sales\RepDailySettlement::where('sales_rep_id', $employee->id)
+    $settlements = \App\Models\RepDailySettlement::where('sales_rep_id', $employee->id)
         ->where('company_id', $user->company_id)
         ->orderByDesc('settlement_date')
         ->limit(30)
@@ -2864,7 +2886,7 @@ RouteFacade::post('handheld/add-expense', function (\Illuminate\Http\Request $re
 
     $today = now()->toDateString();
 
-    $settlement = \App\Models\Sales\RepDailySettlement::where('sales_rep_id', $employee->id)
+    $settlement = \App\Models\RepDailySettlement::where('sales_rep_id', $employee->id)
         ->whereDate('settlement_date', $today)
         ->where('company_id', $user->company_id)
         ->first();
@@ -2885,7 +2907,7 @@ RouteFacade::post('handheld/add-expense', function (\Illuminate\Http\Request $re
             }
         }
 
-        $settlement = \App\Models\Sales\RepDailySettlement::create([
+        $settlement = \App\Models\RepDailySettlement::create([
             'company_id' => $user->company_id,
             'branch_id' => $branchId,
             'settlement_date' => $today,
@@ -2895,7 +2917,7 @@ RouteFacade::post('handheld/add-expense', function (\Illuminate\Http\Request $re
         ]);
     }
 
-    $expense = \App\Models\Sales\RepDailyExpense::create([
+    $expense = \App\Models\RepDailyExpense::create([
         'company_id' => $user->company_id,
         'settlement_id' => $settlement->id,
         'expense_type' => $request->expense_type,

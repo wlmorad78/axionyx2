@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\Notifications\AlertRule;
-use App\Models\Notifications\NotificationEvent;
-use App\Models\Notifications\NotificationGroup;
-use App\Models\Notifications\NotificationTemplate;
-use App\Models\Notifications\NotificationType;
+use App\Models\Company;
+use App\Models\AlertRule;
+use App\Models\NotificationEvent;
+use App\Models\NotificationGroup;
+use App\Models\NotificationTemplate;
+use App\Models\NotificationType;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

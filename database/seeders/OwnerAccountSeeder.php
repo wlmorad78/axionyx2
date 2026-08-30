@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\Accounting\Account;
-use App\Models\Accounting\AccountGroup;
-use App\Models\Company\Company;
+use App\Models\Account;
+use App\Models\AccountGroup;
+use App\Models\Company;
 use Illuminate\Database\Seeder;
 
 class OwnerAccountSeeder extends Seeder

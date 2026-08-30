@@ -20,21 +20,21 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     $companyId = session('company_id') ?? (auth()->user()?->company_id ?? null);
 
-    $treasuryBankTransfers = \App\Models\Treasury\TreasuryBankTransfer::with(['treasury', 'bankAccount'])
+    $treasuryBankTransfers = \App\Models\TreasuryBankTransfer::with(['treasury', 'bankAccount'])
         ->when($companyId, fn($q) => $q->where('company_id', $companyId))
         ->orderByDesc('id')->limit(10)->get();
 
-    $bankSupplierPayments = \App\Models\Treasury\BankSupplierPayment::with(['bankAccount', 'supplier'])
+    $bankSupplierPayments = \App\Models\BankSupplierPayment::with(['bankAccount', 'supplier'])
         ->when($companyId, fn($q) => $q->where('company_id', $companyId))
         ->orderByDesc('id')->limit(10)->get();
 
-    $totalTreasuryToBank = \App\Models\Treasury\TreasuryBankTransfer::where('transfer_type', 'treasury_to_bank')
+    $totalTreasuryToBank = \App\Models\TreasuryBankTransfer::where('transfer_type', 'treasury_to_bank')
         ->where('status', 'completed')->when($companyId, fn($q) => $q->where('company_id', $companyId))->sum('amount');
 
-    $totalBankToTreasury = \App\Models\Treasury\TreasuryBankTransfer::where('transfer_type', 'bank_to_treasury')
+    $totalBankToTreasury = \App\Models\TreasuryBankTransfer::where('transfer_type', 'bank_to_treasury')
         ->where('status', 'completed')->when($companyId, fn($q) => $q->where('company_id', $companyId))->sum('amount');
 
-    $totalBankToSupplier = \App\Models\Treasury\BankSupplierPayment::where('status', 'completed')
+    $totalBankToSupplier = \App\Models\BankSupplierPayment::where('status', 'completed')
         ->when($companyId, fn($q) => $q->where('company_id', $companyId))->sum('amount');
 
     return view('dashboard', compact(

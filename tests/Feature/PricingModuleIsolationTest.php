@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\Pricing\PriceLevel;
+use App\Models\Company;
+use App\Models\PriceLevel;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

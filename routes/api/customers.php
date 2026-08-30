@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\CRM\CustomerController;
 use App\Http\Controllers\Api\Customers\CustomerOpeningBalanceController;
 
 Route::get('sales-areas', function (Request $request) {
-    $q = \App\Models\Sales\SalesTerritory::where('is_active', true);
+    $q = \App\Models\SalesTerritory::where('is_active', true);
     if ($companyId = $request->header('X-Company-Id')) {
         $q->where('company_id', $companyId);
     }
@@ -14,7 +14,7 @@ Route::get('sales-areas', function (Request $request) {
 });
 
 Route::get('routes', function (Request $request) {
-    $q = \App\Models\Sales\Route::where('is_active', true);
+    $q = \App\Models\Route::where('is_active', true);
     if ($request->filled('sales_territory_id')) {
         $q->where('sales_territory_id', $request->sales_territory_id);
     }

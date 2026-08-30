@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Sales\ReturnOrder;
+use App\Models\ReturnOrder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 

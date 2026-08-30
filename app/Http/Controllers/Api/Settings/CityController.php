@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\City;
+use App\Models\City;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

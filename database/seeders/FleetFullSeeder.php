@@ -10,7 +10,7 @@ use App\Models\Company;
 use App\Models\Driver;
 use App\Models\Vehicle;
 use App\Models\VehicleAssignment;
-use App\Models\Fleet\VehicleDailyExpense;
+use App\Models\VehicleDailyExpense;
 use App\Models\VehicleFuelTransaction;
 use App\Models\VehicleLoading;
 use App\Models\VehicleMaintenance;

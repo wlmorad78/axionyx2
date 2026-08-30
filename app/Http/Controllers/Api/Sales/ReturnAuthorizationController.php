@@ -15,18 +15,18 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\ReturnAuthorization;
-use App\Models\Sales\ReturnAuthorizationItem;
-use App\Models\Inventory\InventoryTransaction;
-use App\Models\Inventory\InventoryTransactionItem;
-use App\Models\Inventory\InventoryTransactionType;
-use App\Models\Sales\SalesmanAccount;
-use App\Models\Sales\SalesmanDebt;
-use App\Models\Sales\SalesmanAccountMovement;
-use App\Models\HR\Employee;
-use App\Models\Inventory\Item;
-use App\Models\Inventory\Unit;
-use App\Models\Sales\SalesInvoice;
+use App\Models\ReturnAuthorization;
+use App\Models\ReturnAuthorizationItem;
+use App\Models\InventoryTransaction;
+use App\Models\InventoryTransactionItem;
+use App\Models\InventoryTransactionType;
+use App\Models\SalesmanAccount;
+use App\Models\SalesmanDebt;
+use App\Models\SalesmanAccountMovement;
+use App\Models\Employee;
+use App\Models\Item;
+use App\Models\Unit;
+use App\Models\SalesInvoice;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -369,10 +369,10 @@ class ReturnAuthorizationController extends Controller
     {
         if (!$authItem->sales_invoice_item_id) return;
 
-        $invoiceItem = \App\Models\Sales\SalesInvoiceItem::find($authItem->sales_invoice_item_id);
+        $invoiceItem = \App\Models\SalesInvoiceItem::find($authItem->sales_invoice_item_id);
         if (!$invoiceItem) return;
 
-        $distribution = \App\Models\Sales\RepItemDistribution::where('item_id', $authItem->item_id)
+        $distribution = \App\Models\RepItemDistribution::where('item_id', $authItem->item_id)
             ->where('user_id', $authItem->returnAuthorization->salesman_id)
             ->where('status', 'active')
             ->first();

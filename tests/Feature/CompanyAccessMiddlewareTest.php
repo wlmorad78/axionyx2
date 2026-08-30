@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Auth\User;
-use App\Models\Company\Company;
+use App\Models\User;
+use App\Models\Company;
 use App\Models\Permissions\Role;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;

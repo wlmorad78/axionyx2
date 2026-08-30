@@ -15,8 +15,8 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\RouteSchedule;
-use App\Models\HR\Employee;
+use App\Models\RouteSchedule;
+use App\Models\Employee;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

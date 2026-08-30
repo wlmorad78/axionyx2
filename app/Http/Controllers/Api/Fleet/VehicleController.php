@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
-use App\Models\Fleet\Vehicle;
+use App\Models\Vehicle;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

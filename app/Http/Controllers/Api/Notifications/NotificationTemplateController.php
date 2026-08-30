@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Notifications;
 
 use App\Http\Controllers\Controller;
-use App\Models\Notifications\NotificationTemplate;
+use App\Models\NotificationTemplate;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

@@ -15,10 +15,10 @@
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
-use App\Models\Treasury\BankSupplierPayment;
+use App\Models\BankSupplierPayment;
 use App\Models\BankAccount;
-use App\Models\Suppliers\SupplierLedger;
-use App\Models\Purchase\PurchaseInvoice;
+use App\Models\SupplierLedger;
+use App\Models\PurchaseInvoice;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

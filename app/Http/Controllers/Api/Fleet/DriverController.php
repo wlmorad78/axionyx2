@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Fleet;
 
 use App\Http\Controllers\Controller;
-use App\Models\Fleet\Driver;
+use App\Models\Driver;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

@@ -69,12 +69,12 @@ class User extends Authenticatable
 
     public function warehouse(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Inventory\Warehouse::class);
+        return $this->belongsTo(\App\Models\Warehouse::class);
     }
 
     public function treasury(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Treasury\Treasury::class);
+        return $this->belongsTo(\App\Models\Treasury::class);
     }
 
     public function companies(): BelongsToMany

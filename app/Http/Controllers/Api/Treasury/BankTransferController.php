@@ -16,7 +16,7 @@ namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
-use App\Models\Treasury\BankTransfer;
+use App\Models\BankTransfer;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\OwnerAccount\OwnerTransaction;
-use App\Models\Treasury\Treasury;
-use App\Models\Treasury\TreasuryTransaction;
-use App\Models\Inventory\Warehouse;
-use App\Models\Inventory\Item;
-use App\Models\Accounting\Account;
+use App\Models\OwnerTransaction;
+use App\Models\Treasury;
+use App\Models\TreasuryTransaction;
+use App\Models\Warehouse;
+use App\Models\Item;
+use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\JournalEntryType;

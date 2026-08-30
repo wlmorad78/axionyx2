@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Company;
 
 use App\Http\Controllers\Controller;
-use App\Models\Company\Company;
+use App\Models\Company;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

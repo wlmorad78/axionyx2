@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\Integration\ApiClient;
-use App\Models\Integration\ApiKey;
-use App\Models\Integration\IntegrationEvent;
-use App\Models\Integration\IntegrationProvider;
-use App\Models\Integration\Webhook;
-use App\Models\Integration\WebhookEndpoint;
+use App\Models\Company;
+use App\Models\ApiClient;
+use App\Models\ApiKey;
+use App\Models\IntegrationEvent;
+use App\Models\IntegrationProvider;
+use App\Models\Webhook;
+use App\Models\WebhookEndpoint;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

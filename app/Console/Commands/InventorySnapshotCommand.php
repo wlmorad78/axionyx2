@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Inventory\InventoryDailyBalance;
-use App\Models\Inventory\InventoryOpeningBalance;
-use App\Models\Inventory\InventoryTransaction;
+use App\Models\InventoryDailyBalance;
+use App\Models\InventoryOpeningBalance;
+use App\Models\InventoryTransaction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 

@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory\StockAdjustmentItem;
+use App\Models\StockAdjustmentItem;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

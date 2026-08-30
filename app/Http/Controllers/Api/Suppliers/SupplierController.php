@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Suppliers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Suppliers\Supplier;
+use App\Models\Supplier;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 
@@ -140,7 +140,7 @@ class SupplierController extends Controller
         }
 
         if ($from) {
-            $priorInvoices = \App\Models\Purchase\PurchaseInvoice::where('supplier_id', $id)
+            $priorInvoices = \App\Models\PurchaseInvoice::where('supplier_id', $id)
                 ->where('status', '!=', 'cancelled')
                 ->where('invoice_date', '<', $from)
                 ->get(['net_total']);
@@ -148,7 +148,7 @@ class SupplierController extends Controller
                 $openingBalance += (float) $inv->net_total;
             }
 
-            $priorPayments = \App\Models\Treasury\PaymentVoucher::where('supplier_id', $id)
+            $priorPayments = \App\Models\PaymentVoucher::where('supplier_id', $id)
                 ->where('status', '!=', 'cancelled')
                 ->where('voucher_date', '<', $from)
                 ->get(['amount']);
@@ -156,7 +156,7 @@ class SupplierController extends Controller
                 $openingBalance -= (float) $pay->amount;
             }
 
-            $priorBankPayments = \App\Models\Treasury\BankSupplierPayment::where('supplier_id', $id)
+            $priorBankPayments = \App\Models\BankSupplierPayment::where('supplier_id', $id)
                 ->where('status', '!=', 'cancelled')
                 ->where('payment_date', '<', $from)
                 ->get(['amount']);
@@ -165,7 +165,7 @@ class SupplierController extends Controller
             }
         }
 
-        $invoices = \App\Models\Purchase\PurchaseInvoice::where('supplier_id', $id)
+        $invoices = \App\Models\PurchaseInvoice::where('supplier_id', $id)
             ->where('status', '!=', 'cancelled')
             ->when($from, fn($q) => $q->where('invoice_date', '>=', $from))
             ->when($to, fn($q) => $q->where('invoice_date', '<=', $to))
@@ -183,7 +183,7 @@ class SupplierController extends Controller
             ];
         }
 
-        $payments = \App\Models\Treasury\PaymentVoucher::where('supplier_id', $id)
+        $payments = \App\Models\PaymentVoucher::where('supplier_id', $id)
             ->where('status', '!=', 'cancelled')
             ->when($from, fn($q) => $q->where('voucher_date', '>=', $from))
             ->when($to, fn($q) => $q->where('voucher_date', '<=', $to))
@@ -201,7 +201,7 @@ class SupplierController extends Controller
             ];
         }
 
-        $bankPayments = \App\Models\Treasury\BankSupplierPayment::where('supplier_id', $id)
+        $bankPayments = \App\Models\BankSupplierPayment::where('supplier_id', $id)
             ->where('status', '!=', 'cancelled')
             ->when($from, fn($q) => $q->where('payment_date', '>=', $from))
             ->when($to, fn($q) => $q->where('payment_date', '<=', $to))

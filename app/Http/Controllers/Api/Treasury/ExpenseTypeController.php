@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
-use App\Models\Treasury\ExpenseType;
+use App\Models\ExpenseType;
 use Illuminate\Http\Request;
 
 class ExpenseTypeController extends Controller

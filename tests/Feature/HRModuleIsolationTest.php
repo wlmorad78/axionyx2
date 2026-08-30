@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Company\Company;
-use App\Models\HR\Department;
-use App\Models\HR\JobGrade;
-use App\Models\HR\JobFamily;
-use App\Models\HR\PayrollPeriod;
-use App\Models\HR\SalaryComponent;
-use App\Models\HR\SalaryComponentType;
-use App\Models\HR\SalaryScale;
+use App\Models\Company;
+use App\Models\Department;
+use App\Models\JobGrade;
+use App\Models\JobFamily;
+use App\Models\PayrollPeriod;
+use App\Models\SalaryComponent;
+use App\Models\SalaryComponentType;
+use App\Models\SalaryScale;
 use App\Services\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

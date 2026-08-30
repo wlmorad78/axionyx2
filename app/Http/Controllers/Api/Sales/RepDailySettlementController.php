@@ -15,9 +15,9 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\RepDailySettlement;
-use App\Models\Treasury\Treasury;
-use App\Models\Treasury\TreasuryTransaction;
+use App\Models\RepDailySettlement;
+use App\Models\Treasury;
+use App\Models\TreasuryTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -139,16 +139,16 @@ class RepDailySettlementController extends Controller
                 ->forceDelete();
 
             if ($repDailySettlement->salesman_debt_id) {
-                $debt = \App\Models\Sales\SalesmanDebt::find($repDailySettlement->salesman_debt_id);
+                $debt = \App\Models\SalesmanDebt::find($repDailySettlement->salesman_debt_id);
                 if ($debt && $debt->total_paid == 0) {
-                    $account = \App\Models\Sales\SalesmanAccount::find($debt->salesman_account_id);
+                    $account = \App\Models\SalesmanAccount::find($debt->salesman_account_id);
                     if ($account) {
                         $account->update([
                             'total_debts' => max(0, $account->total_debts - $debt->gross_debt),
                             'current_balance' => max(0, $account->current_balance - $debt->gross_debt),
                         ]);
 
-                        \App\Models\Sales\SalesmanAccountMovement::where('reference_type', \App\Models\Sales\SalesmanDebt::class)
+                        \App\Models\SalesmanAccountMovement::where('reference_type', \App\Models\SalesmanDebt::class)
                             ->where('reference_id', $debt->id)
                             ->forceDelete();
                     }

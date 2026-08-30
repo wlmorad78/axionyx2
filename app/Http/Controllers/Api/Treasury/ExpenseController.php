@@ -15,8 +15,8 @@
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
-use App\Models\Treasury\Expense;
-use App\Models\Treasury\TreasuryTransaction;
+use App\Models\Expense;
+use App\Models\TreasuryTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 

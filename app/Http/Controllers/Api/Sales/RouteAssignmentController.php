@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\RouteAssignment;
+use App\Models\RouteAssignment;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

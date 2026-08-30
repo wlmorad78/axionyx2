@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Customers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Customers\CustomerOpeningBalance;
+use App\Models\CustomerOpeningBalance;
 use Illuminate\Http\Request;
 
 class CustomerOpeningBalanceController extends Controller

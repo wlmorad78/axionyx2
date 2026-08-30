@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Treasury;
 
 use App\Http\Controllers\Controller;
-use App\Models\Treasury\ReceiptVoucher;
+use App\Models\ReceiptVoucher;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

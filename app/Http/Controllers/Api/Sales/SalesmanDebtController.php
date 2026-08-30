@@ -15,11 +15,11 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\SalesmanDebt;
-use App\Models\Sales\SalesmanDebtPaymentLine;
-use App\Models\Sales\Collection;
-use App\Models\Treasury\TreasuryTransaction;
-use App\Models\Treasury\Treasury;
+use App\Models\SalesmanDebt;
+use App\Models\SalesmanDebtPaymentLine;
+use App\Models\Collection;
+use App\Models\TreasuryTransaction;
+use App\Models\Treasury;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -116,7 +116,7 @@ class SalesmanDebtController extends Controller
         }
 
         $user = $request->user();
-        $employee = \App\Models\HR\Employee::where('email', $user->email)->first();
+        $employee = \App\Models\Employee::where('email', $user->email)->first();
 
         return DB::transaction(function () use ($request, $salesmanDebt, $data, $paidAmount, $employee) {
             // Determine the treasury
@@ -160,7 +160,7 @@ class SalesmanDebtController extends Controller
 
             // Update linked settlement shortage_status
             if ($isFullyPaid) {
-                \App\Models\Sales\RepDailySettlement::where('salesman_debt_id', $salesmanDebt->id)
+                \App\Models\RepDailySettlement::where('salesman_debt_id', $salesmanDebt->id)
                     ->update(['shortage_status' => 'paid_next_day']);
             }
 
@@ -203,14 +203,14 @@ class SalesmanDebtController extends Controller
 
             // Update the debt
             if ($salesmanDebt->salesman_account_id) {
-                $account = \App\Models\Sales\SalesmanAccount::find($salesmanDebt->salesman_account_id);
+                $account = \App\Models\SalesmanAccount::find($salesmanDebt->salesman_account_id);
                 if ($account) {
                     $account->update([
                         'total_collections' => $account->total_collections + $paidAmount,
                         'current_balance' => $account->current_balance - $paidAmount,
                     ]);
 
-                    \App\Models\Sales\SalesmanAccountMovement::create([
+                    \App\Models\SalesmanAccountMovement::create([
                         'company_id' => $salesmanDebt->company_id,
                         'branch_id' => $salesmanDebt->branch_id,
                         'salesman_account_id' => $account->id,

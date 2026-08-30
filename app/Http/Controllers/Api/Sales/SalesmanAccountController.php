@@ -15,9 +15,9 @@
 namespace App\Http\Controllers\Api\Sales;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sales\SalesmanAccount;
-use App\Models\Sales\SalesmanAccountMovement;
-use App\Models\Sales\SalesmanDebt;
+use App\Models\SalesmanAccount;
+use App\Models\SalesmanAccountMovement;
+use App\Models\SalesmanDebt;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
 

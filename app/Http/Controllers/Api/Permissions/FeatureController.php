@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Permissions;
 
 use App\Http\Controllers\Controller;
-use App\Models\Settings\Feature;
+use App\Models\Feature;
 use App\Services\FeatureService;
 use Illuminate\Http\Request;
 

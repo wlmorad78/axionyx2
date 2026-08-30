@@ -15,7 +15,7 @@
 namespace App\Http\Controllers\Api\Suppliers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Suppliers\SupplierOpeningBalance;
+use App\Models\SupplierOpeningBalance;
 use Illuminate\Http\Request;
 
 class SupplierOpeningBalanceController extends Controller
