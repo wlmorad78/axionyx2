@@ -390,6 +390,52 @@ Route::get('reports/item-movement', function (\Illuminate\Http\Request $request)
     ]);
 });
 
+// ===== تقرير وقت الفاتورة ووقت المزامنة =====
+Route::get('reports/invoice-sync-timing', function (\Illuminate\Http\Request $request) {
+    $query = \App\Models\SalesInvoice::with(['salesRep.employee']);
+
+    if ($request->filled('company_id')) $query->where('company_id', $request->company_id);
+    if ($request->filled('sales_rep_id')) $query->where('sales_rep_id', $request->sales_rep_id);
+    if ($request->filled('date_from')) $query->whereDate('invoice_date', '>=', $request->date_from);
+    if ($request->filled('date_to')) $query->whereDate('invoice_date', '<=', $request->date_to);
+    if ($request->filled('status')) $query->where('status', $request->status);
+
+    $invoices = $query->orderByDesc('invoice_date')
+        ->orderByDesc('id')
+        ->paginate($request->get('per_page', 50));
+
+    $data = $invoices->getCollection()->map(function ($inv) {
+        $rep = $inv->salesRep;
+        $emp = $rep?->employee;
+        $repName = $emp
+            ? collect([$emp->first_name_ar, $emp->second_name_ar, $emp->third_name_ar, $emp->last_name_ar])->filter()->implode(' ')
+            : ($rep?->name ?? '—');
+
+        return [
+            'id'               => $inv->id,
+            'invoice_no'       => $inv->invoice_no,
+            'invoice_date'     => $inv->invoice_date?->format('Y-m-d'),
+            'invoice_time'     => $inv->invoice_time?->format('H:i'),
+            'created_at'       => $inv->created_at?->format('Y-m-d H:i:s'),
+            'synced_at'        => $inv->synced_at?->format('Y-m-d H:i:s'),
+            'sync_status'      => $inv->sync_status,
+            'source'           => $inv->source,
+            'sales_rep_name'   => $repName,
+            'sales_rep_id'     => $inv->sales_rep_id,
+            'net_total'        => (float) $inv->net_total,
+            'status'           => $inv->status,
+        ];
+    });
+
+    return response()->json([
+        'data'        => $data,
+        'current_page' => $invoices->currentPage(),
+        'last_page'    => $invoices->lastPage(),
+        'per_page'     => $invoices->perPage(),
+        'total'        => $invoices->total(),
+    ]);
+})->middleware('auth:sanctum');
+
 // Item Ledger Report v2 (movement types, tabs, rep balances)
 Route::get('reports/item-ledger', function (\Illuminate\Http\Request $request) {
     $request->validate(['item_id' => 'required|integer']);
@@ -1082,6 +1128,10 @@ foreach ($resources as $uri => $controller) {
 
 Route::post('return-orders/{returnOrder}/approve', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'approve']);
 Route::post('return-orders/{returnOrder}/reject', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reject']);
+Route::post('return-orders/{returnOrder}/reopen', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reopen']);
+
+Route::post('bank-supplier-payments/{bankSupplierPayment}/approve', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'approve']);
+Route::post('bank-supplier-payments/{bankSupplierPayment}/cancel', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'cancel']);
 
 Route::post('salesman-debts/{salesmanDebt}/collect', [\App\Http\Controllers\Api\Sales\SalesmanDebtController::class, 'collect']);
 

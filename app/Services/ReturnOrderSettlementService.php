@@ -114,9 +114,34 @@ class ReturnOrderSettlementService
             'approved_at' => now(),
         ]);
 
+        if ($settlement->return_order_id) {
+            $returnOrder = \App\Models\ReturnOrder::find($settlement->return_order_id);
+            if ($returnOrder && $returnOrder->load_request_id) {
+                $this->closeLoadRequestAndComplementary($returnOrder->load_request_id);
+            }
+        } elseif (!empty($settlement->load_request_no)) {
+            $loadRequest = \App\Models\LoadRequest::where('request_no', $settlement->load_request_no)->first();
+            if ($loadRequest) {
+                $this->closeLoadRequestAndComplementary($loadRequest->id);
+            }
+        }
+
         Log::info("Return order settlement approved: {$settlement->settlement_no}");
 
         return $settlement;
+    }
+
+    private function closeLoadRequestAndComplementary(int $loadRequestId): void
+    {
+        DB::table('load_requests')
+            ->where('id', $loadRequestId)
+            ->where('status', '!=', 'closed')
+            ->update(['status' => 'closed', 'updated_at' => now()]);
+
+        DB::table('load_requests')
+            ->where('parent_load_request_id', $loadRequestId)
+            ->where('status', '!=', 'closed')
+            ->update(['status' => 'closed', 'updated_at' => now()]);
     }
 
     public function cancelSettlement(ReturnOrderSettlement $settlement): ReturnOrderSettlement

@@ -10,12 +10,12 @@ Route::get('handheld2/version', function () {
     return response()->json([
         'success' => true,
         'data' => [
-            'version' => '1.0.3',
-            'build_number' => 4,
-            'min_required_version' => '1.0.0',
+            'version' => '1.0.9',
+            'build_number' => 9,
+            'min_required_version' => '1.0.9',
             'force_update' => false,
             'release_notes' => 'تحسينات المزامنة والأوامر التكميلية',
-            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_hh_v1.0.3.apk',
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_hh_v1.0.9.apk',
         ],
     ]);
 });
@@ -102,5 +102,103 @@ Route::middleware('auth:sanctum')->group(function () {
             'message' => 'تم إضافة المصروف بنجاح',
             'data' => $expense,
         ], 201);
+    });
+
+    Route::get('handheld2/sales-territories', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+
+        $territories = DB::table('sales_territories')
+            ->where('company_id', $user->company_id)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->select('id', 'name_ar', 'name_en', 'code')
+            ->orderBy('name_ar')
+            ->get();
+
+        return response()->json(['data' => $territories]);
+    });
+
+    Route::get('handheld2/routes-by-territory', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        $territoryId = $request->input('territory_id');
+
+        if (!$territoryId) {
+            return response()->json(['message' => 'territory_id مطلوب'], 422);
+        }
+
+        $customerBalances = DB::table('sales_invoices')
+            ->where('company_id', $user->company_id)
+            ->whereNull('deleted_at')
+            ->selectRaw('customer_id, COALESCE(SUM(net_total),0) as debit_amount, COALESCE(SUM(paid_amount),0) as credit_amount')
+            ->groupBy('customer_id')
+            ->pluck('debit_amount', 'customer_id')
+            ->toArray();
+
+        $creditBalances = DB::table('customer_ledger')
+            ->where('customer_id', array_keys($customerBalances))
+            ->selectRaw('customer_id, COALESCE(SUM(credit),0) as credit')
+            ->groupBy('customer_id')
+            ->pluck('credit', 'customer_id')
+            ->toArray();
+
+        $balanceMap = [];
+        foreach ($customerBalances as $cid => $debit) {
+            $credit = $creditBalances[$cid] ?? 0;
+            $balanceMap[$cid] = [
+                'debit_amount' => $debit,
+                'credit_amount' => $credit,
+                'balance' => $debit - $credit,
+            ];
+        }
+
+        $routes = DB::table('routes')
+            ->where('routes.sales_territory_id', $territoryId)
+            ->where('routes.is_active', true)
+            ->whereNull('routes.deleted_at')
+            ->select('routes.id', 'routes.code', 'routes.name_ar', 'routes.name_en', 'routes.sales_territory_id')
+            ->get()
+            ->map(function ($route) use ($balanceMap) {
+                $customerIds = DB::table('route_customers')
+                    ->where('route_id', $route->id)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at')
+                    ->pluck('customer_id');
+
+                $customers = DB::table('customers')
+                    ->whereIn('id', $customerIds)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at')
+                    ->get(['id', 'code', 'name_ar', 'name_en', 'phone', 'mobile', 'address_line'])
+                    ->map(function ($c) use ($balanceMap) {
+                        return [
+                            'id' => $c->id,
+                            'code' => $c->code,
+                            'name' => $c->name_ar ?? $c->name_en,
+                            'phone' => $c->phone,
+                            'mobile' => $c->mobile,
+                            'address' => $c->address_line,
+                            'customer_type_id' => 0,
+                            'debit_amount' => $balanceMap[(int) $c->id]['debit_amount'] ?? 0,
+                            'credit_amount' => $balanceMap[(int) $c->id]['credit_amount'] ?? 0,
+                            'balance' => $balanceMap[(int) $c->id]['balance'] ?? 0,
+                        ];
+                    });
+
+                $territory = DB::table('sales_territories')
+                    ->where('id', $route->sales_territory_id)
+                    ->first();
+
+                return [
+                    'id' => $route->id,
+                    'code' => $route->code,
+                    'name' => $route->name_ar ?? $route->name_en ?? '',
+                    'territory_name' => $territory?->name_ar ?? '',
+                    'sales_territory_id' => $route->sales_territory_id ?? 0,
+                    'customers' => $customers,
+                ];
+            })
+            ->toArray();
+
+        return response()->json(['routes' => $routes]);
     });
 });

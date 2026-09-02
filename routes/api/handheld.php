@@ -1076,8 +1076,10 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             ->first();
 
         if (!$customer) {
-            // Auto-create cash customers with TEMP-* codes
-            if (str_starts_with($code, 'TEMP-') || str_starts_with($code, 'CASH-')) {
+            // Auto-create cash customers with TEMP-*, CASH-*, or legacy 697 codes
+            $isCashCode = str_starts_with($code, 'TEMP-') || str_starts_with($code, 'CASH-') || $code === '697'
+                || preg_match('/^\d{6}\d+\d{3}$/', $code);
+            if ($isCashCode) {
                 $customer = \App\Models\Customer::create([
                     'company_id' => $user->company_id,
                     'code' => $code,
@@ -1608,18 +1610,55 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
 RouteFacade::post('handheld/end-visit', function (\Illuminate\Http\Request $request) {
     $user = $request->user();
     $request->validate([
-        'customer_id' => 'required|exists:customers,id',
         'visit_status' => 'required|string|in:S,V,C',
         'visit_reason' => 'nullable|string|max:255',
     ]);
 
     $employee = resolveEmployee($request);
 
+    $customerId = $request->input('customer_id');
+    $customerCode = trim($request->input('customer_code', ''));
+    $customerType = $request->input('customer_type', '');
+
+    if (!$customerId || !is_numeric($customerId)) {
+        $customerId = null;
+    }
+
+    if ($customerId) {
+        $exists = \App\Models\Customer::where('id', $customerId)
+            ->where('company_id', $user->company_id)
+            ->exists();
+        if (!$exists) $customerId = null;
+    }
+
+    if (!$customerId && $customerCode !== '') {
+        $customer = \App\Models\Customer::where('company_id', $user->company_id)
+            ->where('code', $customerCode)->first();
+        if ($customer) {
+            $customerId = $customer->id;
+        } elseif ($customerType === 'cash' || str_starts_with($customerCode, 'TEMP-') || str_starts_with($customerCode, 'CASH-') || $customerCode === '697') {
+            $customer = \App\Models\Customer::create([
+                'company_id' => $user->company_id,
+                'code' => $customerCode,
+                'name_ar' => $request->input('customer_name', 'عميل نقدي'),
+                'name_en' => $request->input('customer_name', 'Cash Customer'),
+                'phone' => null,
+                'is_active' => true,
+                'customer_type_id' => $request->input('customer_type_id'),
+            ]);
+            $customerId = $customer->id;
+        }
+    }
+
+    if (!$customerId) {
+        return response()->json(['message' => 'العميل غير موجود'], 422);
+    }
+
     $visitStatus = $request->input('visit_status');
     $visitReason = $request->input('visit_reason');
 
     $visit = CustomerVisit::where('employee_id', $employee->id)
-        ->where('customer_id', $request->customer_id)
+        ->where('customer_id', $customerId)
         ->whereDate('visit_date', now()->toDateString())
         ->where('visit_status', 'pending')
         ->latest()
@@ -1634,7 +1673,7 @@ RouteFacade::post('handheld/end-visit', function (\Illuminate\Http\Request $requ
     } else {
         CustomerVisit::create([
             'employee_id' => $employee->id,
-            'customer_id' => $request->customer_id,
+            'customer_id' => $customerId,
             'visit_date' => now()->toDateString(),
             'check_in_time' => now()->format('H:i:s'),
             'check_out_time' => now()->format('H:i:s'),
@@ -3173,4 +3212,60 @@ RouteFacade::post('handheld/link-customer-route', function (\Illuminate\Http\Req
     ]);
 
     return response()->json(['message' => 'تم ربط العميل بخط السير بنجاح']);
+});
+
+RouteFacade::post('handheld/upload-db', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+    $employee = resolveEmployee($request);
+    $usercode = $employee->code ?? $request->input('usercode', 'unknown');
+
+    $request->validate([
+        'db_file' => 'required|file',
+    ]);
+
+    $file = $request->file('db_file');
+    $date = now()->format('ymd');
+    $baseDir = storage_path('app/db_backups/' . $user->company_id);
+    if (!is_dir($baseDir)) {
+        mkdir($baseDir, 0775, true);
+    }
+
+    $existingFiles = glob("{$baseDir}/{$usercode}_{$date}_*.db");
+    $serial = count($existingFiles) + 1;
+    $fileName = "{$usercode}_{$date}_{$serial}.db";
+
+    $file->move($baseDir, $fileName);
+
+    return response()->json([
+        'message' => 'تم رفع قاعدة البيانات بنجاح',
+        'file_name' => $fileName,
+    ]);
+});
+
+RouteFacade::get('handheld/download-db', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+    $employee = resolveEmployee($request);
+    $usercode = $employee->code ?? $request->input('usercode', '');
+
+    if (empty($usercode)) {
+        return response()->json(['message' => 'كود المندوب غير موجود'], 422);
+    }
+
+    $baseDir = storage_path('app/db_backups/' . $user->company_id);
+    if (!is_dir($baseDir)) {
+        return response()->json(['message' => 'لا توجد نسخ احتياطية'], 404);
+    }
+
+    $files = glob("{$baseDir}/{$usercode}_*.db");
+    if (empty($files)) {
+        return response()->json(['message' => 'لا توجد نسخة احتياطية لهذا المندوب'], 404);
+    }
+
+    usort($files, fn($a, $b) => filemtime($b) - filemtime($a));
+    $latest = $files[0];
+    $fileName = basename($latest);
+
+    return response()->download($latest, $fileName, [
+        'Content-Type' => 'application/octet-stream',
+    ]);
 });

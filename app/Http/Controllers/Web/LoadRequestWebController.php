@@ -192,6 +192,7 @@ class LoadRequestWebController extends Controller
                 'company_id' => $user->company_id,
                 'warehouse_id' => $request->warehouse_id,
                 'user_id' => $repEmployeeId,
+                'request_no' => $parent->request_no,
                 'parent_load_request_id' => $parent->id,
                 'load_type' => 'complementary',
                 'request_date' => now()->toDateString(),

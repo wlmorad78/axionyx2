@@ -126,8 +126,26 @@ class ReturnOrderController extends Controller
             ]);
 
             if ($returnOrder->load_request_id) {
+                $loadRequest = \App\Models\LoadRequest::find($returnOrder->load_request_id);
+
                 \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
                     ->update(['status' => 'closed']);
+
+                \App\Models\LoadRequest::where('parent_load_request_id', $returnOrder->load_request_id)
+                    ->where('status', '!=', 'closed')
+                    ->update(['status' => 'closed']);
+
+                if ($loadRequest && $loadRequest->parent_load_request_id) {
+                    $hasOpenChildren = \App\Models\LoadRequest::where('parent_load_request_id', $loadRequest->parent_load_request_id)
+                        ->where('id', '!=', $loadRequest->id)
+                        ->where('status', '!=', 'closed')
+                        ->exists();
+
+                    if (!$hasOpenChildren) {
+                        \App\Models\LoadRequest::where('id', $loadRequest->parent_load_request_id)
+                            ->update(['status' => 'closed']);
+                    }
+                }
             }
 
             $type = InventoryTransactionType::firstOrCreate(

@@ -480,6 +480,10 @@ class LoadRequestController extends Controller
             'status' => 'closed',
         ]);
 
+        \App\Models\LoadRequest::where('parent_load_request_id', $loadRequest->id)
+            ->where('status', '!=', 'closed')
+            ->update(['status' => 'closed']);
+
         return response()->json([
             'message' => 'تم إغلاق طلب التحميل',
             'data' => $loadRequest->fresh(),

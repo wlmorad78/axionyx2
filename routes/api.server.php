@@ -28,6 +28,11 @@ Route::get('handheld/health', function () {
     return response()->json(['success' => true, 'service' => 'api']);
 });
 
+// App Update (no auth required)
+Route::get('app/version', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'latest']);
+Route::get('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'index']);
+Route::post('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'store']);
+
 // Protected: require auth for all non-login routes below
 require __DIR__.'/api/handheld2.php';
 Route::middleware('auth:sanctum')->group(function () {
@@ -1058,6 +1063,10 @@ foreach ($resources as $uri => $controller) {
 
 Route::post('return-orders/{returnOrder}/approve', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'approve']);
 Route::post('return-orders/{returnOrder}/reject', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reject']);
+Route::post('return-orders/{returnOrder}/reopen', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reopen']);
+
+Route::post('bank-supplier-payments/{bankSupplierPayment}/approve', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'approve']);
+Route::post('bank-supplier-payments/{bankSupplierPayment}/cancel', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'cancel']);
 
 Route::post('salesman-debts/{salesmanDebt}/collect', [\App\Http\Controllers\Api\Sales\SalesmanDebtController::class, 'collect']);
 

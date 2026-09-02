@@ -582,6 +582,22 @@ class ReportController extends Controller
             $salesRows = $salesRows->filter(fn($s) => $customerIds->contains($s->customer_id));
         }
 
+        // 4b) invoice numbers per customer
+        $invoiceNosMap = [];
+        $invoiceNoRows = DB::table('sales_invoices')
+            ->where('sales_invoices.company_id', $companyId)
+            ->whereDate('sales_invoices.invoice_date', '>=', $dateFrom)
+            ->whereDate('sales_invoices.invoice_date', '<=', $dateTo)
+            ->where('sales_invoices.status', 'posted')
+            ->whereNull('sales_invoices.deleted_at')
+            ->whereIn('sales_invoices.customer_id', $customerIds)
+            ->select('customer_id', 'invoice_no')
+            ->get();
+
+        foreach ($invoiceNoRows as $row) {
+            $invoiceNosMap[$row->customer_id][] = $row->invoice_no;
+        }
+
         // 5) invoice items grouped by customer+date
         $visitItemsMap = [];
         $invoiceItems = DB::table('sales_invoices')
@@ -676,6 +692,7 @@ class ReportController extends Controller
                 'customer_id'    => $cid,
                 'customer_code'  => $cust->customer_code ?? '',
                 'customer_name'  => $cust->customer_name ?? '',
+                'invoice_nos'    => $invoiceNosMap[$cid] ?? [],
                 'territory_name' => $routeMap[$cid]['territory_name'] ?? '',
                 'route_name'     => $routeMap[$cid]['route_name'] ?? '',
                 'total_sales'    => round((float) $sale->total_sales, 2),

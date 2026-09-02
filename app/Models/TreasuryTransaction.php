@@ -35,4 +35,9 @@ class TreasuryTransaction extends Model
     {
         return $this->belongsTo(Company::class);
     }
+
+    public function reference()
+    {
+        return $this->morphTo();
+    }
 }

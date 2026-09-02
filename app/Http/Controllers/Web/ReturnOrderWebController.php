@@ -123,6 +123,10 @@ class ReturnOrderWebController extends Controller
             if ($returnOrder->load_request_id) {
                 \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
                     ->update(['status' => 'closed']);
+
+                \App\Models\LoadRequest::where('parent_load_request_id', $returnOrder->load_request_id)
+                    ->where('status', '!=', 'closed')
+                    ->update(['status' => 'closed']);
             }
 
             $type = \App\Models\InventoryTransactionType::firstOrCreate(
