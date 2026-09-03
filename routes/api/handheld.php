@@ -260,11 +260,22 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             ->latest('id')
             ->first();
 
-        $nextReturnNo = DB::select(
-            "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
-            [$user->company_id]
-        )[0]->next_no;
-        $returnNo = 'RO-' . str_pad($nextReturnNo, 5, '0', STR_PAD_LEFT);
+        $returnNo = null;
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $nextReturnNo = DB::select(
+                "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
+                [$user->company_id]
+            )[0]->next_no;
+            $candidate = 'RO-' . str_pad($nextReturnNo, 5, '0', STR_PAD_LEFT);
+            $exists = ReturnOrder::where('return_no', $candidate)->where('company_id', $user->company_id)->exists();
+            if (!$exists) {
+                $returnNo = $candidate;
+                break;
+            }
+        }
+        if (!$returnNo) {
+            $returnNo = 'RO-' . str_pad(time() % 100000, 5, '0', STR_PAD_LEFT);
+        }
 
         $returnOrder = ReturnOrder::create([
             'company_id' => $user->company_id,
