@@ -260,13 +260,10 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             ->latest('id')
             ->first();
 
-        $lastReturn = ReturnOrder::where('company_id', $user->company_id)
-            ->orderByRaw("CAST(SUBSTR(return_no, 4) AS INTEGER) DESC")
-            ->first();
-        $nextReturnNo = 1;
-        if ($lastReturn && preg_match('/^RO-(\d+)$/', $lastReturn->return_no, $m)) {
-            $nextReturnNo = intval($m[1]) + 1;
-        }
+        $nextReturnNo = DB::select(
+            "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
+            [$user->company_id]
+        )[0]->next_no;
         $returnNo = 'RO-' . str_pad($nextReturnNo, 5, '0', STR_PAD_LEFT);
 
         $returnOrder = ReturnOrder::create([
