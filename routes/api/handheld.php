@@ -261,17 +261,18 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             ->first();
 
         $returnNo = null;
+        $nextReturnNo = DB::select(
+            "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
+            [$user->company_id]
+        )[0]->next_no;
         for ($attempt = 0; $attempt < 10; $attempt++) {
-            $nextReturnNo = DB::select(
-                "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
-                [$user->company_id]
-            )[0]->next_no;
             $candidate = 'RO-' . str_pad($nextReturnNo, 5, '0', STR_PAD_LEFT);
-            $exists = ReturnOrder::where('return_no', $candidate)->where('company_id', $user->company_id)->exists();
+            $exists = DB::table('return_orders')->where('return_no', $candidate)->where('company_id', $user->company_id)->exists();
             if (!$exists) {
                 $returnNo = $candidate;
                 break;
             }
+            $nextReturnNo++;
         }
         if (!$returnNo) {
             $returnNo = 'RO-' . str_pad(time() % 100000, 5, '0', STR_PAD_LEFT);

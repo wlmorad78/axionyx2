@@ -381,16 +381,17 @@ class HandheldController extends BaseApiController
 
     private function generateReturnNo($companyId)
     {
+        $nextNo = DB::select(
+            "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
+            [$companyId]
+        )[0]->next_no;
         for ($attempt = 0; $attempt < 10; $attempt++) {
-            $nextNo = DB::select(
-                "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
-                [$companyId]
-            )[0]->next_no;
             $candidate = 'RO-' . str_pad($nextNo, 5, '0', STR_PAD_LEFT);
             $exists = DB::table('return_orders')->where('return_no', $candidate)->where('company_id', $companyId)->exists();
             if (!$exists) {
                 return $candidate;
             }
+            $nextNo++;
         }
         return 'RO-' . str_pad(time() % 100000, 5, '0', STR_PAD_LEFT);
     }
