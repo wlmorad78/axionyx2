@@ -745,8 +745,9 @@ class Handheld2Controller extends Controller
             $hasReturn = $returnOrders->isNotEmpty();
             $totalReturnedQty = $returnOrders->sum('total_quantity');
 
-            $isCancelled = $io->status === 'cancelled'
-                || ($io->load_request_id && ($io->load_request_status ?? null) === 'cancelled');
+            $isClosed = in_array($io->status, ['cancelled', 'closed', 'delivered'])
+                || !empty($io->received_by)
+                || ($io->load_request_id && in_array(($io->load_request_status ?? null), ['cancelled', 'closed']));
 
             $items = $this->issueOrderHandheldItems($io->id);
 
@@ -765,7 +766,7 @@ class Handheld2Controller extends Controller
                 'items' => $items,
             ];
 
-            if ($hasReturn || $isCancelled) {
+            if ($hasReturn || $isClosed) {
                 $closed[] = $orderData;
             } else {
                 $open[] = $orderData;

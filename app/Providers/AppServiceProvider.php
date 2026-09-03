@@ -30,6 +30,7 @@ use App\Observers\PurchaseInvoiceObserver;
 use App\Observers\AuditObserver;
 use App\Services\PermissionService;
 use App\Services\UnitConversionService;
+use App\Models\Salesman;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -37,6 +38,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(PermissionService::class);
         $this->app->singleton(UnitConversionService::class);
+
+        // ─── Repository Bindings ───
+        // Note: Customer and Salesman repositories are loaded by their ModuleServiceProviders
     }
 
     public function boot(): void
@@ -67,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
             SupplierGroup::class,
             PriceList::class,
             ProductCompany::class,
+            Salesman::class,
         ];
 
         foreach ($auditableModels as $model) {

@@ -39,8 +39,6 @@ return [
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => 10000,
-            'journal_mode' => 'WAL',
-            'synchronous' => 'NORMAL',
             'transaction_mode' => 'IMMEDIATE',
         ],
 

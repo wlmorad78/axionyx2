@@ -40,7 +40,10 @@ class ReturnOrderController extends Controller
         if ($request->company_id) $query->where('company_id', $request->company_id);
 
         if ($request->branch_id) {
-            $query->where('branch_id', $request->branch_id);
+            $query->where(function ($q) use ($request) {
+                $q->where('branch_id', $request->branch_id)
+                  ->orWhereNull('branch_id');
+            });
         }
         if ($request->warehouse_id) $query->where('warehouse_id', $request->warehouse_id);
         if ($request->user_id) $query->where('user_id', $request->user_id);

@@ -1,0 +1,17 @@
+{
+    "code": "customer",
+    "name": "إدارة العملاء",
+    "name_en": "Customer Management",
+    "description": "وحدة إدارة العملاء والحسابات ودفاتر الأستاذ والاستيراد والتصدير",
+    "description_en": "Module for managing customers, accounts, ledgers, import and export",
+    "version": "1.0.0",
+    "priority": 5,
+    "core": true,
+    "dependencies": [],
+    "providers": [
+        "App\\Modules\\Customer\\Providers\\ModuleServiceProvider"
+    ],
+    "aliases": {
+        "Customer": "App\\Modules\\Customer\\Customer"
+    }
+}

@@ -31,6 +31,9 @@ Route::post('login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'log
 // Handheld2 API
 require __DIR__.'/api/handheld2.php';
 
+// Handheld V1.1.0 API
+require __DIR__.'/api/handheld_v1_1_0.php';
+
 // Handheld Auth (no auth required)
 require __DIR__.'/api/handheld_auth.php';
 
@@ -663,6 +666,7 @@ require __DIR__.'/api/users.php';
 require __DIR__.'/api/user_types.php';
 require __DIR__.'/api/accounts.php';
 require __DIR__.'/api/customers.php';
+require __DIR__.'/api/customers_v2.php';
 require __DIR__.'/api/suppliers.php';
 require __DIR__.'/api/products.php';
 require __DIR__.'/api/categories.php';
@@ -1134,6 +1138,14 @@ Route::post('bank-supplier-payments/{bankSupplierPayment}/approve', [\App\Http\C
 Route::post('bank-supplier-payments/{bankSupplierPayment}/cancel', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'cancel']);
 
 Route::post('salesman-debts/{salesmanDebt}/collect', [\App\Http\Controllers\Api\Sales\SalesmanDebtController::class, 'collect']);
+
+// Rep Temp Customers
+Route::get('rep-temp-customers', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'index']);
+Route::post('rep-temp-customers', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'store']);
+Route::get('rep-temp-customers/{repTempCustomer}', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'show']);
+Route::delete('rep-temp-customers/{repTempCustomer}', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'destroy']);
+Route::post('rep-temp-customers/bulk-assign', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'bulkAssign']);
+Route::post('rep-temp-customers/bulk-detach', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'bulkDetach']);
 
 // Return Order Settlements
 Route::get('return-order-settlements/create', [\App\Http\Controllers\Api\ReturnOrderSettlementController::class, 'create']);

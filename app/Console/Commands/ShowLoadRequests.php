@@ -7,17 +7,18 @@ use Illuminate\Support\Facades\DB;
 
 class ShowLoadRequests extends Command
 {
-    protected $signature = 'load-requests:show {--status= : Filter by status} {--limit=20 : Number of orders to show}';
+    protected $signature = 'load-requests:show {--status= : Filter by status} {--user= : Filter by user ID} {--limit=20 : Number of orders to show}';
     protected $description = 'Show load requests with their return status';
 
     public function handle()
     {
         $status = $this->option('status');
+        $userId = $this->option('user');
         $limit = (int) $this->option('limit');
 
         $query = DB::table('load_requests')
-            ->leftJoin('users', 'load_requests.user_id', '=', 'users.id')
-            ->leftJoin('return_orders', 'load_requests.id', '=', 'return_orders.load_request_id')
+            ->leftJoin('employees', 'load_requests.employee_id', '=', 'employees.id')
+            ->leftJoin('users', 'employees.user_id', '=', 'users.id')
             ->select(
                 'load_requests.id',
                 'load_requests.request_no',
@@ -37,6 +38,10 @@ class ShowLoadRequests extends Command
 
         if ($status) {
             $query->where('load_requests.status', $status);
+        }
+
+        if ($userId) {
+            $query->where('employees.user_id', $userId);
         }
 
         $orders = $query->limit($limit)->get();

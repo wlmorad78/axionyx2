@@ -15,6 +15,7 @@ class Customer extends Model
     protected $fillable = [
         'company_id',
         'branch_id',
+        'default_salesman_id',
         'customer_group_id',
         'customer_class_id',
         'customer_type_id',
@@ -77,6 +78,11 @@ class Customer extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function defaultSalesman()
+    {
+        return $this->belongsTo(\App\Modules\Distribution\src\Models\Salesman::class, 'default_salesman_id');
     }
 
     public function governorate()

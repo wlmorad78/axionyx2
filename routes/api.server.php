@@ -1065,6 +1065,13 @@ Route::post('return-orders/{returnOrder}/approve', [\App\Http\Controllers\Api\Sa
 Route::post('return-orders/{returnOrder}/reject', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reject']);
 Route::post('return-orders/{returnOrder}/reopen', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reopen']);
 
+Route::get('rep-temp-customers', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'index']);
+Route::post('rep-temp-customers', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'store']);
+Route::get('rep-temp-customers/{repTempCustomer}', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'show']);
+Route::delete('rep-temp-customers/{repTempCustomer}', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'destroy']);
+Route::post('rep-temp-customers/bulk-assign', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'bulkAssign']);
+Route::post('rep-temp-customers/bulk-detach', [\App\Http\Controllers\Api\Sales\RepTempCustomerController::class, 'bulkDetach']);
+
 Route::post('bank-supplier-payments/{bankSupplierPayment}/approve', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'approve']);
 Route::post('bank-supplier-payments/{bankSupplierPayment}/cancel', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'cancel']);
 

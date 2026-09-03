@@ -1,0 +1,17 @@
+{
+    "code": "distribution",
+    "name": "التوزيع والمناديب",
+    "name_en": "Distribution & Salesmen",
+    "description": "وحدة إدارة التوزيع والمناديب وفرق المبيعات والتعيينات والتحصيل",
+    "description_en": "Module for managing distribution, salesmen, sales teams, assignments and collections",
+    "version": "1.0.0",
+    "priority": 10,
+    "core": false,
+    "dependencies": [],
+    "providers": [
+        "App\\Modules\\Distribution\\Providers\\ModuleServiceProvider"
+    ],
+    "aliases": {
+        "Distribution": "App\\Modules\\Distribution\\Distribution"
+    }
+}

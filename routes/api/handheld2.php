@@ -111,7 +111,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->where('company_id', $user->company_id)
             ->where('is_active', true)
             ->whereNull('deleted_at')
-            ->select('id', 'name_ar', 'name_en', 'code')
+            ->select('id', DB::raw('name_ar as name'), 'code')
             ->orderBy('name_ar')
             ->get();
 
