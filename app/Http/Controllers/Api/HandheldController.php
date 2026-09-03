@@ -308,7 +308,7 @@ class HandheldController extends BaseApiController
                     'warehouse_id'       => $return['warehouse_id'] ?? null,
                     'load_request_id'    => $return['load_request_id'] ?? null,
                     'issue_order_id'     => $return['issue_order_id'] ?? null,
-                    'return_no'          => $return['return_no'] ?? ('RTN-' . time()),
+                    'return_no'          => $return['return_no'] ?? $this->generateReturnNo($user->company_id),
                     'return_type'        => $return['return_type'] ?? 'excess',
                     'return_date'        => $return['return_date'] ?? now()->toDateString(),
                     'user_id'        => $return['user_id'] ?? $request->input('_salesman_id'),
@@ -377,5 +377,21 @@ class HandheldController extends BaseApiController
             'push'  => $pushResults,
             'synced_at' => now()->toIso8601String(),
         ], 'Sync completed');
+    }
+
+    private function generateReturnNo($companyId)
+    {
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $nextNo = DB::select(
+                "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
+                [$companyId]
+            )[0]->next_no;
+            $candidate = 'RO-' . str_pad($nextNo, 5, '0', STR_PAD_LEFT);
+            $exists = DB::table('return_orders')->where('return_no', $candidate)->where('company_id', $companyId)->exists();
+            if (!$exists) {
+                return $candidate;
+            }
+        }
+        return 'RO-' . str_pad(time() % 100000, 5, '0', STR_PAD_LEFT);
     }
 }
