@@ -932,10 +932,22 @@ class ReportController extends Controller
         }
 
         // 2.2 جميع الحركات المُرحَّلة (قبل التاريخ) لحساب رصيد بداية اليوم
+        // يجب أن يتوافق فلتر الحركات مع فلتر الوارد والصادر أدناه لضمان تساوي
+        // رصيد المساء لليوم السابق مع رصيد الصباحي لليوم الحالي
         $allTxQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
             ->where('status', 'posted')
             ->whereDate('transaction_date', '<', $date)
-            ->whereHas('transactionType', fn($q) => $q->whereIn('effect', ['addition', 'subtraction']))
+            ->whereHas('transactionType', function ($q) {
+                $q->where(function ($sub) {
+                    // additions: نفس فلتر الوارد (بدون مرتجعات)
+                    $sub->where('effect', 'addition')
+                        ->whereNotIn('code', ['SALES_RETURN', 'RETURN']);
+                })->orWhere(function ($sub) {
+                    // subtractions: نفس فلتر الصادر (مبيعات فقط)
+                    $sub->where('effect', 'subtraction')
+                        ->where('code', 'SALES_INVOICE');
+                });
+            })
             ->with('transactionType:id,effect,code')
             ->with('items:id,inventory_transaction_id,item_id,qty');
         if ($warehouseId) {
@@ -1012,7 +1024,7 @@ class ReportController extends Controller
             }
         }
 
-        // 4.2 مبيعات الهاند هيلد (mobile) - تظهر في التقرير فقط بدون تأثير على المخزون
+        // 4.2 مبيعات الهاند هيلد (mobile) - اليوم
         $mobileOutQtyMap = [];
         $mobileSalesQuery = DB::table('sales_invoices')
             ->join('sales_invoice_items', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
@@ -1038,14 +1050,41 @@ class ReportController extends Controller
             $mobileOutQtyMap[$itemId] = ($mobileOutQtyMap[$itemId] ?? 0) + abs((float) $mi->qty);
         }
 
+        // 4.3 مبيعات الهاند هيلد من جميع الأيام السابقة (تُضاف للرصيد الصباحي)
+        $priorMobileQtyMap = [];
+        $priorMobileQuery = DB::table('sales_invoices')
+            ->join('sales_invoice_items', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
+            ->where('sales_invoices.company_id', $companyId)
+            ->whereDate('sales_invoices.invoice_date', '<', $date)
+            ->where('sales_invoices.source', 'mobile')
+            ->where('sales_invoices.status', 'posted')
+            ->whereNull('sales_invoices.deleted_at')
+            ->whereNull('sales_invoice_items.deleted_at')
+            ->select(
+                'sales_invoice_items.item_id',
+                DB::raw('ABS(COALESCE(NULLIF(sales_invoice_items.base_quantity, 0), sales_invoice_items.qty)) as qty')
+            );
+        if ($warehouseId) {
+            $priorMobileQuery->where(function ($q) use ($warehouseId) {
+                $q->where('sales_invoice_items.warehouse_id', $warehouseId)
+                  ->orWhereNull('sales_invoice_items.warehouse_id');
+            });
+        }
+        foreach ($priorMobileQuery->get() as $mi) {
+            $itemId = $mi->item_id;
+            $priorMobileQtyMap[$itemId] = ($priorMobileQtyMap[$itemId] ?? 0) + abs((float) $mi->qty);
+        }
+
         // 6. بناء النتيجة لكل صنف
         $result = [];
         foreach ($allItems as $itemId => $item) {
-            // الرصيد الصباحي = الرصيد الحالي الفعلي للمخزن
-            $openingBalance = $currentStockPerItem[$itemId] ?? 0;
+            // الرصيد الصباحي = رصيد المخزن - مبيعات الموبايل السابقة
+            // (لأن مبيعات الموبايل تُضاف للصادر اليوم فيجب أن تُخصم من رصيد البداية
+            // لضمان تساوي رصيد المساء مع رصيد الصباح التالي)
+            $openingBalance = max(0, ($currentStockPerItem[$itemId] ?? 0) - ($priorMobileQtyMap[$itemId] ?? 0));
             $inQty = $inQtyMap[$itemId] ?? 0;
             $outQty = $outQtyMap[$itemId] ?? 0;
-            // إضافة مبيعات الهاند هيلد للصادر (تظهر في التقرير فقط)
+            // إضافة مبيعات الهاند هيلد للصادر
             $mobileQty = $mobileOutQtyMap[$itemId] ?? 0;
             $outQty += $mobileQty;
             $total = $openingBalance + $inQty;

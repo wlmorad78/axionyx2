@@ -102,21 +102,27 @@ class InventorySnapshotCommand extends Command
             }
 
             // 2) الحركات قبل التاريخ (رصيد صباحي متراكم)
+            // يجب أن يتوافق الفلتر مع فلتر الوارد والصادر لضمان تساوي
+            // رصيد المساء مع رصيد الصباح التالي
             $prior = InventoryTransaction::with('transactionType:id,effect,code')
                 ->with('items:id,inventory_transaction_id,item_id,qty')
                 ->where('company_id', $cid)
                 ->where('status', 'posted')
                 ->whereDate('transaction_date', '<', $dateStr)
-                ->whereHas('transactionType', fn($q) => $q->whereIn('effect', ['addition', 'subtraction']))
+                ->whereHas('transactionType', function ($q) {
+                    $q->where(function ($sub) {
+                        $sub->where('effect', 'addition')
+                            ->whereNotIn('code', ['SALES_RETURN', 'RETURN']);
+                    })->orWhere(function ($sub) {
+                        $sub->where('effect', 'subtraction')
+                            ->where('code', 'SALES_INVOICE');
+                    });
+                })
                 ->get();
 
             $priorMap = []; // [wh][itemId] = qty موقعة
             foreach ($prior as $txn) {
                 $effect = $txn->transactionType?->effect;
-                $code = $txn->transactionType?->code;
-                if ($code === 'SALES_RETURN') {
-                    continue;
-                }
                 $sign = $effect === 'addition' ? 1 : ($effect === 'subtraction' ? -1 : 0);
                 if ($sign === 0) {
                     continue;
@@ -127,13 +133,21 @@ class InventorySnapshotCommand extends Command
                 }
             }
 
-            // 3) حركات اليوم (بدون مرتجعات المبيعات)
+            // 3) حركات اليوم (نفس فلتر الوارد والصادر في ReportController)
             $day = InventoryTransaction::with('transactionType:id,effect,code')
                 ->with('items:id,inventory_transaction_id,item_id,qty')
                 ->where('company_id', $cid)
                 ->where('status', 'posted')
                 ->whereDate('transaction_date', $dateStr)
-                ->whereHas('transactionType', fn($q) => $q->whereIn('effect', ['addition', 'subtraction']))
+                ->whereHas('transactionType', function ($q) {
+                    $q->where(function ($sub) {
+                        $sub->where('effect', 'addition')
+                            ->whereNotIn('code', ['SALES_RETURN', 'RETURN']);
+                    })->orWhere(function ($sub) {
+                        $sub->where('effect', 'subtraction')
+                            ->where('code', 'SALES_INVOICE');
+                    });
+                })
                 ->get();
 
             $inMap = [];
@@ -144,7 +158,7 @@ class InventorySnapshotCommand extends Command
                 $wh = $txn->warehouse_id ?: 0;
                 foreach ($txn->items as $it) {
                     $q = abs((float) $it->qty);
-                    if ($effect === 'addition' && $code !== 'SALES_RETURN') {
+                    if ($effect === 'addition') {
                         $inMap[$wh][$it->item_id] = ($inMap[$wh][$it->item_id] ?? 0) + $q;
                     } elseif ($effect === 'subtraction') {
                         $outMap[$wh][$it->item_id] = ($outMap[$wh][$it->item_id] ?? 0) + $q;
