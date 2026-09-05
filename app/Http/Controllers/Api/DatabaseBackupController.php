@@ -135,7 +135,7 @@ class DatabaseBackupController extends Controller
             ->orderByDesc('mobile_database_backups.id')
             ->get([
                 'mobile_database_backups.*',
-                'employees.name_ar as salesman_name',
+                DB::raw("TRIM(COALESCE(employees.first_name_ar,'') || ' ' || COALESCE(employees.second_name_ar,'') || ' ' || COALESCE(employees.third_name_ar,'') || ' ' || COALESCE(employees.last_name_ar,'')) as salesman_name"),
             ]);
 
         return response()->json(['data' => $backups]);
@@ -149,7 +149,7 @@ class DatabaseBackupController extends Controller
             ->orderByDesc('mobile_database_backups.id')
             ->get([
                 'mobile_database_backups.*',
-                'employees.name_ar as salesman_name',
+                DB::raw("TRIM(COALESCE(employees.first_name_ar,'') || ' ' || COALESCE(employees.second_name_ar,'') || ' ' || COALESCE(employees.third_name_ar,'') || ' ' || COALESCE(employees.last_name_ar,'')) as salesman_name"),
             ]);
 
         $html = '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>نسخ قاعدة البيانات المحمولة</title>';
@@ -181,7 +181,7 @@ class DatabaseBackupController extends Controller
             $html .= "<td>{$size}</td>";
             $html .= "<td style='color:{$statusColor}'>{$statusLabel}</td>";
             $html .= "<td>" . substr($b->created_at, 0, 16) . "</td>";
-            $html .= "<td><a class='btn' href='/api/admin/database/download/{$b->id}'>تحميل</a></td>";
+            $html .= "<td><a class='btn' href='/admin/database-backups/download/{$b->id}'>تحميل</a></td>";
             $html .= "</tr>";
         }
 
