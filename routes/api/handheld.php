@@ -80,7 +80,7 @@ RouteFacade::get('handheld/route-lines', function (\Illuminate\Http\Request $req
 
     $routes = Route::where('is_active', true)
         ->whereIn('id', $routeIds)
-        ->with(['customers.customer', 'salesTerritory'])
+        ->with(['customers.customer.customerType', 'salesTerritory'])
         ->get();
 
     $data = $routes->map(function ($route) use ($delegatePhone, $delegateMobile, $supervisorPhone, $supervisorMobile) {
@@ -115,6 +115,8 @@ RouteFacade::get('handheld/route-lines', function (\Illuminate\Http\Request $req
                 'delegate_mobile' => $delegateMobile,
                 'supervisor_phone' => $supervisorPhone,
                 'supervisor_mobile' => $supervisorMobile,
+                'customer_type_id' => $rc->customer->customer_type_id ?? 0,
+                'customer_type' => $rc->customer->customerType?->name_en ?? $rc->customer->customerType?->name_ar ?? '',
             ])->values(),
         ];
     });
@@ -171,7 +173,7 @@ RouteFacade::get('handheld/outroute-customers', function (\Illuminate\Http\Reque
 
     $routes = Route::where('is_active', true)
         ->whereIn('id', $routeIds)
-        ->with(['customers.customer', 'salesTerritory'])
+        ->with(['customers.customer.customerType', 'salesTerritory'])
         ->get();
 
     $data = $routes->map(function ($route) use ($delegatePhone) {
@@ -203,6 +205,7 @@ RouteFacade::get('handheld/outroute-customers', function (\Illuminate\Http\Reque
                 'visit_frequency' => $rc->visit_frequency,
                 'delegate_phone' => $delegatePhone,
                 'customer_type_id' => $rc->customer->customer_type_id ?? 0,
+                'customer_type' => $rc->customer->customerType?->name_en ?? $rc->customer->customerType?->name_ar ?? '',
             ])->values(),
         ];
     });

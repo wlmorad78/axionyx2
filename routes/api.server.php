@@ -737,6 +737,7 @@ $resources = [
     'inventory-opening-balances' => \App\Http\Controllers\Api\Inventory\InventoryOpeningBalanceController::class,
     'stock-adjustments' => \App\Http\Controllers\Api\Inventory\StockAdjustmentController::class,
     'stock-adjustment-items' => \App\Http\Controllers\Api\Inventory\StockAdjustmentItemController::class,
+    'inventory-audits' => \App\Http\Controllers\Api\Inventory\InventoryAuditController::class,
     'stock-counts' => \App\Http\Controllers\Api\Inventory\StockCountController::class,
     'stock-count-items' => \App\Http\Controllers\Api\Inventory\StockCountItemController::class,
     'warehouse-transfers' => \App\Http\Controllers\Api\Inventory\WarehouseTransferController::class,
@@ -1060,6 +1061,8 @@ foreach ($resources as $uri => $controller) {
         Route::resource($uri, $controller);
     }
 }
+
+Route::post('inventory-audits/{inventoryAudit}/post', [\App\Http\Controllers\Api\Inventory\InventoryAuditController::class, 'post']);
 
 Route::post('return-orders/{returnOrder}/approve', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'approve']);
 Route::post('return-orders/{returnOrder}/reject', [\App\Http\Controllers\Api\Sales\ReturnOrderController::class, 'reject']);

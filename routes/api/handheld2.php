@@ -165,10 +165,11 @@ Route::middleware('auth:sanctum')->group(function () {
                     ->pluck('customer_id');
 
                 $customers = DB::table('customers')
-                    ->whereIn('id', $customerIds)
-                    ->where('is_active', true)
-                    ->whereNull('deleted_at')
-                    ->get(['id', 'code', 'name_ar', 'name_en', 'phone', 'mobile', 'address_line'])
+                    ->leftJoin('customer_types', 'customers.customer_type_id', '=', 'customer_types.id')
+                    ->whereIn('customers.id', $customerIds)
+                    ->where('customers.is_active', true)
+                    ->whereNull('customers.deleted_at')
+                    ->get(['customers.id', 'customers.code', 'customers.name_ar', 'customers.name_en', 'customers.phone', 'customers.mobile', 'customers.address_line', 'customers.customer_type_id', 'customer_types.name_en as type_name_en', 'customer_types.name_ar as type_name_ar'])
                     ->map(function ($c) use ($balanceMap) {
                         return [
                             'id' => $c->id,
@@ -177,7 +178,8 @@ Route::middleware('auth:sanctum')->group(function () {
                             'phone' => $c->phone,
                             'mobile' => $c->mobile,
                             'address' => $c->address_line,
-                            'customer_type_id' => 0,
+                            'customer_type_id' => $c->customer_type_id ?? 0,
+                            'customer_type' => $c->type_name_en ?? $c->type_name_ar ?? '',
                             'debit_amount' => $balanceMap[(int) $c->id]['debit_amount'] ?? 0,
                             'credit_amount' => $balanceMap[(int) $c->id]['credit_amount'] ?? 0,
                             'balance' => $balanceMap[(int) $c->id]['balance'] ?? 0,

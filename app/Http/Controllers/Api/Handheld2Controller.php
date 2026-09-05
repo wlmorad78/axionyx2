@@ -256,10 +256,11 @@ class Handheld2Controller extends Controller
                         ->pluck('customer_id');
 
                     $customers = DB::table('customers')
-                        ->whereIn('id', $customerIds)
-                        ->where('is_active', true)
-                        ->whereNull('deleted_at')
-                        ->get(['id', 'code', 'name_ar', 'name_en', 'phone', 'mobile', 'address_line', 'latitude', 'longitude'])
+                        ->leftJoin('customer_types', 'customers.customer_type_id', '=', 'customer_types.id')
+                        ->whereIn('customers.id', $customerIds)
+                        ->where('customers.is_active', true)
+                        ->whereNull('customers.deleted_at')
+                        ->get(['customers.id', 'customers.code', 'customers.name_ar', 'customers.name_en', 'customers.phone', 'customers.mobile', 'customers.address_line', 'customers.latitude', 'customers.longitude', 'customers.customer_type_id', 'customer_types.name_en as type_name_en', 'customer_types.name_ar as type_name_ar'])
                         ->map(function ($c) use ($customerBalances) {
                             return [
                                 'id' => $c->id,
@@ -270,6 +271,8 @@ class Handheld2Controller extends Controller
                                 'address' => $c->address_line,
                                 'latitude' => $c->latitude,
                                 'longitude' => $c->longitude,
+                                'customer_type_id' => $c->customer_type_id ?? 0,
+                                'customer_type' => $c->type_name_en ?? $c->type_name_ar ?? '',
                                 'debit_amount' => $customerBalances[(int) $c->id]['debit_amount'] ?? 0,
                                 'credit_amount' => $customerBalances[(int) $c->id]['credit_amount'] ?? 0,
                                 'balance' => $customerBalances[(int) $c->id]['balance'] ?? 0,
@@ -295,10 +298,11 @@ class Handheld2Controller extends Controller
                 ->unique();
 
             $customersList = DB::table('customers')
-                ->whereIn('id', $allCustomerIds)
-                ->where('is_active', true)
-                ->whereNull('deleted_at')
-                ->get(['id', 'code', 'name_ar', 'name_en', 'phone', 'mobile', 'address_line', 'latitude', 'longitude'])
+                ->leftJoin('customer_types', 'customers.customer_type_id', '=', 'customer_types.id')
+                ->whereIn('customers.id', $allCustomerIds)
+                ->where('customers.is_active', true)
+                ->whereNull('customers.deleted_at')
+                ->get(['customers.id', 'customers.code', 'customers.name_ar', 'customers.name_en', 'customers.phone', 'customers.mobile', 'customers.address_line', 'customers.latitude', 'customers.longitude', 'customers.customer_type_id', 'customer_types.name_en as type_name_en', 'customer_types.name_ar as type_name_ar'])
                 ->map(function ($c) use ($customerBalances) {
                     return [
                         'id' => $c->id,
@@ -309,6 +313,8 @@ class Handheld2Controller extends Controller
                         'address' => $c->address_line,
                         'latitude' => $c->latitude,
                         'longitude' => $c->longitude,
+                        'customer_type_id' => $c->customer_type_id ?? 0,
+                        'customer_type' => $c->type_name_en ?? $c->type_name_ar ?? '',
                         'debit_amount' => $customerBalances[(int) $c->id]['debit_amount'] ?? 0,
                         'credit_amount' => $customerBalances[(int) $c->id]['credit_amount'] ?? 0,
                         'balance' => $customerBalances[(int) $c->id]['balance'] ?? 0,
@@ -321,6 +327,7 @@ class Handheld2Controller extends Controller
         if ($employeeId) {
             $loadRequests = DB::table('load_requests')
                 ->where('user_id', $employeeId)
+                ->where('status', 'loaded')
                 ->whereNull('deleted_at')
                 ->orderByDesc('request_date')
                 ->get(['id', 'request_no', 'status', 'total_items_count', 'total_quantity', 'total_amount', 'request_date'])
@@ -390,19 +397,70 @@ class Handheld2Controller extends Controller
             }
         }
 
-        $items = DB::table('items')
-            ->where('company_id', $user->company_id)
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->get(['id', 'code', 'name_ar', 'name_en'])
-            ->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'code' => $item->code,
-                    'name' => $item->name_ar ?? $item->name_en,
-                ];
-            })
-            ->toArray();
+        $loadedItemIds = collect();
+        if (!empty($loadRequests)) {
+            $loadRequestIds = array_column($loadRequests, 'id');
+            $loadedItemIds = DB::table('load_request_items')
+                ->whereIn('load_request_id', $loadRequestIds)
+                ->whereNull('deleted_at')
+                ->pluck('item_id');
+        }
+
+        if ($employeeId) {
+            $distItemIds = DB::table('rep_item_distributions')
+                ->where('user_id', $employeeId)
+                ->where('company_id', $user->company_id)
+                ->where('status', 'active')
+                ->where('remaining_qty', '>', 0)
+                ->pluck('item_id');
+            $loadedItemIds = $loadedItemIds->merge($distItemIds);
+        }
+
+        $loadedItemIds = $loadedItemIds->unique()->filter();
+
+        $items = [];
+        if ($loadedItemIds->isNotEmpty()) {
+            $items = DB::table('items')
+                ->whereIn('items.id', $loadedItemIds)
+                ->where('items.company_id', $user->company_id)
+                ->where('items.is_active', true)
+                ->whereNull('items.deleted_at')
+                ->leftJoin('item_units', function ($join) {
+                    $join->on('items.id', '=', 'item_units.item_id')
+                         ->where('item_units.is_sales_unit', '=', true);
+                })
+                ->get(['items.id', 'items.code', 'items.name_ar', 'items.name_en', 'item_units.purchase_price', 'item_units.sale_price'])
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'code' => $item->code,
+                        'name' => $item->name_ar ?? $item->name_en,
+                        'purchase_price' => (float) ($item->purchase_price ?? 0),
+                        'sale_price' => (float) ($item->sale_price ?? 0),
+                    ];
+                })
+                ->toArray();
+        }
+
+        $repTempCustomers = [];
+        if ($employeeId) {
+            $repTempCustomers = DB::table('rep_temp_customers as rtc')
+                ->join('customers as c', 'c.id', '=', 'rtc.customer_id')
+                ->where('rtc.employee_id', $employeeId)
+                ->whereNull('rtc.deleted_at')
+                ->where('c.is_active', true)
+                ->whereNull('c.deleted_at')
+                ->select('rtc.customer_id', 'c.code', 'c.name_ar', 'c.phone', 'c.mobile')
+                ->get()
+                ->map(fn ($row) => [
+                    'customer_id' => $row->customer_id,
+                    'code' => $row->code,
+                    'name' => $row->name_ar,
+                    'phone' => $row->phone,
+                    'mobile' => $row->mobile,
+                ])
+                ->toArray();
+        }
 
         return response()->json([
             'branch' => $defaultBranch ? [
@@ -413,6 +471,7 @@ class Handheld2Controller extends Controller
             'salesman' => $user->name,
             'routes' => $routes,
             'customers' => $customersList,
+            'rep_temp_customers' => $repTempCustomers,
             'load_requests' => $loadRequests,
             'items' => $items,
             'vehicle' => $vehicle,
@@ -668,6 +727,7 @@ class Handheld2Controller extends Controller
 
         $itemIds = $issueItems->pluck('item_id')->unique()->all();
         $unitPriceMap = [];
+        $purchasePriceMap = [];
         if ($itemIds) {
             $units = DB::table('item_units')->whereIn('item_id', $itemIds)->get();
             foreach ($units as $u) {
@@ -676,15 +736,20 @@ class Handheld2Controller extends Controller
                 } elseif (!isset($unitPriceMap[$u->item_id])) {
                     $unitPriceMap[$u->item_id] = (float) $u->sale_price;
                 }
+                if ((float) $u->purchase_price > 0 && !isset($purchasePriceMap[$u->item_id])) {
+                    $purchasePriceMap[$u->item_id] = (float) $u->purchase_price;
+                }
             }
         }
 
-        return $issueItems->map(function ($item) use ($unitPriceMap) {
+        return $issueItems->map(function ($item) use ($unitPriceMap, $purchasePriceMap) {
             $product = DB::table('items')->where('id', $item->item_id)->first();
             $stored = (float) ($item->sales_price ?? 0);
             $price = $stored > 0
                 ? $stored
                 : ($unitPriceMap[$item->item_id] ?? (float) ($item->purchase_price ?? 0));
+
+            $purchasePrice = $purchasePriceMap[$item->item_id] ?? (float) ($item->purchase_price ?? 0);
 
             $qty = (float) ($item->issued_quantity ?? 0);
             if ($qty <= 0) {
@@ -702,6 +767,7 @@ class Handheld2Controller extends Controller
                 'item_code' => $product ? $product->code : '',
                 'quantity' => $qty,
                 'unit_price' => $price,
+                'purchase_price' => $purchasePrice,
                 'line_total' => $item->total_amount ?? 0,
             ];
         })->all();

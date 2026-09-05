@@ -807,6 +807,7 @@ $resources = [
     'stock-adjustment-items' => \App\Http\Controllers\Api\Inventory\StockAdjustmentItemController::class,
     'stock-counts' => \App\Http\Controllers\Api\Inventory\StockCountController::class,
     'stock-count-items' => \App\Http\Controllers\Api\Inventory\StockCountItemController::class,
+    'inventory-audits' => \App\Http\Controllers\Api\Inventory\InventoryAuditController::class,
     'warehouse-transfers' => \App\Http\Controllers\Api\Inventory\WarehouseTransferController::class,
     'warehouse-transfer-items' => \App\Http\Controllers\Api\Inventory\WarehouseTransferItemController::class,
     'inventory-revaluations' => \App\Http\Controllers\Api\Inventory\InventoryRevaluationController::class,
@@ -1137,6 +1138,11 @@ Route::post('return-orders/{returnOrder}/reopen', [\App\Http\Controllers\Api\Sal
 Route::post('bank-supplier-payments/{bankSupplierPayment}/approve', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'approve']);
 Route::post('bank-supplier-payments/{bankSupplierPayment}/cancel', [\App\Http\Controllers\Api\Treasury\BankSupplierPaymentController::class, 'cancel']);
 
+Route::post('stock-adjustments/{stockAdjustment}/approve', [\App\Http\Controllers\Api\Inventory\StockAdjustmentController::class, 'approve']);
+Route::post('stock-adjustments/{stockAdjustment}/cancel', [\App\Http\Controllers\Api\Inventory\StockAdjustmentController::class, 'cancel']);
+
+Route::post('inventory-audits/{inventoryAudit}/post', [\App\Http\Controllers\Api\Inventory\InventoryAuditController::class, 'post']);
+
 Route::post('salesman-debts/{salesmanDebt}/collect', [\App\Http\Controllers\Api\Sales\SalesmanDebtController::class, 'collect']);
 
 // Rep Temp Customers
@@ -1196,7 +1202,7 @@ $softDeleteResources = [
     'price-approval-requests', 'price-approval-steps', 'pricing-exceptions', 'pricing-audit-log',
     'customer-price-lists', 'inventory-transaction-types', 'inventory-transactions', 'inventory-transaction-items',
     'inventory-opening-balances', 'stock-adjustments', 'stock-adjustment-items',
-    'stock-counts', 'stock-count-items', 'warehouse-transfers', 'warehouse-transfer-items',
+    'stock-counts', 'stock-count-items', 'inventory-audits', 'warehouse-transfers', 'warehouse-transfer-items',
     'inventory-revaluations', 'inventory-revaluation-items',
     'load-requests', 'load-request-items', 'issue-orders', 'issue-order-items',
     'return-orders', 'return-order-items',
