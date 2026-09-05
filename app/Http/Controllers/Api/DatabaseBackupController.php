@@ -187,7 +187,7 @@ class DatabaseBackupController extends Controller
 
         $html .= '</table></body></html>';
 
-        return response()->html($html);
+        return response($html, 200)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function adminDownload($id)
