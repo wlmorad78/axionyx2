@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\DatabaseBackupController;
 use App\Http\Controllers\DemoAuthController;
 use App\Http\Controllers\Api\Settings\SubscriptionPlanController;
 use App\Http\Controllers\Web\BankAccountWebController;
@@ -259,8 +260,6 @@ Route::middleware(['auth'])->prefix('admin/clear-data')->name('web.admin.clear-d
     Route::post('/table/{table}', [\App\Http\Controllers\Web\ClearDataController::class, 'clearTable'])->name('table');
     Route::post('/all', [\App\Http\Controllers\Web\ClearDataController::class, 'clearAll'])->name('all');
 });
-
-use App\Http\Controllers\Api\DatabaseBackupController;
 
 Route::prefix('admin/database-backups')->group(function () {
     Route::get('/', [DatabaseBackupController::class, 'adminPage'])->name('admin.database-backups');
