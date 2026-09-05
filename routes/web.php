@@ -259,3 +259,11 @@ Route::middleware(['auth'])->prefix('admin/clear-data')->name('web.admin.clear-d
     Route::post('/table/{table}', [\App\Http\Controllers\Web\ClearDataController::class, 'clearTable'])->name('table');
     Route::post('/all', [\App\Http\Controllers\Web\ClearDataController::class, 'clearAll'])->name('all');
 });
+
+use App\Http\Controllers\Api\DatabaseBackupController;
+
+Route::middleware(['auth'])->prefix('admin/database-backups')->group(function () {
+    Route::get('/', [DatabaseBackupController::class, 'adminPage'])->name('admin.database-backups');
+    Route::get('/download/{id}', [DatabaseBackupController::class, 'adminDownload'])->name('admin.database-backups.download');
+    Route::post('/upload/{id}', [DatabaseBackupController::class, 'adminUpload'])->name('admin.database-backups.upload');
+});

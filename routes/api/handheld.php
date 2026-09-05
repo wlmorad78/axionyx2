@@ -3281,3 +3281,10 @@ RouteFacade::get('handheld/download-db', function (\Illuminate\Http\Request $req
         'Content-Type' => 'application/octet-stream',
     ]);
 });
+
+use App\Http\Controllers\Api\DatabaseBackupController;
+
+RouteFacade::post('handheld/database/upload', [DatabaseBackupController::class, 'upload']);
+RouteFacade::get('handheld/database/latest', [DatabaseBackupController::class, 'latest']);
+RouteFacade::post('handheld/database/download', [DatabaseBackupController::class, 'download']);
+RouteFacade::get('handheld/database/list', [DatabaseBackupController::class, 'list']);
