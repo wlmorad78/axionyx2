@@ -165,9 +165,9 @@ class DatabaseBackupController extends Controller
             ]);
 
         $html = '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>نسخ قاعدة البيانات المحمولة</title>';
-        $html .= '<style>body{font-family:sans-serif;background:#1a1a2e;color:#fff;padding:20px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:10px;border:1px solid #333;text-align:center}th{background:#16213e}tr:nth-child(even){background:#1a1a2e}tr:nth-child(odd){background:#0f3460}a.btn{display:inline-block;padding:6px 16px;background:#10b981;color:#fff;text-decoration:none;border-radius:6px;font-size:13px}a.btn:hover{background:#059669}h1{color:#10b981}</style>';
+        $html .= '<style>body{font-family:sans-serif;background:#1a1a2e;color:#fff;padding:20px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:10px;border:1px solid #333;text-align:center}th{background:#16213e}tr:nth-child(even){background:#1a1a2e}tr:nth-child(odd){background:#0f3460}a.btn{display:inline-block;padding:6px 16px;background:#10b981;color:#fff;text-decoration:none;border-radius:6px;font-size:13px}a.btn:hover{background:#059669}h1{color:#10b981}.btn-upload{background:#3b82f6}.btn-upload:hover{background:#2563eb}.btn-delete{background:#ef4444}.btn-delete:hover{background:#dc2626}input[type=file]{color:#fff}form{margin:0;display:inline}</style>';
         $html .= '</head><body><h1>📦 نسخ قاعدة البيانات المحمولة</h1>';
-        $html .= '<table><tr><th>#</th><th>المندوب</th><th>الإصدار</th><th>الملف</th><th>الحجم</th><th>الحالة</th><th>التاريخ</th><th>تحميل</th></tr>';
+        $html .= '<table><tr><th>#</th><th>المندوب</th><th>الإصدار</th><th>الملف</th><th>الحجم</th><th>الحالة</th><th>التاريخ</th><th>تحميل</th><th>رفع تعديل</th><th>حذف</th></tr>';
 
         foreach ($backups as $b) {
             $size = $b->file_size > 1048576
@@ -194,6 +194,13 @@ class DatabaseBackupController extends Controller
             $html .= "<td style='color:{$statusColor}'>{$statusLabel}</td>";
             $html .= "<td>" . substr($b->created_at, 0, 16) . "</td>";
             $html .= "<td><a class='btn' href='/admin/database-backups/download/{$b->id}'>تحميل</a></td>";
+            $html .= "<td><form method='POST' action='/admin/database-backups/upload/{$b->id}' enctype='multipart/form-data'>";
+            $html .= csrf_field();
+            $html .= "<input type='file' name='db_file' accept='.db,.sqlite,.sqlite3' required style='font-size:12px'> ";
+            $html .= "<button type='submit' class='btn btn-upload'>رفع التعديل</button></form></td>";
+            $html .= "<td><form method='POST' action='/admin/database-backups/delete/{$b->id}' onsubmit=\"return confirm('هل أنت متأكد من الحذف؟')\">";
+            $html .= csrf_field();
+            $html .= "<button type='submit' class='btn btn-delete'>حذف</button></form></td>";
             $html .= "</tr>";
         }
 
@@ -219,14 +226,13 @@ class DatabaseBackupController extends Controller
         ]);
     }
 
-    public function adminUpload(Request $request)
+    public function adminUpload(Request $request, $id)
     {
         $request->validate([
             'db_file' => 'required|file',
-            'backup_id' => 'required|integer',
         ]);
 
-        $backup = DB::table('mobile_database_backups')->where('id', $request->input('backup_id'))->first();
+        $backup = DB::table('mobile_database_backups')->where('id', $id)->first();
         if (!$backup) {
             return response()->json(['message' => 'غير موجود'], 404);
         }
@@ -255,9 +261,23 @@ class DatabaseBackupController extends Controller
             'updated_at' => now()->toDateTimeString(),
         ]);
 
-        return response()->json([
-            'message' => "تم رفع النسخة المعدلة بنجاح - الإصدار: {$newVersion}",
-            'version' => $newVersion,
-        ]);
+        return redirect('/admin/database-backups')->with('success', "تم رفع النسخة المعدلة بنجاح - الإصدار: {$newVersion}");
+    }
+
+    public function adminDelete($id)
+    {
+        $backup = DB::table('mobile_database_backups')->where('id', $id)->first();
+        if (!$backup) {
+            return redirect('/admin/database-backups')->with('error', 'غير موجود');
+        }
+
+        $fullPath = Storage::disk('local')->path($backup->file_path);
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
+        }
+
+        DB::table('mobile_database_backups')->where('id', $id)->delete();
+
+        return redirect('/admin/database-backups')->with('success', 'تم حذف النسخة بنجاح');
     }
 }
