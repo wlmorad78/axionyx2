@@ -18,6 +18,9 @@ class DatabaseBackupController extends Controller
         ]);
 
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
         $companyId = $user->company_id;
         $employee = DB::table('employees')->where('id', $user->id)->first();
         $salesmanId = $employee?->id ?? $user->id;
@@ -57,6 +60,9 @@ class DatabaseBackupController extends Controller
     public function latest(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
         $companyId = $user->company_id;
         $employee = DB::table('employees')->where('id', $user->id)->first();
         $salesmanId = $employee?->id ?? $user->id;
@@ -85,6 +91,9 @@ class DatabaseBackupController extends Controller
     public function download(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
         $companyId = $user->company_id;
         $employee = DB::table('employees')->where('id', $user->id)->first();
         $salesmanId = $employee?->id ?? $user->id;
@@ -126,6 +135,9 @@ class DatabaseBackupController extends Controller
     public function list(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
         $companyId = $user->company_id;
 
         $backups = DB::table('mobile_database_backups')

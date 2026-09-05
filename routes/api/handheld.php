@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route as RouteFacade;
+use App\Http\Controllers\Api\DatabaseBackupController;
 use App\Http\Controllers\Api\HandheldController;
 
 RouteFacade::post('handheld/bootstrap', [HandheldController::class, 'bootstrap']);
@@ -3281,8 +3282,6 @@ RouteFacade::get('handheld/download-db', function (\Illuminate\Http\Request $req
         'Content-Type' => 'application/octet-stream',
     ]);
 });
-
-use App\Http\Controllers\Api\DatabaseBackupController;
 
 RouteFacade::post('handheld/database/upload', [DatabaseBackupController::class, 'upload']);
 RouteFacade::get('handheld/database/latest', [DatabaseBackupController::class, 'latest']);
