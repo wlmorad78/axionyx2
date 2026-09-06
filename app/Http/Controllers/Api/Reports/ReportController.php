@@ -939,11 +939,11 @@ class ReportController extends Controller
             ->whereDate('transaction_date', '<', $date)
             ->whereHas('transactionType', function ($q) {
                 $q->where(function ($sub) {
-                    // additions: نفس فلتر الوارد (بدون مرتجعات)
+                    // additions: استلام مشتريات فقط (يتوافق مع فلتر الوارد)
                     $sub->where('effect', 'addition')
-                        ->whereNotIn('code', ['SALES_RETURN', 'RETURN']);
+                        ->where('code', 'PURCHASE_RECEIPT');
                 })->orWhere(function ($sub) {
-                    // subtractions: نفس فلتر الصادر (مبيعات فقط)
+                    // subtractions: مبيعات فقط (يتوافق مع فلتر الصادر)
                     $sub->where('effect', 'subtraction')
                         ->where('code', 'SALES_INVOICE');
                 });
@@ -975,7 +975,7 @@ class ReportController extends Controller
         $inQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
             ->whereDate('transaction_date', $date)
             ->where('status', 'posted')
-            ->whereHas('transactionType', fn($q) => $q->where('effect', 'addition')->whereNotIn('code', ['SALES_RETURN', 'RETURN']))
+            ->whereHas('transactionType', fn($q) => $q->where('effect', 'addition')->where('code', 'PURCHASE_RECEIPT'))
             ->with('items:id,inventory_transaction_id,item_id,qty,unit_cost');
         if ($warehouseId) {
             $inQuery->where('warehouse_id', $warehouseId);
