@@ -982,17 +982,6 @@ class ReportController extends Controller
         }
         $inTransactions = $inQuery->get();
 
-        // 4. حركات اليوم - الصادر (مبيعات فقط، بدون تحميل)
-        $salesOutQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
-            ->whereDate('transaction_date', $date)
-            ->where('status', 'posted')
-            ->whereHas('transactionType', fn($q) => $q->where('effect', 'subtraction')->where('code', 'SALES_INVOICE'))
-            ->with('items:id,inventory_transaction_id,item_id,qty');
-        if ($warehouseId) {
-            $salesOutQuery->where('warehouse_id', $warehouseId);
-        }
-        $salesOutTransactions = $salesOutQuery->get();
-
         // 4.1 سعر الشراء من الوحدة الافتراضية في item_units
         $itemIds = $allItems->keys()->all();
         $defaultUnitCostMap = [];
@@ -1006,10 +995,8 @@ class ReportController extends Controller
             }
         }
 
-        // 5. تجميع الحركات per item
+        // 4.2 حركات اليوم - الوارد (تجميع)
         $inQtyMap = [];
-        $outQtyMap = [];
-
         foreach ($inTransactions as $txn) {
             foreach ($txn->items as $item) {
                 $itemId = $item->item_id;
@@ -1017,76 +1004,88 @@ class ReportController extends Controller
             }
         }
 
-        foreach ($salesOutTransactions as $txn) {
-            foreach ($txn->items as $item) {
-                $itemId = $item->item_id;
-                $outQtyMap[$itemId] = ($outQtyMap[$itemId] ?? 0) + abs((float) $item->qty);
-            }
-        }
-
-        // 4.2 مبيعات الهاند هيلد (mobile) - اليوم
-        $mobileOutQtyMap = [];
-        $mobileSalesQuery = DB::table('sales_invoices')
+        // 4.3 حركات اليوم - الصادر (مبيعات فقط) من فواتير المبيعات مباشرة
+        // لضمان التوافق مع تقرير مبيعات المندوبين (sales_invoice_items.qty)
+        $outQtyMap = [];
+        $salesOutQuery = DB::table('sales_invoices')
             ->join('sales_invoice_items', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
             ->where('sales_invoices.company_id', $companyId)
             ->whereDate('sales_invoices.invoice_date', $date)
-            ->where('sales_invoices.source', 'mobile')
             ->where('sales_invoices.status', 'posted')
             ->whereNull('sales_invoices.deleted_at')
             ->whereNull('sales_invoice_items.deleted_at')
             ->select(
                 'sales_invoice_items.item_id',
-                DB::raw('ABS(COALESCE(NULLIF(sales_invoice_items.base_quantity, 0), sales_invoice_items.qty)) as qty')
+                DB::raw('ABS(sales_invoice_items.qty) as qty')
             );
         if ($warehouseId) {
-            $mobileSalesQuery->where(function ($q) use ($warehouseId) {
+            $salesOutQuery->where(function ($q) use ($warehouseId) {
                 $q->where('sales_invoice_items.warehouse_id', $warehouseId)
                   ->orWhereNull('sales_invoice_items.warehouse_id');
             });
         }
-        $mobileSalesItems = $mobileSalesQuery->get();
-        foreach ($mobileSalesItems as $mi) {
-            $itemId = $mi->item_id;
-            $mobileOutQtyMap[$itemId] = ($mobileOutQtyMap[$itemId] ?? 0) + abs((float) $mi->qty);
+        foreach ($salesOutQuery->get() as $row) {
+            $itemId = $row->item_id;
+            $outQtyMap[$itemId] = ($outQtyMap[$itemId] ?? 0) + abs((float) $row->qty);
         }
 
         // 4.3 مبيعات الهاند هيلد من جميع الأيام السابقة (تُضاف للرصيد الصباحي)
-        $priorMobileQtyMap = [];
-        $priorMobileQuery = DB::table('sales_invoices')
+
+        // أولاً: إضافة المبيعات ERP السابقة من المعاملات المخزنية
+        // (لإلغاء تأثيرها لأن currentStockPerItem تشملها بـ inventory_transaction_items.qty)
+        $priorErpSalesQtyMap = [];
+        $priorErpSalesQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
+            ->where('status', 'posted')
+            ->whereDate('transaction_date', '<', $date)
+            ->whereHas('transactionType', fn($q) => $q->where('effect', 'subtraction')->where('code', 'SALES_INVOICE'))
+            ->with('items:id,inventory_transaction_id,item_id,qty');
+        if ($warehouseId) {
+            $priorErpSalesQuery->where('warehouse_id', $warehouseId);
+        }
+        foreach ($priorErpSalesQuery->get() as $txn) {
+            foreach ($txn->items as $it) {
+                $itemId = $it->item_id;
+                $priorErpSalesQtyMap[$itemId] = ($priorErpSalesQtyMap[$itemId] ?? 0) + abs((float) $it->qty);
+            }
+        }
+
+        // ثانياً: جمع كل المبيعات السابقة من فواتير المبيعات (ERP + موبايل)
+        // لتخصم بالكمية الصحيحة (sales_invoice_items.qty)
+        $allPriorSalesQtyMap = [];
+        $allPriorSalesQuery = DB::table('sales_invoices')
             ->join('sales_invoice_items', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
             ->where('sales_invoices.company_id', $companyId)
             ->whereDate('sales_invoices.invoice_date', '<', $date)
-            ->where('sales_invoices.source', 'mobile')
             ->where('sales_invoices.status', 'posted')
             ->whereNull('sales_invoices.deleted_at')
             ->whereNull('sales_invoice_items.deleted_at')
             ->select(
                 'sales_invoice_items.item_id',
-                DB::raw('ABS(COALESCE(NULLIF(sales_invoice_items.base_quantity, 0), sales_invoice_items.qty)) as qty')
+                DB::raw('ABS(sales_invoice_items.qty) as qty')
             );
         if ($warehouseId) {
-            $priorMobileQuery->where(function ($q) use ($warehouseId) {
+            $allPriorSalesQuery->where(function ($q) use ($warehouseId) {
                 $q->where('sales_invoice_items.warehouse_id', $warehouseId)
                   ->orWhereNull('sales_invoice_items.warehouse_id');
             });
         }
-        foreach ($priorMobileQuery->get() as $mi) {
-            $itemId = $mi->item_id;
-            $priorMobileQtyMap[$itemId] = ($priorMobileQtyMap[$itemId] ?? 0) + abs((float) $mi->qty);
+        foreach ($allPriorSalesQuery->get() as $row) {
+            $itemId = $row->item_id;
+            $allPriorSalesQtyMap[$itemId] = ($allPriorSalesQtyMap[$itemId] ?? 0) + abs((float) $row->qty);
         }
 
         // 6. بناء النتيجة لكل صنف
         $result = [];
         foreach ($allItems as $itemId => $item) {
-            // الرصيد الصباحي = رصيد المخزن - مبيعات الموبايل السابقة
-            // (لأن مبيعات الموبايل تُضاف للصادر اليوم فيجب أن تُخصم من رصيد البداية
-            // لضمان تساوي رصيد المساء مع رصيد الصباح التالي)
-            $openingBalance = max(0, ($currentStockPerItem[$itemId] ?? 0) - ($priorMobileQtyMap[$itemId] ?? 0));
+            // الرصيد الصباحي = رصيد المخزن + مبيعات ERP السابقة (إلغاء) - كل المبيعات السابقة (بالكمية الصحيحة)
+            // هذا يضمن توافق رصيد الصباح مع طريقة حساب الصادر من فواتير المبيعات
+            $openingBalance = max(0,
+                ($currentStockPerItem[$itemId] ?? 0)
+                + ($priorErpSalesQtyMap[$itemId] ?? 0)
+                - ($allPriorSalesQtyMap[$itemId] ?? 0)
+            );
             $inQty = $inQtyMap[$itemId] ?? 0;
             $outQty = $outQtyMap[$itemId] ?? 0;
-            // إضافة مبيعات الهاند هيلد للصادر
-            $mobileQty = $mobileOutQtyMap[$itemId] ?? 0;
-            $outQty += $mobileQty;
             $total = $openingBalance + $inQty;
             $closingBalance = $total - $outQty;
             $unitCost = $defaultUnitCostMap[$itemId] ?? 0;

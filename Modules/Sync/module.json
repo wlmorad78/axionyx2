@@ -1,0 +1,5 @@
+{
+    "name": "Sync",
+    "description": "Server-to-server data synchronization module",
+    "version": "1.0.0"
+}

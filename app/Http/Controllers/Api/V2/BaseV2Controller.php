@@ -17,16 +17,17 @@ abstract class BaseV2Controller extends BaseApiController
 
     protected int $maxPerPage = 100;
 
-    protected function applySearch(Builder $query, Request $request): Builder
+    protected function applySearch($query, Request $request, array $searchableFields = []): mixed
     {
         $search = $request->input('search');
+        $fields = !empty($searchableFields) ? $searchableFields : $this->searchable;
 
-        if (!$search || empty($this->searchable)) {
+        if (!$search || empty($fields)) {
             return $query;
         }
 
-        $query->where(function ($q) use ($search) {
-            foreach ($this->searchable as $field) {
+        $query->where(function ($q) use ($search, $fields) {
+            foreach ($fields as $field) {
                 $q->orWhere($field, 'LIKE', "%{$search}%");
             }
         });
@@ -34,7 +35,25 @@ abstract class BaseV2Controller extends BaseApiController
         return $query;
     }
 
-    protected function applyFilters(Builder $query, Request $request): Builder
+    protected function applySorting($query, Request $request, array $allowedSorts = []): mixed
+    {
+        $sortField = $request->input('sort_field', 'created_at');
+        $sortDirection = $request->input('sort_direction', 'desc');
+
+        $fields = !empty($allowedSorts) ? $allowedSorts : $this->sortable;
+
+        if (!in_array($sortField, $fields)) {
+            $sortField = 'created_at';
+        }
+
+        if (!in_array($sortDirection, ['asc', 'desc'])) {
+            $sortDirection = 'desc';
+        }
+
+        return $query->orderBy($sortField, $sortDirection);
+    }
+
+    protected function applyFilters($query, Request $request): mixed
     {
         foreach ($this->filterable as $field => $type) {
             $value = $request->input($field);
@@ -59,23 +78,7 @@ abstract class BaseV2Controller extends BaseApiController
         return $query;
     }
 
-    protected function applySorting(Builder $query, Request $request): Builder
-    {
-        $sortField = $request->input('sort_field', 'created_at');
-        $sortDirection = $request->input('sort_direction', 'desc');
-
-        if (!in_array($sortField, $this->sortable)) {
-            $sortField = 'created_at';
-        }
-
-        if (!in_array($sortDirection, ['asc', 'desc'])) {
-            $sortDirection = 'desc';
-        }
-
-        return $query->orderBy($sortField, $sortDirection);
-    }
-
-    protected function applyPagination(Builder $query, Request $request, int $defaultPerPage = 25): Builder
+    protected function applyPagination($query, Request $request, int $defaultPerPage = 25): mixed
     {
         $perPage = min(
             max((int) $request->input('per_page', $defaultPerPage), 1),

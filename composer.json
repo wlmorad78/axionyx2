@@ -23,6 +23,7 @@
     },
     "autoload": {
         "psr-4": {
+            "App\\Modules\\": "Modules/",
             "App\\Models\\Inventory\\": "app/Models/Inventory_temp/",
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",

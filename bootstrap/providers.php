@@ -8,4 +8,5 @@ return [
     // ─── Modules ───
     \App\Modules\Customer\Providers\ModuleServiceProvider::class,
     \App\Modules\Distribution\Providers\ModuleServiceProvider::class,
+    \App\Modules\Sync\Providers\ModuleServiceProvider::class,
 ];
