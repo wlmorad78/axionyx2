@@ -103,8 +103,20 @@ class Handheld2Controller extends Controller
             $load = (float) $base($item->id)->where('iti.from_location_type', 'warehouse')->where('iti.to_location_type', 'rep')->where('iti.to_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
             $loadReturn = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'warehouse')->where('iti.from_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
             $load = max(0, $load - $loadReturn);
-            $tin = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'rep')->where('iti.to_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
-            $tout = (float) $base($item->id)->where('iti.from_location_type', 'rep')->where('iti.to_location_type', 'rep')->where('iti.from_location_id', $employeeId)->sum(DB::raw('ABS(iti.qty)'));
+            $tin = (float) DB::table('representative_transfer_items as rti')
+                ->join('representative_transfers as rt', 'rt.id', '=', 'rti.representative_transfer_id')
+                ->where('rt.company_id', $companyId)
+                ->whereIn('rt.status', ['posted', 'received'])
+                ->where('rt.to_employee_id', $employeeId)
+                ->where('rti.item_id', $item->id)
+                ->sum(DB::raw('ABS(rti.base_quantity)'));
+            $tout = (float) DB::table('representative_transfer_items as rti')
+                ->join('representative_transfers as rt', 'rt.id', '=', 'rti.representative_transfer_id')
+                ->where('rt.company_id', $companyId)
+                ->whereIn('rt.status', ['posted', 'received'])
+                ->where('rt.from_employee_id', $employeeId)
+                ->where('rti.item_id', $item->id)
+                ->sum(DB::raw('ABS(rti.base_quantity)'));
             $sales = (float) RepItemDistribution::where('company_id', $companyId)->where('user_id', $employeeId)->where('item_id', $item->id)->sum('sold_qty');
             return [
                 'item_id' => $item->id, 'item_code' => $item->code,
@@ -143,7 +155,7 @@ class Handheld2Controller extends Controller
         $employeeId = (int) DB::table('employees')->where('id', $request->user()->id)->value('id');
         $transfers = RepresentativeTransfer::with(['fromEmployee', 'items.item'])
             ->where('company_id', $request->user()->company_id)
-            ->where('to_user_id', $employeeId)
+            ->where('to_employee_id', $employeeId)
             ->whereIn('status', ['posted', 'received'])
             ->latest('id')->get();
 
@@ -153,16 +165,26 @@ class Handheld2Controller extends Controller
             'status' => $transfer->status,
             'from_employee_name' => $transfer->fromEmployee?->full_name_ar,
             'created_at' => $transfer->created_at,
-            'items' => $transfer->items->map(fn ($item) => [
-                'item_id' => $item->item_id,
-                'item_name' => $item->item?->name_ar ?? $item->item?->name_en,
-                'item_code' => $item->item?->code,
-                'quantity' => (float) $item->quantity,
-                'base_quantity' => (float) $item->base_quantity,
-                'unit_id' => $item->unit_id,
-                'unit_price' => (float) $item->unit_cost,
-                'line_total' => (float) $item->unit_cost * (float) $item->quantity,
-            ]),
+            'items' => $transfer->items->map(function ($item) {
+                $unitPrice = (float) $item->unit_cost;
+                $iu = DB::table('item_units')
+                    ->where('item_id', $item->item_id)
+                    ->where('unit_id', $item->unit_id)
+                    ->value('sale_price');
+                if ($iu !== null) {
+                    $unitPrice = (float) $iu;
+                }
+                return [
+                    'item_id' => $item->item_id,
+                    'item_name' => $item->item?->name_ar ?? $item->item?->name_en,
+                    'item_code' => $item->item?->code,
+                    'quantity' => (float) $item->quantity,
+                    'base_quantity' => (float) $item->base_quantity,
+                    'unit_id' => $item->unit_id,
+                    'unit_price' => $unitPrice,
+                    'line_total' => $unitPrice * (float) $item->quantity,
+                ];
+            }),
         ])]);
     }
 
@@ -170,11 +192,61 @@ class Handheld2Controller extends Controller
     {
         $employeeId = (int) DB::table('employees')->where('id', $request->user()->id)->value('id');
         $transfer = RepresentativeTransfer::where('company_id', $request->user()->company_id)
-            ->where('to_user_id', $employeeId)->findOrFail($id);
+            ->where('to_employee_id', $employeeId)->findOrFail($id);
         if ($transfer->status === 'posted') {
             $transfer->update(['status' => 'received']);
         }
         return response()->json(['data' => $transfer->fresh()->load('items.item')]);
+    }
+
+    public function reopenRepresentativeTransfer(Request $request, int $id)
+    {
+        $transfer = RepresentativeTransfer::where('company_id', $request->user()->company_id)
+            ->where('id', $id)->firstOrFail();
+        if ($transfer->status === 'received') {
+            $transfer->update(['status' => 'posted']);
+        }
+        return response()->json(['data' => $transfer->fresh()->load(['items.item', 'fromEmployee', 'toEmployee'])]);
+    }
+
+    public function listRepresentativeTransfers(Request $request)
+    {
+        $query = RepresentativeTransfer::with(['fromEmployee', 'toEmployee', 'items.item'])
+            ->where('company_id', $request->user()->company_id);
+
+        if ($request->filled('from_employee_id')) {
+            $query->where('from_employee_id', (int) $request->from_employee_id);
+        }
+        if ($request->filled('to_employee_id')) {
+            $query->where('to_employee_id', (int) $request->to_employee_id);
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $transfers = $query->latest('id')->get();
+
+        return response()->json(['data' => $transfers->map(fn ($t) => [
+            'id' => $t->id,
+            'transfer_no' => $t->transfer_no,
+            'status' => $t->status,
+            'from_employee_id' => $t->from_employee_id,
+            'from_employee_name' => $t->fromEmployee?->full_name_ar,
+            'to_employee_id' => $t->to_employee_id,
+            'to_employee_name' => $t->toEmployee?->full_name_ar,
+            'created_at' => $t->created_at,
+            'items' => $t->items->map(fn ($item) => [
+                'item_id' => $item->item_id,
+                'item_name' => $item->item?->name_ar ?? $item->item?->name_en,
+                'item_code' => $item->item?->code,
+                'quantity' => (float) $item->quantity,
+                'base_quantity' => (float) $item->base_quantity,
+                'unit_id' => $item->unit_id,
+            ]),
+        ])]);
     }
     /**
      * دالة معالجة: login — تُنفّذ نقطة النهاية (Endpoint) المطلوبة لـ (Handheld2).

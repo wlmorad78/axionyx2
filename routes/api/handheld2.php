@@ -33,9 +33,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('handheld2/representatives', [Handheld2Controller::class, 'representatives']);
     Route::get('handheld2/representative-stock-summary', [Handheld2Controller::class, 'representativeStockSummary']);
     Route::get('handheld2/representative-stock/{employeeId}', [Handheld2Controller::class, 'representativeStock']);
-    Route::post('handheld2/representative-transfers', [Handheld2Controller::class, 'representativeTransfer']);
+    Route::get('handheld2/representative-transfers/list', [Handheld2Controller::class, 'listRepresentativeTransfers']);
     Route::get('handheld2/representative-transfers/incoming', [Handheld2Controller::class, 'incomingRepresentativeTransfers']);
+    Route::post('handheld2/representative-transfers', [Handheld2Controller::class, 'representativeTransfer']);
     Route::post('handheld2/representative-transfers/{id}/receive', [Handheld2Controller::class, 'receiveRepresentativeTransfer']);
+    Route::post('handheld2/representative-transfers/{id}/reopen', [Handheld2Controller::class, 'reopenRepresentativeTransfer']);
     Route::patch('handheld2/load-requests/{id}/status', [Handheld2Controller::class, 'updateLoadRequestStatus']);
     Route::post('handheld2/load-requests/{id}/cancel', [Handheld2Controller::class, 'cancelLoadRequest']);
     Route::post('handheld2/sync/push', [Handheld2Controller::class, 'syncPush']);
@@ -45,6 +47,139 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('handheld2/customer-sales-report', [Handheld2Controller::class, 'customerSalesReport']);
     Route::get('handheld2/invoice-details', [Handheld2Controller::class, 'invoiceDetails']);
     Route::get('handheld2/invoice-payment-methods/{clientUuid}', [Handheld2Controller::class, 'invoicePaymentMethods']);
+
+    Route::post('handheld2/link-customer-to-route', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'route_id' => 'required|exists:routes,id',
+        ]);
+
+        $exists = \App\Models\RouteCustomer::where('route_id', $request->route_id)
+            ->where('customer_id', $request->customer_id)
+            ->whereNull('deleted_at')
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'العميل مربوط بالفعل بخط السير']);
+        }
+
+        $maxOrder = \App\Models\RouteCustomer::where('route_id', $request->route_id)
+            ->whereNull('deleted_at')
+            ->max('visit_order') ?? 0;
+
+        \App\Models\RouteCustomer::create([
+            'route_id' => $request->route_id,
+            'customer_id' => $request->customer_id,
+            'visit_order' => $maxOrder + 1,
+            'visit_frequency' => 'Daily',
+            'is_mandatory' => true,
+            'is_active' => true,
+        ]);
+
+        return response()->json(['message' => 'تم ربط العميل بخط السير بنجاح']);
+    });
+
+    Route::post('handheld2/unlink-customer-from-route', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'route_id' => 'required|exists:routes,id',
+        ]);
+
+        \App\Models\RouteCustomer::where('route_id', $request->route_id)
+            ->where('customer_id', $request->customer_id)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => now()]);
+
+        return response()->json(['message' => 'تم فك ربط العميل من خط السير']);
+    });
+
+    Route::get('handheld2/customers-for-route', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        $routeId = $request->input('route_id');
+
+        $linkedIds = [];
+        if ($routeId) {
+            $linkedIds = \App\Models\RouteCustomer::where('route_id', $routeId)
+                ->whereNull('deleted_at')
+                ->pluck('customer_id')
+                ->toArray();
+        }
+
+        $customers = DB::table('customers')
+            ->where('customers.company_id', $user->company_id)
+            ->where('customers.is_active', true)
+            ->whereNull('customers.deleted_at')
+            ->leftJoin('customer_types', 'customers.customer_type_id', '=', 'customer_types.id')
+            ->orderBy('customers.name_ar')
+            ->get([
+                'customers.id',
+                'customers.code',
+                'customers.name_ar',
+                'customers.phone',
+                'customers.mobile',
+                'customers.address_line',
+                'customers.customer_type_id',
+                'customer_types.name_ar as type_name',
+            ])
+            ->map(function ($c) use ($linkedIds) {
+                return [
+                    'id' => $c->id,
+                    'code' => $c->code,
+                    'name' => $c->name_ar ?? '',
+                    'phone' => $c->phone ?? $c->mobile ?? '',
+                    'address' => $c->address_line ?? '',
+                    'customer_type_id' => $c->customer_type_id ?? 0,
+                    'type_name' => $c->type_name ?? '',
+                    'is_linked' => in_array($c->id, $linkedIds),
+                ];
+            });
+
+        return response()->json(['data' => $customers]);
+    });
+
+    Route::post('handheld2/bulk-link-customers-to-route', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        $request->validate([
+            'route_id' => 'required|exists:routes,id',
+            'customer_ids' => 'required|array',
+            'customer_ids.*' => 'integer|exists:customers,id',
+        ]);
+
+        $routeId = $request->route_id;
+        $customerIds = $request->customer_ids;
+
+        $existingIds = \App\Models\RouteCustomer::where('route_id', $routeId)
+            ->whereIn('customer_id', $customerIds)
+            ->whereNull('deleted_at')
+            ->pluck('customer_id')
+            ->toArray();
+
+        $maxOrder = \App\Models\RouteCustomer::where('route_id', $routeId)
+            ->whereNull('deleted_at')
+            ->max('visit_order') ?? 0;
+
+        $added = 0;
+        foreach ($customerIds as $customerId) {
+            if (in_array($customerId, $existingIds)) continue;
+            $maxOrder++;
+            \App\Models\RouteCustomer::create([
+                'route_id' => $routeId,
+                'customer_id' => $customerId,
+                'visit_order' => $maxOrder,
+                'visit_frequency' => 'Daily',
+                'is_mandatory' => true,
+                'is_active' => true,
+            ]);
+            $added++;
+        }
+
+        return response()->json([
+            'message' => "تم ربط $added عميل بخط السير بنجاح",
+            'added' => $added,
+        ]);
+    });
 
     Route::post('handheld2/car-expenses', function (\Illuminate\Http\Request $request) {
         $user = $request->user();

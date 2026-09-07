@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Models\Employee;
-use App\Models\InventoryTransaction;
-use App\Models\InventoryTransactionItem;
 use App\Models\RepresentativeTransfer;
 use App\Models\RepItemDistribution;
 use Illuminate\Support\Facades\DB;
@@ -50,32 +48,6 @@ class RepresentativeTransferService
                 'notes' => $data['notes'] ?? null,
             ]);
 
-            $type = DB::table('inventory_transaction_types')->where('code', 'REP_TRANSFER')->first();
-            if (!$type) {
-                $typeId = DB::table('inventory_transaction_types')->insertGetId([
-                    'code' => 'REP_TRANSFER', 'name' => 'تحويل بين مندوبين',
-                    'effect' => 'neutral', 'is_active' => true,
-                    'created_at' => now(), 'updated_at' => now(),
-                ]);
-            } else {
-                $typeId = $type->id;
-            }
-
-            $transaction = InventoryTransaction::create([
-                'company_id' => $companyId,
-                'branch_id' => $data['branch_id'] ?? null,
-                'warehouse_id' => $data['warehouse_id'] ?? $this->employeeWarehouse($fromId) ?? DB::table('warehouses')->where('company_id', $companyId)->value('id'),
-                'transaction_type_id' => $typeId,
-                'transaction_date' => now()->toDateString(),
-                'transaction_time' => now()->format('H:i:s'),
-                'reference_type' => RepresentativeTransfer::class,
-                'reference_id' => $transfer->id,
-                'notes' => $data['notes'] ?? 'تحويل مخزون بين مندوبين',
-                'status' => 'posted',
-                'created_by' => $user->id,
-                'approved_by' => $user->id,
-            ]);
-
             foreach ($data['items'] as $item) {
                 $qty = (float) ($item['quantity'] ?? 0);
                 $baseQty = (float) ($item['base_quantity'] ?? $qty);
@@ -102,18 +74,6 @@ class RepresentativeTransferService
                     'unit_cost' => $item['unit_cost'] ?? 0,
                     'batch_no' => $item['batch_no'] ?? null,
                     'expiry_date' => $item['expiry_date'] ?? null,
-                ]);
-
-                InventoryTransactionItem::create([
-                    'inventory_transaction_id' => $transaction->id,
-                    'item_id' => $item['item_id'], 'unit_id' => $unitId,
-                    'conversion_factor' => $baseQty / $qty, 'qty' => -$baseQty,
-                    'unit_cost' => $item['unit_cost'] ?? 0,
-                    'total_cost' => $baseQty * (float) ($item['unit_cost'] ?? 0),
-                    'batch_no' => $item['batch_no'] ?? null,
-                    'expiry_date' => $item['expiry_date'] ?? null,
-                    'from_location_type' => 'rep', 'from_location_id' => $fromId,
-                    'to_location_type' => 'rep', 'to_location_id' => $toId,
                 ]);
 
                 $this->consumeDistribution($companyId, $fromId, (int) $item['item_id'], $baseQty);
@@ -157,9 +117,4 @@ class RepresentativeTransferService
         return 'RPT-' . str_pad((string) (((int) ($match[1] ?? 0)) + 1), 5, '0', STR_PAD_LEFT);
     }
 
-    private function employeeWarehouse(int $employeeId): ?int
-    {
-        return DB::table('salesman_assignments')->where('user_id', $employeeId)
-            ->where('is_active', true)->value('warehouse_id');
-    }
 }

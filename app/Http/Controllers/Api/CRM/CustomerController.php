@@ -389,7 +389,32 @@ class CustomerController extends Controller
         if (empty($data['company_id']) && $request->user()) {
             $data['company_id'] = $request->user()->company_id;
         }
-        return response()->json(Customer::create($data), 201);
+        $customer = Customer::create($data);
+
+        $routeLineId = $request->input('route_line_id');
+        if ($routeLineId && $customer->id) {
+            $exists = \App\Models\RouteCustomer::where('route_id', $routeLineId)
+                ->where('customer_id', $customer->id)
+                ->whereNull('deleted_at')
+                ->exists();
+
+            if (!$exists) {
+                $maxOrder = \App\Models\RouteCustomer::where('route_id', $routeLineId)
+                    ->whereNull('deleted_at')
+                    ->max('visit_order') ?? 0;
+
+                \App\Models\RouteCustomer::create([
+                    'route_id' => $routeLineId,
+                    'customer_id' => $customer->id,
+                    'visit_order' => $maxOrder + 1,
+                    'visit_frequency' => 'Daily',
+                    'is_mandatory' => true,
+                    'is_active' => true,
+                ]);
+            }
+        }
+
+        return response()->json($customer, 201);
     }
 
     /**
