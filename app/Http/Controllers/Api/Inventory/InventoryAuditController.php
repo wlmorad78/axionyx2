@@ -40,7 +40,7 @@ class InventoryAuditController extends Controller
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|exists:items,id',
-            'items.*.system_qty' => 'required|numeric|min:0',
+            'items.*.system_qty' => 'required|numeric',
             'items.*.counted_qty' => 'required|numeric|min:0',
             'items.*.purchase_price' => 'required|numeric|min:0',
         ]);
@@ -99,7 +99,7 @@ class InventoryAuditController extends Controller
             'notes' => 'nullable|string',
             'items' => 'sometimes|array|min:1',
             'items.*.item_id' => 'required|exists:items,id',
-            'items.*.system_qty' => 'required|numeric|min:0',
+            'items.*.system_qty' => 'required|numeric',
             'items.*.counted_qty' => 'required|numeric|min:0',
             'items.*.purchase_price' => 'required|numeric|min:0',
         ]);

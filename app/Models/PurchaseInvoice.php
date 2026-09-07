@@ -215,7 +215,7 @@ class PurchaseInvoice extends Document
             'transaction_type_id' => $type->id,
             'warehouse_id' => $this->warehouse_id,
             'transaction_no' => InventoryTransaction::nextTransactionNo($this->company_id),
-            'transaction_date' => now()->toDateString(),
+            'transaction_date' => $this->invoice_date,
             'transaction_time' => now()->format('H:i:s'),
             'reference_type' => PurchaseInvoice::class,
             'reference_id' => $this->id,
