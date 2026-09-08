@@ -264,6 +264,17 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             ->latest('id')
             ->first();
 
+        $today = now()->toDateString();
+        $oldReturnOrders = ReturnOrder::where('employee_id', $employee->id)
+            ->whereDate('return_date', $today)
+            ->where('status_id', 'pending')
+            ->get();
+        foreach ($oldReturnOrders as $oldRO) {
+            RepItemDistribution::where('return_order_id', $oldRO->id)->delete();
+            $oldRO->items()->delete();
+            $oldRO->delete();
+        }
+
         $returnNo = null;
         $nextReturnNo = DB::select(
             "SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 4) AS INTEGER)), 0) + 1 as next_no FROM return_orders WHERE company_id = ?",
@@ -342,6 +353,8 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
                 'returned_quantity' => $returnedQty,
                 'sold_quantity' => $soldQty,
                 'loaded_qty' => $loadedQty,
+                't_in_qty' => (float) ($item['t_in_qty'] ?? 0),
+                't_out_qty' => (float) ($item['t_out_qty'] ?? 0),
                 'sales_price' => $price,
                 'line_total' => $returnedQty * $price,
                 'return_condition' => 'good',
@@ -2691,17 +2704,27 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
     $existingSettlement = \App\Models\RepDailySettlement::where('sales_rep_id', $employee->id)
         ->whereDate('settlement_date', $today)
         ->where('company_id', $user->company_id)
+        ->where(function ($q) use ($activeIssueOrder) {
+            if ($activeIssueOrder) {
+                $q->where('issue_order_id', $activeIssueOrder->id);
+            } else {
+                $q->whereNull('issue_order_id');
+            }
+        })
         ->first();
 
     if ($existingSettlement && $existingSettlement->status === 'approved') {
         return response()->json(['message' => 'التسوية معتمدة بالفعل'], 422);
     }
 
-    $invoices = SalesInvoice::where('sales_rep_id', $employee->id)
+    $invoicesQuery = SalesInvoice::where('sales_rep_id', $employee->id)
         ->whereDate('invoice_date', $today)
         ->where('company_id', $user->company_id)
-        ->whereNull('deleted_at')
-        ->get();
+        ->whereNull('deleted_at');
+    if ($activeIssueOrder) {
+        $invoicesQuery->where('issue_order_id', $activeIssueOrder->id);
+    }
+    $invoices = $invoicesQuery->get();
 
     $totalSales = (float) $invoices->sum('net_total');
     $totalPaid = (float) $invoices->sum('paid_amount');
@@ -2724,65 +2747,56 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
     $salesmanDebtId = null;
 
     if ($existingSettlement) {
-        $updateData = [
-            'company_id' => $user->company_id,
-            'branch_id' => $branchId,
-            'sales_rep_id' => $employee->id,
-            'issue_order_id' => $activeIssueOrder?->id,
-            'total_sales_value' => round($totalSales, 2),
-            'total_collections_value' => round($totalPaid, 2),
-            'total_expenses' => round($totalExpenses, 2),
-            'total_from_balance' => round((float) $collectionsFromBalance, 2),
-            'expected_cash' => round($expectedCash, 2),
-            'actual_cash' => round($actualCash, 2),
-            'cash_difference' => round($cashDifference, 2),
-            'shortage' => round($shortage, 2),
-            'shortage_status' => $shortageStatus,
-            'notes' => $request->notes,
-            'status' => 'submitted',
-            'created_by' => $employee->id,
-        ];
-        $newFields = $hasNewColumns ? array_filter([
-            'customer_type' => $request->input('customer_type'),
-            'counter' => $request->input('counter'),
-            'new_counter_number' => $request->input('new_counter_number'),
-            'return_notes' => $request->input('return_notes'),
-        ], fn($v) => $v !== null) : [];
-        $updateData = array_merge($updateData, $newFields);
-        $existingSettlement->update($updateData);
-
+        if ($existingSettlement->salesman_debt_id) {
+            $oldDebt = \App\Models\SalesmanDebt::find($existingSettlement->salesman_debt_id);
+            if ($oldDebt && $oldDebt->status === 'pending') {
+                $oldAccount = \App\Models\SalesmanAccount::find($oldDebt->salesman_account_id);
+                if ($oldAccount) {
+                    $oldAccount->update([
+                        'total_debts' => max(0, $oldAccount->total_debts - $oldDebt->remaining_debt),
+                        'current_balance' => max(0, $oldAccount->current_balance - $oldDebt->remaining_debt),
+                    ]);
+                    \App\Models\SalesmanAccountMovement::where('reference_type', \App\Models\SalesmanDebt::class)
+                        ->where('reference_id', $oldDebt->id)
+                        ->update(['notes' => 'تم الإلغاء - تسوية جديدة']);
+                }
+                $oldDebt->update(['status' => 'cancelled']);
+                $oldDebt->delete();
+            }
+        }
+        $existingSettlement->items()->delete();
         $existingSettlement->expenses()->delete();
-        $settlement = $existingSettlement;
-    } else {
-        $createData = [
-            'company_id' => $user->company_id,
-            'branch_id' => $branchId,
-            'settlement_uuid' => $uuid,
-            'settlement_date' => $today,
-            'sales_rep_id' => $employee->id,
-            'issue_order_id' => $activeIssueOrder?->id,
-            'total_sales_value' => round($totalSales, 2),
-            'total_collections_value' => round($totalPaid, 2),
-            'total_expenses' => round($totalExpenses, 2),
-            'total_from_balance' => round((float) $collectionsFromBalance, 2),
-            'expected_cash' => round($expectedCash, 2),
-            'actual_cash' => round($actualCash, 2),
-            'cash_difference' => round($cashDifference, 2),
-            'shortage' => round($shortage, 2),
-            'shortage_status' => $shortageStatus,
-            'notes' => $request->notes,
-            'status' => 'submitted',
-            'created_by' => $employee->id,
-        ];
-        $newFields = $hasNewColumns ? array_filter([
-            'customer_type' => $request->input('customer_type'),
-            'counter' => $request->input('counter'),
-            'new_counter_number' => $request->input('new_counter_number'),
-            'return_notes' => $request->input('return_notes'),
-        ], fn($v) => $v !== null) : [];
-        $createData = array_merge($createData, $newFields);
-        $settlement = \App\Models\RepDailySettlement::create($createData);
+        $existingSettlement->delete();
     }
+
+    $createData = [
+        'company_id' => $user->company_id,
+        'branch_id' => $branchId,
+        'settlement_uuid' => $uuid,
+        'settlement_date' => $today,
+        'sales_rep_id' => $employee->id,
+        'issue_order_id' => $activeIssueOrder?->id,
+        'total_sales_value' => round($totalSales, 2),
+        'total_collections_value' => round($totalPaid, 2),
+        'total_expenses' => round($totalExpenses, 2),
+        'total_from_balance' => round((float) $collectionsFromBalance, 2),
+        'expected_cash' => round($expectedCash, 2),
+        'actual_cash' => round($actualCash, 2),
+        'cash_difference' => round($cashDifference, 2),
+        'shortage' => round($shortage, 2),
+        'shortage_status' => $shortageStatus,
+        'notes' => $request->notes,
+        'status' => 'submitted',
+        'created_by' => $employee->id,
+    ];
+    $newFields = $hasNewColumns ? array_filter([
+        'customer_type' => $request->input('customer_type'),
+        'counter' => $request->input('counter'),
+        'new_counter_number' => $request->input('new_counter_number'),
+        'return_notes' => $request->input('return_notes'),
+    ], fn($v) => $v !== null) : [];
+    $createData = array_merge($createData, $newFields);
+    $settlement = \App\Models\RepDailySettlement::create($createData);
 
     foreach ($request->expenses ?? [] as $expense) {
         \App\Models\RepDailyExpense::create([
@@ -2796,9 +2810,6 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
 
     // Save settlement item details (product-level breakdown)
     if (!empty($request->items)) {
-        // Delete old items if this is an update
-        $settlement->items()->delete();
-
         foreach ($request->items as $item) {
             $itemId = $item['item_id'] ?? null;
             if (!$itemId) continue;
@@ -2904,6 +2915,7 @@ RouteFacade::get('handheld/my-settlements', function (\Illuminate\Http\Request $
             'id' => $s->id,
             'settlement_no' => $s->settlement_no,
             'settlement_date' => $s->settlement_date?->toDateString(),
+            'issue_order_id' => $s->issue_order_id,
             'total_sales_value' => (float) $s->total_sales_value,
             'total_collections_value' => (float) $s->total_collections_value,
             'total_expenses' => (float) $s->total_expenses,

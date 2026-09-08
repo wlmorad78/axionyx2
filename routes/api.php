@@ -17,6 +17,9 @@ Route::get('health-check', function () {
 Route::get('app/version', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'latest']);
 Route::get('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'index']);
 Route::post('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'store']);
+Route::get('app/versions/{appVersion}', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'show']);
+Route::put('app/versions/{appVersion}', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'update']);
+Route::delete('app/versions/{appVersion}', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'destroy']);
 
 // Postman collection
 Route::get('postman-collection', function () {

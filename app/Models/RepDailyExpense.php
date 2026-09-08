@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class RepDailyExpense extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'rep_daily_expenses';
 
     protected $fillable = [

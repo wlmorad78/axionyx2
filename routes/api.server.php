@@ -32,6 +32,9 @@ Route::get('handheld/health', function () {
 Route::get('app/version', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'latest']);
 Route::get('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'index']);
 Route::post('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'store']);
+Route::get('app/versions/{appVersion}', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'show']);
+Route::put('app/versions/{appVersion}', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'update']);
+Route::delete('app/versions/{appVersion}', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'destroy']);
 
 // Protected: require auth for all non-login routes below
 require __DIR__.'/api/handheld2.php';
