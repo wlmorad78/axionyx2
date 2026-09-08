@@ -14,7 +14,25 @@ Route::get('health-check', function () {
 });
 
 // App Update (no auth required)
-Route::get('app/version', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'latest']);
+Route::get('app/version', function () {
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'version' => '1.1.0',
+            'build' => 2,
+            'platform' => 'android',
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.1.1.apk',
+            'force_update' => false,
+            'release_notes' => ['تحسينات تحديث النظام وتسوية المندوبين وطلب الارتجاع'],
+            'release_date' => '2026-09-08',
+            'minimum_supported_version' => '1.0.0',
+            'minimum_supported_build' => 1,
+            'file_size' => 66289865,
+            'checksum' => null,
+            'is_active' => true,
+        ],
+    ]);
+});
 Route::get('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'index']);
 Route::post('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'store']);
 Route::get('app/versions/{appVersion}', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'show']);
