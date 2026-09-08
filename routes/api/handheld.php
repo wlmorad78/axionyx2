@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route as RouteFacade;
 use App\Http\Controllers\Api\DatabaseBackupController;
 use App\Http\Controllers\Api\HandheldController;
+use App\Http\Controllers\Api\HandheldSyncController;
 
 RouteFacade::post('handheld/bootstrap', [HandheldController::class, 'bootstrap']);
 RouteFacade::post('handheld/sync', [HandheldController::class, 'sync']);
@@ -1632,6 +1633,8 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
 
     return response()->json(['message' => 'تمت المزامنة', 'data' => $results]);
 });
+
+RouteFacade::post('handheld/sync/reconcile', [HandheldSyncController::class, 'reconcile']);
 
 RouteFacade::post('handheld/end-visit', function (\Illuminate\Http\Request $request) {
     $user = $request->user();
