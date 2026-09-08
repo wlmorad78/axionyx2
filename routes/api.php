@@ -183,6 +183,7 @@ Route::get('product-companies/next-code', [\App\Http\Controllers\Api\Inventory\P
 Route::get('accounts/next-code', [\App\Http\Controllers\Api\Accounting\AccountController::class, 'nextCode']);
 Route::get('sales-routes/next-code', [\App\Http\Controllers\Api\Sales\SalesRouteController::class, 'nextCode']);
 Route::get('dashboard', [\App\Http\Controllers\Api\Reports\DashboardController::class, 'index'])->middleware('auth:sanctum')->name('dashboard.index');
+Route::get('dashboard/v2', [\App\Http\Controllers\Api\Reports\DashboardV2Controller::class, 'index'])->middleware('auth:sanctum')->name('dashboard.v2');
 Route::get('reports/sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'sales'])->middleware('auth:sanctum')->name('reports.sales');
 Route::get('reports/purchases', [\App\Http\Controllers\Api\Reports\ReportController::class, 'purchases'])->middleware('auth:sanctum')->name('reports.purchases');
 Route::get('reports/inventory', [\App\Http\Controllers\Api\Reports\ReportController::class, 'inventory'])->middleware('auth:sanctum')->name('reports.inventory');
@@ -1839,5 +1840,13 @@ Route::get('docs/modules', function () {
     }
     return response()->json(['data' => $result]);
 });
+
+// Chat
+Route::get('chat/conversations', [\App\Http\Controllers\Api\Chat\ChatController::class, 'index']);
+Route::post('chat/conversations', [\App\Http\Controllers\Api\Chat\ChatController::class, 'store']);
+Route::get('chat/conversations/{conversation}', [\App\Http\Controllers\Api\Chat\ChatController::class, 'show']);
+Route::post('chat/conversations/{conversation}/messages', [\App\Http\Controllers\Api\Chat\ChatController::class, 'sendMessage']);
+Route::post('chat/conversations/{conversation}/read', [\App\Http\Controllers\Api\Chat\ChatController::class, 'markAsRead']);
+Route::get('chat/search', [\App\Http\Controllers\Api\Chat\ChatController::class, 'search']);
 
 }); // End auth:sanctum group
