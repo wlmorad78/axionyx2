@@ -38,4 +38,9 @@ class RouteSchedule extends Model
     {
         return $this->belongsTo(\App\Models\User::class);
     }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Employee::class, 'user_id');
+    }
 }

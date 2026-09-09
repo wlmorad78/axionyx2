@@ -298,22 +298,49 @@ class ReportController extends Controller
             return response()->json(['data' => ['customers' => []]]);
         }
 
-        $customersQuery = DB::table('customers')
+        // Get latest sales_rep_id per customer (replaces correlated subquery)
+        $repMap = DB::table('sales_invoices')
+            ->where('company_id', $companyId)
+            ->whereDate('invoice_date', '>=', $dateFrom)
+            ->whereDate('invoice_date', '<=', $dateTo)
+            ->where('status', 'posted')
+            ->whereNull('deleted_at')
+            ->whereIn('customer_id', $customerIds)
+            ->select('customer_id', 'sales_rep_id')
+            ->orderByDesc('id')
+            ->get()
+            ->unique('customer_id')
+            ->mapWithKeys(fn($r) => [$r->customer_id => $r->sales_rep_id]);
+
+        $repUserIds = $repMap->values()->unique()->values();
+
+        $employees = $repUserIds->isEmpty() ? collect()->keyBy('user_id') : DB::table('employees')
+            ->whereNull('deleted_at')
+            ->whereIn('user_id', $repUserIds)
+            ->select(
+                'user_id',
+                'id as emp_id',
+                DB::raw("TRIM(COALESCE(first_name_ar, '') || ' ' || COALESCE(second_name_ar, '') || ' ' || COALESCE(third_name_ar, '') || ' ' || COALESCE(last_name_ar, '')) as sales_rep_name")
+            )
+            ->get()
+            ->keyBy('user_id');
+
+        $customers = DB::table('customers')
             ->whereNull('customers.deleted_at')
-            ->leftJoin('employees', function ($q) use ($companyId, $dateFrom, $dateTo) {
-                $q->on('employees.user_id', '=', DB::raw('(SELECT sales_invoices.sales_rep_id FROM sales_invoices WHERE sales_invoices.customer_id = customers.id AND sales_invoices.company_id = ' . $companyId . ' AND DATE(sales_invoices.invoice_date) >= \'' . $dateFrom . '\' AND DATE(sales_invoices.invoice_date) <= \'' . $dateTo . '\' AND sales_invoices.status = \'posted\' AND sales_invoices.deleted_at IS NULL ORDER BY sales_invoices.id DESC LIMIT 1)'));
-            })
-            ->whereNull('employees.deleted_at')
             ->whereIn('customers.id', $customerIds)
             ->select(
                 'customers.id as customer_id',
                 'customers.code as customer_code',
-                'customers.name_ar as customer_name',
-                DB::raw("TRIM(COALESCE(employees.first_name_ar, '') || ' ' || COALESCE(employees.second_name_ar, '') || ' ' || COALESCE(employees.third_name_ar, '') || ' ' || COALESCE(employees.last_name_ar, '')) as sales_rep_name"),
-                'employees.id as sales_rep_id'
-            );
-
-        $customers = $customersQuery->get()->keyBy('customer_id');
+                'customers.name_ar as customer_name'
+            )
+            ->get()
+            ->map(function ($c) use ($repMap, $employees) {
+                $repUserId = $repMap[$c->customer_id] ?? null;
+                $emp = $repUserId ? ($employees[$repUserId] ?? null) : null;
+                $c->sales_rep_name = $emp->sales_rep_name ?? '';
+                $c->sales_rep_id = $emp->emp_id ?? null;
+                return $c;
+            })->keyBy('customer_id');
 
         $routeQuery = DB::table('route_customers')
             ->whereNull('route_customers.deleted_at')
