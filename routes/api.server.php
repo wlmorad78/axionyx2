@@ -34,7 +34,7 @@ Route::get('app/version', function () {
         'success' => true,
         'data' => [
             'version' => '1.1.1',
-            'build' => 1,
+            'build' => 2,
             'platform' => 'android',
             'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.1.1.apk',
             'force_update' => false,
