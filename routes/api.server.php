@@ -40,7 +40,7 @@ Route::get('app/version', function () {
             'force_update' => false,
             'release_notes' => ['تحسينات تحديث النظام وتسوية المندوبين وطلب الارتجاع'],
             'release_date' => '2026-09-08',
-            'minimum_supported_version' => '1.1.0',
+            'minimum_supported_version' => '1.1.1',
             'minimum_supported_build' => 2,
             'file_size' => 66289865,
             'checksum' => null,
