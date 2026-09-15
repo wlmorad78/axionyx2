@@ -1163,6 +1163,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             'invoices.*.items.*.item_id' => 'required|exists:items,id',
             'invoices.*.items.*.qty' => 'required|numeric|min:1',
             'invoices.*.items.*.price' => 'required|numeric|min:0',
+            'invoices.*.items.*.unit_cost' => 'nullable|numeric|min:0',
             'invoices.*.items.*.tax_percent' => 'nullable|numeric|min:0',
             'invoices.*.items.*.unit_id' => 'nullable|integer',
             'invoices.*.items.*.issue_order_id' => 'nullable|integer',
@@ -1327,15 +1328,20 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         $taxTotal = 0;
         $itemsData = [];
         foreach ($lines as $item) {
-            $lineTotal = $item['qty'] * $item['price'];
+            $qty = $item['qty'];
+            $price = $item['price'];
+            $lineTotal = $qty * $price;
             $taxPercent = $item['tax_percent'] ?? 0;
             $taxAmount = $lineTotal * ($taxPercent / 100);
+            $unitCost = (float) ($item['unit_cost'] ?? $item['purchase_price'] ?? 0);
             $subtotal += $lineTotal;
             $taxTotal += $taxAmount;
             $itemsData[] = [
                 'item_id' => $item['item_id'],
-                'qty' => $item['qty'],
-                'price' => $item['price'],
+                'qty' => $qty,
+                'price' => $price,
+                'unit_cost' => $unitCost,
+                'total_cost' => $unitCost > 0 ? $unitCost * $qty : 0,
                 'tax_percent' => $taxPercent,
                 'tax_amount' => $taxAmount,
                 'gross_amount' => $lineTotal,
@@ -1444,6 +1450,8 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                         'bonus_qty' => 0,
                         'price' => $itemData['price'],
                         'gross_amount' => $itemData['gross_amount'],
+                        'unit_cost' => $itemData['unit_cost'] ?? 0,
+                        'total_cost' => $itemData['total_cost'] ?? 0,
                         'discount_type' => null,
                         'discount_value' => 0,
                         'discount_amount' => 0,
@@ -1484,15 +1492,20 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             $itemsData = [];
 
             foreach ($invoiceData['items'] as $item) {
-                $lineTotal = $item['qty'] * $item['price'];
+                $qty = $item['qty'];
+                $price = $item['price'];
+                $lineTotal = $qty * $price;
                 $taxPercent = $item['tax_percent'] ?? 0;
                 $taxAmount = $lineTotal * ($taxPercent / 100);
+                $unitCost = (float) ($item['unit_cost'] ?? $item['purchase_price'] ?? 0);
                 $subtotal += $lineTotal;
                 $taxTotal += $taxAmount;
                 $itemsData[] = [
                     'item_id' => $item['item_id'],
-                    'qty' => $item['qty'],
-                    'price' => $item['price'],
+                    'qty' => $qty,
+                    'price' => $price,
+                    'unit_cost' => $unitCost,
+                    'total_cost' => $unitCost > 0 ? $unitCost * $qty : 0,
                     'tax_percent' => $taxPercent,
                     'tax_amount' => $taxAmount,
                     'gross_amount' => $lineTotal,
@@ -1563,6 +1576,8 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                     'bonus_qty' => 0,
                     'price' => $itemData['price'],
                     'gross_amount' => $itemData['gross_amount'],
+                    'unit_cost' => $itemData['unit_cost'] ?? 0,
+                    'total_cost' => $itemData['total_cost'] ?? 0,
                     'discount_type' => null,
                     'discount_value' => 0,
                     'discount_amount' => 0,
@@ -3302,3 +3317,4 @@ RouteFacade::post('handheld/database/upload', [DatabaseBackupController::class, 
 RouteFacade::get('handheld/database/latest', [DatabaseBackupController::class, 'latest']);
 RouteFacade::post('handheld/database/download', [DatabaseBackupController::class, 'download']);
 RouteFacade::get('handheld/database/list', [DatabaseBackupController::class, 'list']);
+RouteFacade::post('handheld/database/delete-all', [DatabaseBackupController::class, 'deleteAll']);

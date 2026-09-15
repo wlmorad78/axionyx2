@@ -1880,6 +1880,8 @@ class Handheld2Controller extends Controller
                     'bonus_qty' => 0,
                     'price' => $itemData['price'],
                     'gross_amount' => $itemData['gross_amount'],
+                    'unit_cost' => $itemData['unit_cost'] ?? 0,
+                    'total_cost' => $itemData['total_cost'] ?? 0,
                     'discount_type' => null,
                     'discount_value' => 0,
                     'discount_amount' => 0,
@@ -2040,6 +2042,8 @@ class Handheld2Controller extends Controller
                     'bonus_qty' => 0,
                     'price' => $itemData['price'],
                     'gross_amount' => $itemData['gross_amount'],
+                    'unit_cost' => $itemData['unit_cost'] ?? 0,
+                    'total_cost' => $itemData['total_cost'] ?? 0,
                     'discount_type' => null,
                     'discount_value' => 0,
                     'discount_amount' => 0,
@@ -2127,6 +2131,7 @@ class Handheld2Controller extends Controller
             $taxPercent = $item['tax_percent'] ?? 0;
             $lineTotal = $qty * $price;
             $taxAmount = $lineTotal * ($taxPercent / 100);
+            $unitCost = (float) ($item['unit_cost'] ?? $item['purchase_price'] ?? 0);
             $subtotal += $lineTotal;
             $taxTotal += $taxAmount;
 
@@ -2145,6 +2150,8 @@ class Handheld2Controller extends Controller
                 'item_id' => $realItemId,
                 'qty' => $qty,
                 'price' => $price,
+                'unit_cost' => $unitCost,
+                'total_cost' => $unitCost > 0 ? $unitCost * $qty : 0,
                 'tax_percent' => $taxPercent,
                 'tax_amount' => $taxAmount,
                 'gross_amount' => $lineTotal,

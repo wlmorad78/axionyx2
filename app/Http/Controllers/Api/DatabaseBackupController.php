@@ -28,7 +28,7 @@ class DatabaseBackupController extends Controller
         $folder = "databases/{$companyId}/{$salesmanId}";
         $version = $request->input('version', 1);
         $timestamp = now()->format('Y_m_d_His');
-        $fileName = "db_v{$version}_{$timestamp}.sqlite";
+        $fileName = "db_v{$version}_{$timestamp}.db";
         $filePath = "{$folder}/{$fileName}";
 
         Storage::disk('local')->put($filePath, file_get_contents($request->file('db_file')));
@@ -279,5 +279,41 @@ class DatabaseBackupController extends Controller
         DB::table('mobile_database_backups')->where('id', $id)->delete();
 
         return redirect('/admin/database-backups')->with('success', 'تم حذف النسخة بنجاح');
+    }
+
+    public function deleteAll(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
+
+        $companyId = $user->company_id;
+        $employee = DB::table('employees')->where('id', $user->id)->first();
+        $salesmanId = $employee?->id ?? $user->id;
+
+        $backups = DB::table('mobile_database_backups')
+            ->where('company_id', $companyId)
+            ->where('salesman_id', $salesmanId)
+            ->get();
+
+        $deletedFiles = 0;
+        foreach ($backups as $backup) {
+            $fullPath = Storage::disk('local')->path($backup->file_path);
+            if (file_exists($fullPath)) {
+                unlink($fullPath);
+                $deletedFiles++;
+            }
+        }
+
+        DB::table('mobile_database_backups')
+            ->where('company_id', $companyId)
+            ->where('salesman_id', $salesmanId)
+            ->delete();
+
+        return response()->json([
+            'message' => "تم حذف {$deletedFiles} نسخة احتياطية بنجاح",
+            'deleted_count' => $deletedFiles,
+        ]);
     }
 }
