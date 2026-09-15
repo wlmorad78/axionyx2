@@ -33,10 +33,16 @@ class DashboardController extends Controller
         $isSalesRep = ($user?->hasRole(RoleNames::SALES_REP) ?? false) || ($user?->hasRole(RoleNames::SALES_MAN) ?? false);
 
         $now = now();
-        $monthStart = $now->copy()->startOfMonth()->toDateString();
-        $monthEnd = $now->copy()->endOfMonth()->toDateString();
-        $prevMonthStart = $now->copy()->subMonth()->startOfMonth()->toDateString();
-        $prevMonthEnd = $now->copy()->subMonth()->endOfMonth()->toDateString();
+
+        $dateFrom = $request->input('date_from') ?? $now->copy()->startOfMonth()->toDateString();
+        $dateTo = $request->input('date_to') ?? $now->copy()->endOfMonth()->toDateString();
+        $prevDateFrom = $request->input('prev_date_from') ?? $now->copy()->subMonth()->startOfMonth()->toDateString();
+        $prevDateTo = $request->input('prev_date_to') ?? $now->copy()->subMonth()->endOfMonth()->toDateString();
+
+        $monthStart = $dateFrom;
+        $monthEnd = $dateTo;
+        $prevMonthStart = $prevDateFrom;
+        $prevMonthEnd = $prevDateTo;
 
         $data = [];
         $pct = fn($c, $p) => $p > 0 ? round(($c - $p) / abs($p) * 100, 1) : ($c > 0 ? 100.0 : 0.0);
@@ -65,8 +71,20 @@ class DashboardController extends Controller
             $prevPurchases = (clone $pq)->whereDate('invoice_date', '>=', $prevMonthStart)->whereDate('invoice_date', '<=', $prevMonthEnd)->sum('net_total');
             $prevExpenses = (clone $eq)->whereDate('expense_date', '>=', $prevMonthStart)->whereDate('expense_date', '<=', $prevMonthEnd)->sum('amount');
 
-            $curCost = $curPurchases * 0.7;
-            $prevCost = $prevPurchases * 0.7;
+            $curCost = DB::table('sales_invoice_items as sii')
+                ->join('sales_invoices as si', 'si.id', '=', 'sii.sales_invoice_id')
+                ->where('si.company_id', $companyId)
+                ->where('si.status', '!=', 'cancelled')
+                ->whereDate('si.invoice_date', '>=', $monthStart)
+                ->whereDate('si.invoice_date', '<=', $monthEnd)
+                ->sum('sii.total_cost');
+            $prevCost = DB::table('sales_invoice_items as sii')
+                ->join('sales_invoices as si', 'si.id', '=', 'sii.sales_invoice_id')
+                ->where('si.company_id', $companyId)
+                ->where('si.status', '!=', 'cancelled')
+                ->whereDate('si.invoice_date', '>=', $prevMonthStart)
+                ->whereDate('si.invoice_date', '<=', $prevMonthEnd)
+                ->sum('sii.total_cost');
             $curProfit = $curSales - $curCost - $curExpenses;
             $prevProfit = $prevSales - $prevCost - $prevExpenses;
 
@@ -76,10 +94,14 @@ class DashboardController extends Controller
             $overdue = (clone $siq)->where('remaining_amount', '>', 0)->whereDate('invoice_date', '<', $now->copy()->subDays(30)->toDateString())->sum('remaining_amount');
             $prevOverdue = (clone $siq)->where('remaining_amount', '>', 0)->whereDate('invoice_date', '<', $now->copy()->subDays(60)->toDateString())->whereDate('invoice_date', '>=', $now->copy()->subDays(90)->toDateString())->sum('remaining_amount');
 
+            $curMargin = $curSales > 0 ? round(($curProfit / $curSales) * 100, 1) : 0;
+            $prevMargin = $prevSales > 0 ? round(($prevProfit / $prevSales) * 100, 1) : 0;
+
             $data['kpi'] = [
                 ['label' => 'إجمالي المبيعات', 'value' => (float) $curSales, 'percent' => $pct($curSales, $prevSales), 'icon' => 'receipt_long', 'color' => '#3B82F6'],
                 ['label' => 'إجمالي التحصيلات', 'value' => (float) $curCollections, 'percent' => $pct($curCollections, $prevCollections), 'icon' => 'payments', 'color' => '#10B981'],
                 ['label' => 'صافي الربح', 'value' => (float) $curProfit, 'percent' => $pct($curProfit, $prevProfit), 'icon' => 'trending_up', 'color' => '#8B5CF6'],
+                ['label' => 'هامش الربح', 'value' => (float) $curMargin, 'percent' => $pct($curMargin, $prevMargin), 'icon' => 'percent', 'color' => '#06B6D4'],
                 ['label' => 'إجمالي المشتريات', 'value' => (float) $curPurchases, 'percent' => $pct($curPurchases, $prevPurchases), 'icon' => 'shopping_bag', 'color' => '#F59E0B'],
                 ['label' => 'إجمالي المدينون', 'value' => (float) $curDebtors, 'percent' => $pct($curDebtors, $prevDebtors), 'icon' => 'group', 'color' => '#EF4444'],
                 ['label' => 'القائمة المتأخرة', 'value' => (float) $overdue, 'percent' => $pct($overdue, $prevOverdue), 'icon' => 'schedule', 'color' => '#F97316'],
@@ -230,7 +252,13 @@ class DashboardController extends Controller
                 ->whereDate('expense_date', '>=', $monthStart)->whereDate('expense_date', '<=', $monthEnd)->sum('amount');
             $totalCollections = (clone $cq ?? Collection::where('company_id', $companyId)->where('status', 'approved'))
                 ->whereDate('collection_date', '>=', $monthStart)->whereDate('collection_date', '<=', $monthEnd)->sum('amount');
-            $costOfGoods = $totalPurchases * 0.7;
+            $costOfGoods = DB::table('sales_invoice_items as sii')
+                ->join('sales_invoices as si', 'si.id', '=', 'sii.sales_invoice_id')
+                ->where('si.company_id', $companyId)
+                ->whereDate('si.invoice_date', '>=', $monthStart)
+                ->whereDate('si.invoice_date', '<=', $monthEnd)
+                ->where('si.status', '!=', 'cancelled')
+                ->sum('sii.total_cost');
             $grossProfit = $totalSales - $costOfGoods;
             $netProfit = $grossProfit - $totalExpenses;
 

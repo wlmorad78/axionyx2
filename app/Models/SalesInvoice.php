@@ -2,11 +2,13 @@
 namespace App\Models;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Traits\BelongsToCompany;
 use App\Services\Document;
 use App\Services\UnitConversionService;
+use App\Services\CostingService;
 
 class SalesInvoice extends Document
 {
@@ -153,6 +155,7 @@ class SalesInvoice extends Document
         ]);
 
         $unitService = app(UnitConversionService::class);
+        $costingService = app(CostingService::class);
 
         foreach ($items as $item) {
             if (empty($item['item_id'])) continue;
@@ -175,15 +178,34 @@ class SalesInvoice extends Document
                 $qtyInBase = $unitService->toBase($itemId, $unitId, $enteredQty);
             }
 
+            // حساب تكلفة المبيعات باستخدام Moving Average
+            $cost = $costingService->calculateSaleCost(
+                $itemId,
+                $qtyInBase,
+                $this->warehouse_id,
+                $this->invoice_date
+            );
+
             InventoryTransactionItem::create([
                 'inventory_transaction_id' => $txn->id,
                 'item_id' => $itemId,
                 'unit_id' => $unitId,
                 'conversion_factor' => $conversionFactor,
                 'qty' => -$qtyInBase,
-                'unit_cost' => $item['price'] ?? 0,
-                'total_cost' => $enteredQty * ($item['price'] ?? 0),
+                'unit_cost' => $cost['unit_cost'],
+                'total_cost' => $cost['total_cost'],
             ]);
+
+            // حفظ التكلفة على سطر الفاتورة لإ reported الأرباح
+            $salesInvoiceItemId = $item['id'] ?? null;
+            if ($salesInvoiceItemId) {
+                DB::table('sales_invoice_items')
+                    ->where('id', $salesInvoiceItemId)
+                    ->update([
+                        'unit_cost' => $cost['unit_cost'],
+                        'total_cost' => $cost['total_cost'],
+                    ]);
+            }
         }
     }
 

@@ -196,6 +196,48 @@ class ReportController extends Controller
     }
 
     /**
+     * GET /api/reports/profit
+     * Profit summary based on posted sales, item purchase prices, and expenses.
+     */
+    public function profit(Request $request)
+    {
+        $companyId = $request->user()->company_id;
+        $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
+        $endDate = $request->input('end_date', now()->endOfMonth()->toDateString());
+
+        $sales = DB::table('sales_invoices as si')
+            ->where('si.company_id', $companyId)
+            ->whereBetween('si.invoice_date', [$startDate, $endDate])
+            ->where('si.status', '!=', 'cancelled')
+            ->sum('si.net_total');
+
+        $cost = DB::table('sales_invoice_items as sii')
+            ->join('sales_invoices as si', 'si.id', '=', 'sii.sales_invoice_id')
+            ->where('si.company_id', $companyId)
+            ->whereBetween('si.invoice_date', [$startDate, $endDate])
+            ->where('si.status', '!=', 'cancelled')
+            ->sum('sii.total_cost');
+
+        $expenses = \App\Models\Expense::where('company_id', $companyId)
+            ->whereBetween('expense_date', [$startDate, $endDate])
+            ->sum('amount');
+
+        $profit = (float) $sales - (float) $cost - (float) $expenses;
+
+        return response()->json([
+            'data' => [
+                'summary' => [
+                    'sales' => (float) $sales,
+                    'cost' => (float) $cost,
+                    'expenses' => (float) $expenses,
+                    'profit' => $profit,
+                    'margin' => $sales > 0 ? ($profit / $sales) * 100 : 0,
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * GET /api/reports/reports/sales
      * Sales report summary (alias).
      */
@@ -1141,6 +1183,301 @@ class ReportController extends Controller
     }
 
     /**
+     * GET /api/reports/warehouse-monthly-movement
+     * تقرير حركة المخزون الشهرية من تاريخ الى تاريخ
+     */
+    public function warehouseMonthlyMovement(Request $request)
+    {
+        $request->validate([
+            'date_from'     => 'required|date',
+            'date_to'       => 'required|date|after_or_equal:date_from',
+            'warehouse_id'  => 'nullable|integer',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $warehouseId = $request->input('warehouse_id');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        // 1. جلب كل الأصناف النشطة
+        $allItems = \App\Models\Item::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->with('baseUnit:id,name_ar,name_en')
+            ->with('itemCategory:id,name_ar,name_en')
+            ->get()
+            ->keyBy('id');
+
+        // 2. حساب رصيد بداية الفترة (قبل date_from)
+        $currentStockMap = [];
+
+        $obQuery = \App\Models\InventoryOpeningBalance::where('company_id', $companyId);
+        if ($warehouseId) {
+            $obQuery->where('warehouse_id', $warehouseId);
+        }
+        foreach ($obQuery->get() as $ob) {
+            $wh = $ob->warehouse_id ?? 0;
+            $currentStockMap[$wh][$ob->item_id] = ($currentStockMap[$wh][$ob->item_id] ?? 0) + (float) $ob->qty;
+        }
+
+        $allTxQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
+            ->where('status', 'posted')
+            ->whereDate('transaction_date', '<', $dateFrom)
+            ->whereHas('transactionType', function ($q) {
+                $q->where(function ($sub) {
+                    $sub->where('effect', 'addition')
+                        ->where('code', 'PURCHASE_RECEIPT');
+                })->orWhere(function ($sub) {
+                    $sub->where('effect', 'subtraction')
+                        ->where('code', 'SALES_INVOICE');
+                });
+            })
+            ->with('transactionType:id,effect,code')
+            ->with('items:id,inventory_transaction_id,item_id,qty');
+        if ($warehouseId) {
+            $allTxQuery->where('warehouse_id', $warehouseId);
+        }
+        foreach ($allTxQuery->get() as $txn) {
+            $effect = $txn->transactionType?->effect;
+            $sign = $effect === 'addition' ? 1 : ($effect === 'subtraction' ? -1 : 0);
+            if ($sign === 0) continue;
+            $wh = $txn->warehouse_id ?? 0;
+            foreach ($txn->items as $it) {
+                $currentStockMap[$wh][$it->item_id] = ($currentStockMap[$wh][$it->item_id] ?? 0) + $sign * abs((float) $it->qty);
+            }
+        }
+
+        $currentStockPerItem = [];
+        foreach ($currentStockMap as $wh => $items) {
+            foreach ($items as $itemId => $qty) {
+                $currentStockPerItem[$itemId] = ($currentStockPerItem[$itemId] ?? 0) + $qty;
+            }
+        }
+
+        // 3. حركات الفترة - الوارد
+        $inQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
+            ->whereDate('transaction_date', '>=', $dateFrom)
+            ->whereDate('transaction_date', '<=', $dateTo)
+            ->where('status', 'posted')
+            ->whereHas('transactionType', fn($q) => $q->where('effect', 'addition')->where('code', 'PURCHASE_RECEIPT'))
+            ->with('items:id,inventory_transaction_id,item_id,qty,unit_cost');
+        if ($warehouseId) {
+            $inQuery->where('warehouse_id', $warehouseId);
+        }
+        $inTransactions = $inQuery->get();
+
+        $itemIds = $allItems->keys()->all();
+        $defaultUnitCostMap = [];
+        $unitRows = \App\Models\ItemUnit::whereIn('item_id', $itemIds)
+            ->where('is_default', true)
+            ->get(['item_id', 'purchase_price']);
+        foreach ($unitRows as $u) {
+            $cost = (float) $u->purchase_price;
+            if ($cost > 0) {
+                $defaultUnitCostMap[$u->item_id] = $cost;
+            }
+        }
+
+        $inQtyMap = [];
+        foreach ($inTransactions as $txn) {
+            foreach ($txn->items as $item) {
+                $itemId = $item->item_id;
+                $inQtyMap[$itemId] = ($inQtyMap[$itemId] ?? 0) + abs((float) $item->qty);
+            }
+        }
+
+        // 4. حركات الفترة - الصادر
+        $outQtyMap = [];
+        $salesOutQuery = DB::table('sales_invoices')
+            ->join('sales_invoice_items', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
+            ->where('sales_invoices.company_id', $companyId)
+            ->whereDate('sales_invoices.invoice_date', '>=', $dateFrom)
+            ->whereDate('sales_invoices.invoice_date', '<=', $dateTo)
+            ->where('sales_invoices.status', 'posted')
+            ->whereNull('sales_invoices.deleted_at')
+            ->whereNull('sales_invoice_items.deleted_at')
+            ->select(
+                'sales_invoice_items.item_id',
+                DB::raw('ABS(sales_invoice_items.qty) as qty')
+            );
+        if ($warehouseId) {
+            $salesOutQuery->where(function ($q) use ($warehouseId) {
+                $q->where('sales_invoice_items.warehouse_id', $warehouseId)
+                  ->orWhereNull('sales_invoice_items.warehouse_id');
+            });
+        }
+        foreach ($salesOutQuery->get() as $row) {
+            $itemId = $row->item_id;
+            $outQtyMap[$itemId] = ($outQtyMap[$itemId] ?? 0) + abs((float) $row->qty);
+        }
+
+        // 5. مبيعات سابقة (للحساب مع الرصيد الصباحي)
+        $priorErpSalesQtyMap = [];
+        $priorErpSalesQuery = \App\Models\InventoryTransaction::where('company_id', $companyId)
+            ->where('status', 'posted')
+            ->whereDate('transaction_date', '<', $dateFrom)
+            ->whereHas('transactionType', fn($q) => $q->where('effect', 'subtraction')->where('code', 'SALES_INVOICE'))
+            ->with('items:id,inventory_transaction_id,item_id,qty');
+        if ($warehouseId) {
+            $priorErpSalesQuery->where('warehouse_id', $warehouseId);
+        }
+        foreach ($priorErpSalesQuery->get() as $txn) {
+            foreach ($txn->items as $it) {
+                $priorErpSalesQtyMap[$it->item_id] = ($priorErpSalesQtyMap[$it->item_id] ?? 0) + abs((float) $it->qty);
+            }
+        }
+
+        $allPriorSalesQtyMap = [];
+        $allPriorSalesQuery = DB::table('sales_invoices')
+            ->join('sales_invoice_items', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
+            ->where('sales_invoices.company_id', $companyId)
+            ->whereDate('sales_invoices.invoice_date', '<', $dateFrom)
+            ->where('sales_invoices.status', 'posted')
+            ->whereNull('sales_invoices.deleted_at')
+            ->whereNull('sales_invoice_items.deleted_at')
+            ->select(
+                'sales_invoice_items.item_id',
+                DB::raw('ABS(sales_invoice_items.qty) as qty')
+            );
+        if ($warehouseId) {
+            $allPriorSalesQuery->where(function ($q) use ($warehouseId) {
+                $q->where('sales_invoice_items.warehouse_id', $warehouseId)
+                  ->orWhereNull('sales_invoice_items.warehouse_id');
+            });
+        }
+        foreach ($allPriorSalesQuery->get() as $row) {
+            $allPriorSalesQtyMap[$row->item_id] = ($allPriorSalesQtyMap[$row->item_id] ?? 0) + abs((float) $row->qty);
+        }
+
+        // 6. بناء النتيجة
+        $result = [];
+        foreach ($allItems as $itemId => $item) {
+            $openingBalance = max(0,
+                ($currentStockPerItem[$itemId] ?? 0)
+                + ($priorErpSalesQtyMap[$itemId] ?? 0)
+                - ($allPriorSalesQtyMap[$itemId] ?? 0)
+            );
+            $inQty = $inQtyMap[$itemId] ?? 0;
+            $outQty = $outQtyMap[$itemId] ?? 0;
+            $total = $openingBalance + $inQty;
+            $closingBalance = $total - $outQty;
+            $unitCost = $defaultUnitCostMap[$itemId] ?? 0;
+            $totalValue = $closingBalance * $unitCost;
+
+            $result[] = [
+                'name'            => $item->name_ar ?? $item->name_en ?? '',
+                'code'            => $item->code ?? '',
+                'unit'            => $item->baseUnit?->name_ar ?? $item->baseUnit?->name_en ?? '',
+                'category'        => $item->itemCategory?->name_ar ?? $item->itemCategory?->name_en ?? '',
+                'opening_balance' => $openingBalance,
+                'incoming'        => $inQty,
+                'total'           => $total,
+                'outgoing'        => $outQty,
+                'closing_balance' => $closingBalance,
+                'total_value'     => $totalValue,
+                'unit_cost'       => $unitCost,
+            ];
+        }
+
+        return response()->json([
+            'data' => [
+                'items' => $result,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/reports/daily-product-sales
+     * تقرير مبيعات يومية بالصنف (كل يوم صف وكل صنف عمود)
+     */
+    public function dailyProductSales(Request $request)
+    {
+        $request->validate([
+            'date_from'    => 'required|date',
+            'date_to'      => 'required|date|after_or_equal:date_from',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $dateFrom = $request->input('date_from') . ' 00:00:00';
+        $dateTo = $request->input('date_to') . ' 23:59:59';
+
+        // استعلام واحد يجمع كل حاجة
+        $salesRows = DB::table('sales_invoices as si')
+            ->join('sales_invoice_items as sii', 'sii.sales_invoice_id', '=', 'si.id')
+            ->where('si.company_id', $companyId)
+            ->where('si.status', '!=', 'cancelled')
+            ->whereBetween('si.invoice_date', [$dateFrom, $dateTo])
+            ->whereNull('sii.deleted_at')
+            ->select(
+                'sii.item_id',
+                DB::raw('DATE(si.invoice_date) as sale_date'),
+                DB::raw('SUM(sii.qty) as total_qty'),
+                DB::raw('SUM(sii.net_amount) as total_amount')
+            )
+            ->groupBy('sii.item_id', DB::raw('DATE(si.invoice_date)'))
+            ->get();
+
+        // استخراج IDs الأصناف من النتيجة مباشرة
+        $soldItemIds = $salesRows->pluck('item_id')->unique()->values()->all();
+
+        $items = [];
+        if (!empty($soldItemIds)) {
+            $items = \App\Models\Item::whereIn('id', $soldItemIds)
+                ->get(['id', 'name_ar', 'name_en', 'code'])
+                ->keyBy('id');
+        }
+
+        // بناء بيانات pivot
+        $pivot = [];
+        foreach ($salesRows as $row) {
+            $date = $row->sale_date;
+            $itemId = $row->item_id;
+            $pivot[$date][$itemId] = [
+                'qty' => (float) $row->total_qty,
+                'amount' => (float) $row->total_amount,
+            ];
+        }
+
+        // جميع الأيام
+        $allDays = [];
+        $current = new \Carbon\Carbon($request->input('date_from'));
+        $end = new \Carbon\Carbon($request->input('date_to'));
+        while ($current->lte($end)) {
+            $allDays[] = $current->toDateString();
+            $current->addDay();
+        }
+
+        // بناء الاستجابة
+        $result = [
+            'items' => $items->values()->map(fn($item) => [
+                'id' => $item->id,
+                'name' => $item->name_ar ?? $item->name_en ?? '',
+                'code' => $item->code ?? '',
+            ])->toArray(),
+            'days' => [],
+        ];
+
+        foreach ($allDays as $date) {
+            $dayData = [
+                'date' => $date,
+                'products' => [],
+                'day_total_qty' => 0,
+                'day_total_amount' => 0,
+            ];
+            foreach ($soldItemIds as $itemId) {
+                $dayData['products'][$itemId] = [
+                    'qty' => $pivot[$date][$itemId]['qty'] ?? 0,
+                    'amount' => $pivot[$date][$itemId]['amount'] ?? 0,
+                ];
+                $dayData['day_total_qty'] += $dayData['products'][$itemId]['qty'];
+                $dayData['day_total_amount'] += $dayData['products'][$itemId]['amount'];
+            }
+            $result['days'][] = $dayData;
+        }
+
+        return response()->json(['data' => $result]);
+    }
+
+    /**
      * GET /api/reports/rep-movement-by-item
      * تقرير حركة المندوب بالصنف
      */
@@ -1280,6 +1617,242 @@ class ReportController extends Controller
                 'sale_qty'    => $totalSale,
                 'return_qty'  => $totalReturn,
                 'total_items' => count($report),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/reports/daily-rep-product-movement
+     * تقرير حركة المنتجات اليومية per مندوب: تحميل - مبيعات - مرتجعات + مشتريات
+     */
+    public function dailyRepProductMovement(Request $request)
+    {
+        $request->validate([
+            'date_from' => 'required|date',
+            'date_to'   => 'required|date|after_or_equal:date_from',
+            'item_id'   => 'nullable|integer|exists:items,id',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $dateFrom = $request->input('date_from') . ' 00:00:00';
+        $dateTo = $request->input('date_to') . ' 23:59:59';
+        $itemId = $request->input('item_id');
+
+        // ── 0. جلب كل الأصناف للـ dropdown ──
+        $allItems = \App\Models\Item::whereNull('deleted_at')
+            ->get(['id', 'name_ar', 'name_en', 'code'])
+            ->map(fn($i) => ['id' => $i->id, 'name' => $i->name_ar ?? $i->name_en ?? '', 'code' => $i->code ?? '']);
+
+        // ── 1. التحميل (Load) per day per rep ──
+        $loadQuery = DB::table('load_request_items as lri')
+            ->join('load_requests as lr', 'lri.load_request_id', '=', 'lr.id')
+            ->whereNull('lr.deleted_at')
+            ->where('lr.company_id', $companyId)
+            ->whereIn('lr.status', ['approved', 'loading', 'completed'])
+            ->whereBetween('lr.request_date', [$dateFrom, $dateTo]);
+        if ($itemId) {
+            $loadQuery->where('lri.item_id', $itemId);
+        }
+        $loadRows = $loadQuery
+            ->select('lr.user_id', DB::raw('DATE(lr.request_date) as movement_date'),
+                DB::raw('SUM(lri.quantity) as load_qty'))
+            ->groupBy('lr.user_id', DB::raw('DATE(lr.request_date)'))
+            ->get();
+
+        // ── 2. المبيعات (Sales) per day per rep ──
+        $saleQuery = DB::table('sales_invoice_items as sii')
+            ->join('sales_invoices as si', 'sii.sales_invoice_id', '=', 'si.id')
+            ->whereNull('si.deleted_at')
+            ->whereNull('sii.deleted_at')
+            ->where('si.company_id', $companyId)
+            ->where('si.status', '!=', 'cancelled')
+            ->whereBetween('si.invoice_date', [$dateFrom, $dateTo]);
+        if ($itemId) {
+            $saleQuery->where('sii.item_id', $itemId);
+        }
+        $saleRows = $saleQuery
+            ->select('si.sales_rep_id as user_id', DB::raw('DATE(si.invoice_date) as movement_date'),
+                DB::raw('ABS(SUM(COALESCE(NULLIF(sii.base_quantity, 0), sii.qty))) as sale_qty'),
+                DB::raw('SUM(sii.net_amount) as sale_amount'))
+            ->groupBy('si.sales_rep_id', DB::raw('DATE(si.invoice_date)'))
+            ->get();
+
+        // ── 3. المرتجعات (Returns) per day per rep ──
+        $returnQuery = DB::table('return_order_items as roi')
+            ->join('return_orders as ro', 'roi.return_order_id', '=', 'ro.id')
+            ->whereNull('ro.deleted_at')
+            ->where('ro.company_id', $companyId)
+            ->whereIn('ro.status_id', ['pending', 'approved', 'received'])
+            ->whereBetween('ro.return_date', [$dateFrom, $dateTo]);
+        if ($itemId) {
+            $returnQuery->where('roi.item_id', $itemId);
+        }
+        $returnRows = $returnQuery
+            ->select('ro.user_id', DB::raw('DATE(ro.return_date) as movement_date'),
+                DB::raw('SUM(roi.returned_quantity) as return_qty'),
+                DB::raw('SUM(roi.line_total) as return_amount'))
+            ->groupBy('ro.user_id', DB::raw('DATE(ro.return_date)'))
+            ->get();
+
+        // ── 4. المشتريات (Purchases) per day ──
+        $purchaseTxns = \App\Models\InventoryTransaction::where('company_id', $companyId)
+            ->where('status', 'posted')
+            ->whereBetween('transaction_date', [$dateFrom, $dateTo])
+            ->whereHas('transactionType', fn($q) => $q->where('effect', 'addition')->where('code', 'PURCHASE_RECEIPT'))
+            ->with(['items' => function ($q) use ($itemId) {
+                $q->select('id', 'inventory_transaction_id', 'item_id', 'qty', 'unit_cost');
+                if ($itemId) $q->where('item_id', $itemId);
+            }])
+            ->get();
+
+        $purchasesByDate = [];
+        foreach ($purchaseTxns as $txn) {
+            $date = $txn->transaction_date instanceof \Carbon\Carbon
+                ? $txn->transaction_date->toDateString()
+                : date('Y-m-d', strtotime($txn->transaction_date));
+            $qty = 0;
+            $amount = 0.0;
+            foreach ($txn->items as $item) {
+                $qty += abs((float) $item->qty);
+                $amount += abs((float) $item->qty) * abs((float) ($item->unit_cost ?? 0));
+            }
+            if (!isset($purchasesByDate[$date])) {
+                $purchasesByDate[$date] = ['qty' => 0, 'amount' => 0.0];
+            }
+            $purchasesByDate[$date]['qty'] += $qty;
+            $purchasesByDate[$date]['amount'] += $amount;
+        }
+
+        // ── 5. جمع كل user_ids المندوبين ──
+        $allUserIds = $loadRows->pluck('user_id')
+            ->merge($saleRows->pluck('user_id'))
+            ->merge($returnRows->pluck('user_id'))
+            ->unique()
+            ->filter()
+            ->values();
+
+        // ── 6. جلب أسماء المندوبين ──
+        $employees = $allUserIds->isEmpty() ? collect()->keyBy('user_id') : DB::table('employees')
+            ->whereNull('deleted_at')
+            ->whereIn('user_id', $allUserIds)
+            ->select(
+                'user_id',
+                DB::raw("TRIM(COALESCE(first_name_ar, '') || ' ' || COALESCE(second_name_ar, '') || ' ' || COALESCE(third_name_ar, '') || ' ' || COALESCE(last_name_ar, '')) as rep_name")
+            )
+            ->get()
+            ->keyBy('user_id');
+
+        // ── 7. بناء بيانات pivot ──
+        $pivot = [];
+        foreach ($loadRows as $row) {
+            $date = $row->movement_date;
+            $uid = $row->user_id;
+            $pivot[$date][$uid]['load_qty'] = (float) $row->load_qty;
+        }
+        foreach ($saleRows as $row) {
+            $date = $row->movement_date;
+            $uid = $row->user_id;
+            $pivot[$date][$uid]['sale_qty'] = (float) $row->sale_qty;
+            $pivot[$date][$uid]['sale_amount'] = (float) $row->sale_amount;
+        }
+        foreach ($returnRows as $row) {
+            $date = $row->movement_date;
+            $uid = $row->user_id;
+            $pivot[$date][$uid]['return_qty'] = (float) $row->return_qty;
+            $pivot[$date][$uid]['return_amount'] = (float) $row->return_amount;
+        }
+
+        // ── 8. جميع الأيام ──
+        $allDays = [];
+        $current = \Carbon\Carbon::parse($request->input('date_from'));
+        $end = \Carbon\Carbon::parse($request->input('date_to'));
+        while ($current->lte($end)) {
+            $allDays[] = $current->toDateString();
+            $current->addDay();
+        }
+
+        // ── 9. بناء الاستجابة ──
+        $result = [];
+        $totalLoad = 0;
+        $totalSale = 0;
+        $totalSaleAmount = 0;
+        $totalReturn = 0;
+        $totalReturnAmount = 0;
+        $totalPurchaseQty = 0;
+        $totalPurchaseAmount = 0;
+
+        foreach ($allDays as $date) {
+            $dayReps = [];
+            $dayLoad = 0;
+            $daySale = 0;
+            $daySaleAmount = 0;
+            $dayReturn = 0;
+            $dayReturnAmount = 0;
+
+            $repsForDay = isset($pivot[$date]) ? array_keys($pivot[$date]) : [];
+            foreach ($repsForDay as $uid) {
+                $data = $pivot[$date][$uid];
+                $rep = $employees[$uid] ?? null;
+                $lq = $data['load_qty'] ?? 0;
+                $sq = $data['sale_qty'] ?? 0;
+                $sa = $data['sale_amount'] ?? 0;
+                $rq = $data['return_qty'] ?? 0;
+                $ra = $data['return_amount'] ?? 0;
+
+                $dayLoad += $lq;
+                $daySale += $sq;
+                $daySaleAmount += $sa;
+                $dayReturn += $rq;
+                $dayReturnAmount += $ra;
+
+                $dayReps[] = [
+                    'user_id'      => $uid,
+                    'rep_name'     => $rep?->rep_name ?? "مندوب #$uid",
+                    'load_qty'     => $lq,
+                    'sale_qty'     => $sq,
+                    'sale_amount'  => round($sa, 2),
+                    'return_qty'   => $rq,
+                    'return_amount'=> round($ra, 2),
+                ];
+            }
+
+            $purchaseData = $purchasesByDate[$date] ?? ['qty' => 0, 'amount' => 0];
+
+            $totalLoad += $dayLoad;
+            $totalSale += $daySale;
+            $totalSaleAmount += $daySaleAmount;
+            $totalReturn += $dayReturn;
+            $totalReturnAmount += $dayReturnAmount;
+            $totalPurchaseQty += $purchaseData['qty'];
+            $totalPurchaseAmount += $purchaseData['amount'];
+
+            $result[] = [
+                'date'            => $date,
+                'reps'            => $dayReps,
+                'purchases_qty'   => $purchaseData['qty'],
+                'purchases_amount'=> round($purchaseData['amount'], 2),
+                'day_total_load'  => $dayLoad,
+                'day_total_sales' => $daySale,
+                'day_total_sales_amount' => round($daySaleAmount, 2),
+                'day_total_returns'=> $dayReturn,
+                'day_total_returns_amount' => round($dayReturnAmount, 2),
+            ];
+        }
+
+        return response()->json([
+            'data' => [
+                'items'   => $allItems,
+                'item_id' => $itemId,
+                'days' => $result,
+                'summary' => [
+                    'total_load'           => $totalLoad,
+                    'total_sales'          => $totalSale,
+                    'total_sales_amount'   => round($totalSaleAmount, 2),
+                    'total_returns'        => $totalReturn,
+                    'total_returns_amount' => round($totalReturnAmount, 2),
+                    'total_purchases_qty'  => $totalPurchaseQty,
+                    'total_purchases_amount'=> round($totalPurchaseAmount, 2),
+                ],
             ],
         ]);
     }

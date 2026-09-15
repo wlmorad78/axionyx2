@@ -28,11 +28,11 @@ class DashboardV2Controller extends Controller
 
             $now = now();
             $today = $now->toDateString();
-            $monthStart = $now->copy()->startOfMonth()->toDateString();
-            $monthEnd = $now->copy()->endOfMonth()->toDateString();
+            $monthStart = $request->input('date_from') ?? $now->copy()->startOfMonth()->toDateString();
+            $monthEnd = $request->input('date_to') ?? $now->copy()->endOfMonth()->toDateString();
 
             $summary = $this->getSummary($companyId, $today, $monthStart, $monthEnd);
-            $salesTrend = $this->getSalesTrend($companyId, $now);
+            $salesTrend = $this->getSalesTrend($companyId, $now, $monthStart, $monthEnd);
             $topCustomers = $this->getTopCustomers($companyId, $monthStart, $monthEnd);
             $recentActivities = $this->getRecentActivities($companyId);
             $lowStockItems = $this->getLowStockItems($companyId);
@@ -60,10 +60,11 @@ class DashboardV2Controller extends Controller
 
     private function getSummary(int $companyId, string $today, string $monthStart, string $monthEnd): array
     {
-        $todaySales = SalesInvoice::where('company_id', $companyId)
-            ->whereDate('invoice_date', $today)
-            ->where('status', 'posted')
-            ->sum('total_amount');
+        $todaySales = DB::table('sales_invoices as si')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', $today)
+            ->where('si.status', '!=', 'cancelled')
+            ->sum('si.net_total');
 
         $todayCollections = Collection::where('company_id', $companyId)
             ->whereDate('collection_date', $today)
@@ -74,18 +75,19 @@ class DashboardV2Controller extends Controller
             ->whereDate('expense_date', $today)
             ->sum('amount');
 
-        $monthSales = SalesInvoice::where('company_id', $companyId)
-            ->whereDate('invoice_date', '>=', $monthStart)
-            ->whereDate('invoice_date', '<=', $monthEnd)
-            ->where('status', 'posted')
-            ->sum('total_amount');
+        $monthSales = DB::table('sales_invoices as si')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', '>=', $monthStart)
+            ->whereDate('si.invoice_date', '<=', $monthEnd)
+            ->where('si.status', '!=', 'cancelled')
+            ->sum('si.net_total');
 
         $monthCogs = DB::table('sales_invoice_items as sii')
             ->join('sales_invoices as si', 'si.id', '=', 'sii.sales_invoice_id')
             ->where('si.company_id', $companyId)
             ->whereDate('si.invoice_date', '>=', $monthStart)
             ->whereDate('si.invoice_date', '<=', $monthEnd)
-            ->where('si.status', 'posted')
+            ->where('si.status', '!=', 'cancelled')
             ->sum('sii.total_cost');
 
         $monthExpenses = Expense::where('company_id', $companyId)
@@ -100,10 +102,48 @@ class DashboardV2Controller extends Controller
             ->count();
 
         $pendingInvoices = SalesInvoice::where('company_id', $companyId)
-            ->where('status', '!=', 'posted')
+            ->where('status', 'draft')
             ->count();
 
         $lowStockCount = $this->countLowStockItems($companyId);
+
+        $treasuryBalance = DB::table('treasuries as t')
+            ->where('t.company_id', $companyId)
+            ->where('t.is_active', true)
+            ->selectRaw("COALESCE(SUM(t.opening_balance), 0) + COALESCE((SELECT SUM(CASE WHEN tt.type = 'credit' THEN tt.amount ELSE -tt.amount END) FROM treasury_transactions tt WHERE tt.treasury_id IN (SELECT id FROM treasuries WHERE company_id = ? AND is_active = 1)), 0) as balance", [$companyId])
+            ->value('balance');
+
+        $bankBalance = DB::table('bank_accounts')
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->sum(DB::raw('CASE WHEN current_balance IS NULL THEN COALESCE(opening_balance, 0) ELSE current_balance END'));
+
+        $inventoryQuantity = DB::table('inventory_transaction_items as iti')
+            ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
+            ->join('inventory_transaction_types as itt', 'itt.id', '=', 'it.transaction_type_id')
+            ->where('it.company_id', $companyId)
+            ->where('it.status', 'posted')
+            ->sum(DB::raw("COALESCE(iti.qty, 0) * CASE WHEN itt.effect = 'subtraction' THEN -1 ELSE 1 END"));
+
+        $debtors = SalesInvoice::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->get(['customer_id', 'net_total', 'paid_amount', 'remaining_amount'])
+            ->groupBy('customer_id')
+            ->map(fn($invoices) => $invoices->sum(fn($invoice) => max(
+                (float) ($invoice->remaining_amount ?? 0),
+                (float) ($invoice->net_total ?? 0) - (float) ($invoice->paid_amount ?? 0),
+            )))
+            ->filter(fn($amount) => $amount > 0);
+
+        $creditors = \App\Models\PurchaseInvoice::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->get(['supplier_id', 'net_total', 'paid_amount', 'remaining_amount'])
+            ->groupBy('supplier_id')
+            ->map(fn($invoices) => $invoices->sum(fn($invoice) => max(
+                (float) ($invoice->remaining_amount ?? 0),
+                (float) ($invoice->net_total ?? 0) - (float) ($invoice->paid_amount ?? 0),
+            )))
+            ->filter(fn($amount) => $amount > 0);
 
         return [
             'today_sales' => (float) $todaySales,
@@ -111,24 +151,34 @@ class DashboardV2Controller extends Controller
             'today_expenses' => (float) $todayExpenses,
             'month_sales' => (float) $monthSales,
             'month_profit' => (float) $monthProfit,
+            'month_margin' => $monthSales > 0 ? round(($monthProfit / $monthSales) * 100, 1) : 0,
             'customers_count' => (int) $customersCount,
             'pending_invoices' => (int) $pendingInvoices,
             'low_stock_count' => (int) $lowStockCount,
+            'treasury_balance' => (float) ($treasuryBalance ?? 0),
+            'bank_balance' => (float) ($bankBalance ?? 0),
+            'inventory_quantity' => (float) ($inventoryQuantity ?? 0),
+            'debtors_count' => $debtors->count(),
+            'debtors_total' => (float) $debtors->sum(),
+            'creditors_count' => $creditors->count(),
+            'creditors_total' => (float) $creditors->sum(),
         ];
     }
 
-    private function getSalesTrend(int $companyId, $now): array
+    private function getSalesTrend(int $companyId, $now, string $dateFrom, string $dateTo): array
     {
         $days = collect();
-        for ($i = 6; $i >= 0; $i--) {
-            $days->push($now->copy()->subDays($i)->toDateString());
+        $start = \Carbon\Carbon::parse($dateFrom);
+        $end = \Carbon\Carbon::parse($dateTo);
+        for ($day = $start->copy(); $day <= $end; $day->addDay()) {
+            $days->push($day->toDateString());
         }
 
         $salesByDate = SalesInvoice::where('company_id', $companyId)
             ->whereDate('invoice_date', '>=', $days->first())
             ->whereDate('invoice_date', '<=', $days->last())
-            ->where('status', 'posted')
-            ->selectRaw('DATE(invoice_date) as date, SUM(total_amount) as total')
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw('DATE(invoice_date) as date, SUM(net_total) as total')
             ->groupBy('date')
             ->pluck('total', 'date');
 
@@ -144,7 +194,7 @@ class DashboardV2Controller extends Controller
             'date' => $date,
             'sales' => (float) ($salesByDate[$date] ?? 0),
             'collections' => (float) ($collectionsByDate[$date] ?? 0),
-        ])->values()->toArray();
+        ])->filter(fn($row) => $row['sales'] > 0)->values()->toArray();
     }
 
     private function getTopCustomers(int $companyId, string $monthStart, string $monthEnd): array
@@ -152,8 +202,8 @@ class DashboardV2Controller extends Controller
         $topSales = SalesInvoice::where('company_id', $companyId)
             ->whereDate('invoice_date', '>=', $monthStart)
             ->whereDate('invoice_date', '<=', $monthEnd)
-            ->where('status', 'posted')
-            ->select('customer_id', DB::raw('SUM(total_amount) as total'), DB::raw('COUNT(*) as invoices'))
+            ->where('status', '!=', 'cancelled')
+            ->select('customer_id', DB::raw('SUM(net_total) as total'), DB::raw('COUNT(*) as invoices'))
             ->groupBy('customer_id')
             ->orderByDesc('total')
             ->limit(5)
@@ -180,12 +230,12 @@ class DashboardV2Controller extends Controller
         $recentSales = SalesInvoice::where('company_id', $companyId)
             ->latest('invoice_date')
             ->limit(5)
-            ->get(['id', 'invoice_no', 'invoice_date', 'total_amount', 'status'])
+            ->get(['id', 'invoice_no', 'invoice_date', 'net_total', 'status'])
             ->map(fn($inv) => [
                 'type' => 'sale',
                 'description' => 'Invoice ' . $inv->invoice_no,
                 'time' => $inv->invoice_date ? $inv->invoice_date->format('h:i A') : '',
-                'amount' => (float) $inv->total_amount,
+                'amount' => (float) $inv->net_total,
             ]);
 
         $recentCollections = Collection::where('company_id', $companyId)
@@ -310,6 +360,13 @@ class DashboardV2Controller extends Controller
                 'customers_count' => 0,
                 'pending_invoices' => 0,
                 'low_stock_count' => 0,
+                'treasury_balance' => 0,
+                'bank_balance' => 0,
+                'inventory_quantity' => 0,
+                'debtors_count' => 0,
+                'debtors_total' => 0,
+                'creditors_count' => 0,
+                'creditors_total' => 0,
             ],
             'sales_trend' => [],
             'top_customers' => [],

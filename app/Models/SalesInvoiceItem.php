@@ -11,7 +11,7 @@ class SalesInvoiceItem extends Model
     protected $fillable = [
         'sales_invoice_id', 'item_id', 'unit_id', 'warehouse_id',
         'qty', 'bonus_qty', 'conversion_factor', 'base_quantity',
-        'price', 'gross_amount',
+        'price', 'gross_amount', 'unit_cost', 'total_cost',
         'discount_type', 'discount_value', 'discount_amount',
         'tax_id', 'tax_percent', 'tax_amount', 'net_amount', 'notes',
     ];
@@ -23,6 +23,8 @@ class SalesInvoiceItem extends Model
         'base_quantity' => 'decimal:2',
         'price' => 'decimal:2',
         'gross_amount' => 'decimal:2',
+        'unit_cost' => 'decimal:4',
+        'total_cost' => 'decimal:4',
         'discount_value' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'tax_percent' => 'decimal:2',
