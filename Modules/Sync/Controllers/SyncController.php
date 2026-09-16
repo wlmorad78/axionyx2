@@ -159,6 +159,8 @@ class SyncController extends BaseApiController
                             'tax_percent'      => $item['tax_percent'] ?? 0,
                             'tax_amount'       => $item['tax_amount'] ?? 0,
                             'net_amount'       => $item['net_amount'] ?? 0,
+                            'unit_cost'        => $item['unit_cost'] ?? 0,
+                            'total_cost'       => $item['total_cost'] ?? 0,
                             'notes'            => $item['notes'] ?? null,
                         ]);
                     }
@@ -271,6 +273,8 @@ class SyncController extends BaseApiController
                             'tax_percent'      => $item['tax_percent'] ?? 0,
                             'tax_amount'       => $item['tax_amount'] ?? 0,
                             'net_amount'       => $item['net_amount'] ?? 0,
+                            'unit_cost'        => $item['unit_cost'] ?? 0,
+                            'total_cost'       => $item['total_cost'] ?? 0,
                             'notes'            => $item['notes'] ?? null,
                         ]);
                     }
@@ -368,6 +372,8 @@ class SyncController extends BaseApiController
                     'tax_percent'       => $item->tax_percent,
                     'tax_amount'        => $item->tax_amount,
                     'net_amount'        => $item->net_amount,
+                    'unit_cost'         => $item->unit_cost ?? 0,
+                    'total_cost'        => $item->total_cost ?? 0,
                     'notes'             => $item->notes,
                 ];
             })->toArray(),
