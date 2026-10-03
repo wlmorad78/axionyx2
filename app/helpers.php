@@ -51,22 +51,23 @@ if (!function_exists('resolveEmployee')) {
 
 if (!function_exists('calculateCustomerBalance')) {
     function calculateCustomerBalance($customerId, $companyId) {
-        $allInvoices = \App\Models\SalesInvoice::where('customer_id', $customerId)
-            ->where('company_id', $companyId)
-            ->whereNull('deleted_at')
-            ->selectRaw('COALESCE(SUM(net_total), 0) as total_invoiced, COALESCE(SUM(paid_amount), 0) as total_paid')
+        $ledger = \Illuminate\Support\Facades\DB::table('customer_ledger')
+            ->where('customer_id', $customerId)
+            ->selectRaw('COALESCE(SUM(debit), 0) as debit, COALESCE(SUM(credit), 0) as credit')
             ->first();
 
-        $collectionsBalance = \App\Models\Collection::where('customer_id', $customerId)
+        $standalone = \Illuminate\Support\Facades\DB::table('collections')
+            ->where('customer_id', $customerId)
             ->where('company_id', $companyId)
             ->where('status', 'approved')
-            ->whereNull('deleted_at')
-            ->selectRaw('COALESCE(SUM(amount), 0) as total_collections')
+            ->whereNull('sales_invoice_id')
+            ->selectRaw('COALESCE(SUM(amount), 0) as total')
             ->first();
 
-        $invoiceBalance = (float) $allInvoices->total_paid - (float) $allInvoices->total_invoiced;
-        $collectionsEffect = -1 * (float) $collectionsBalance->total_collections;
+        $debit = (float) $ledger->debit;
+        $credit = (float) $ledger->credit;
+        $standaloneCredit = (float) $standalone->total;
 
-        return round($invoiceBalance + $collectionsEffect, 2);
+        return round($debit - $credit + $standaloneCredit, 2);
     }
 }

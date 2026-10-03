@@ -528,68 +528,13 @@ RouteFacade::post('handheld/return-orders/{id}/approve', function (\Illuminate\H
             })
             ->update(['return_order_id' => $returnOrder->id]);
 
-        $customer = Customer::where('company_id', $user->company_id)->first();
-
-        $salesInvoice = SalesInvoice::create([
-            'company_id' => $returnOrder->company_id,
-            'warehouse_id' => $returnOrder->warehouse_id,
-            'customer_id' => $customer?->id,
-            'sales_rep_id' => $returnOrder->employee_id,
-            'invoice_date' => now()->toDateString(),
-            'invoice_time' => now()->format('H:i:s'),
-            'subtotal' => 0,
-            'item_discount_total' => 0,
-            'invoice_discount_total' => 0,
-            'tax_total' => 0,
-            'incentive_total' => 0,
-            'net_total' => 0,
-            'paid_amount' => 0,
-            'remaining_amount' => 0,
-            'status' => 'approved',
-            'notes' => "أمر بيع من اغلاق الإذن {$returnOrder->return_no}",
-            'created_by' => $employee?->id,
-            'approved_by' => $employee?->id,
-        ]);
-
-        $subtotal = 0;
-        foreach ($returnOrder->items as $item) {
-            $lineTotal = $item->line_total;
-            $subtotal += $lineTotal;
-
-            SalesInvoiceItem::create([
-                'sales_invoice_id' => $salesInvoice->id,
-                'item_id' => $item->item_id,
-                'unit_id' => $item->item_unit_id,
-                'warehouse_id' => $returnOrder->warehouse_id,
-                'qty' => $item->returned_quantity,
-                'bonus_qty' => 0,
-                'price' => $item->sales_price,
-                'gross_amount' => $lineTotal,
-                'discount_type' => null,
-                'discount_value' => 0,
-                'discount_amount' => 0,
-                'tax_percent' => 0,
-                'tax_amount' => 0,
-                'net_amount' => $lineTotal,
-            ]);
-        }
-
-        $tax = $subtotal * 0.15;
-        $salesInvoice->update([
-            'subtotal' => $subtotal,
-            'tax_total' => $tax,
-            'net_total' => $subtotal + $tax,
-            'remaining_amount' => $subtotal + $tax,
-        ]);
-
         return [
             'return_order' => $returnOrder->fresh(),
-            'sales_invoice' => $salesInvoice->fresh(),
         ];
     });
 
     return response()->json([
-        'message' => 'تمت الموافقة على الارتجاع وإنشاء أمر البيع',
+        'message' => 'تمت الموافقة على الارتجاع',
         'data' => $result,
     ]);
 });
@@ -1190,6 +1135,24 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             if ($deleted) {
                 $deleted->update(['deleted_at' => now()]);
                 SalesInvoiceItem::where('sales_invoice_id', $deleted->id)->update(['deleted_at' => now()]);
+
+                \Illuminate\Support\Facades\DB::table('customer_ledger')
+                    ->where('reference_type', 'invoice')
+                    ->where('reference_id', $deleted->id)
+                    ->update(['debit' => 0, 'credit' => 0, 'updated_at' => now()]);
+
+                $delEntries = \Illuminate\Support\Facades\DB::table('customer_ledger')
+                    ->where('customer_id', $deleted->customer_id)
+                    ->orderBy('transaction_date')
+                    ->orderBy('id')
+                    ->get();
+                $runBal = 0;
+                foreach ($delEntries as $e) {
+                    $runBal += (float) $e->debit - (float) $e->credit;
+                    \Illuminate\Support\Facades\DB::table('customer_ledger')
+                        ->where('id', $e->id)
+                        ->update(['balance' => round($runBal, 2)]);
+                }
             }
             $results[] = [
                 'client_uuid' => $invoiceData['client_uuid'],
@@ -1216,50 +1179,76 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             return 0;
         }
 
-        $bal = \Illuminate\Support\Facades\DB::table('sales_invoices')
-            ->where('company_id', $user->company_id)
-            ->where('customer_id', $customerId)
-            ->whereNull('deleted_at')
-            ->selectRaw('COALESCE(SUM(net_total),0) as debit, COALESCE(SUM(paid_amount),0) as credit')
-            ->first();
-        $ledger = \Illuminate\Support\Facades\DB::table('customer_ledger')
-            ->where('customer_id', $customerId)
-            ->selectRaw('COALESCE(SUM(debit),0) as debit, COALESCE(SUM(credit),0) as credit')
-            ->first();
-        $coll = \Illuminate\Support\Facades\DB::table('collections')
-            ->where('customer_id', $customerId)
-            ->where('status', 'approved')
-            ->whereNull('sales_invoice_id')
-            ->selectRaw('COALESCE(SUM(amount),0) as c')
-            ->first();
-        $balance = (($bal?->debit ?? 0) - ($bal?->credit ?? 0))
-            - (($ledger?->credit ?? 0) - ($ledger?->debit ?? 0))
-            - ($coll?->c ?? 0);
-        $availableCredit = $balance < 0 ? -$balance : 0;
 
-        $totalPaid = 0;
-        $now = now();
+
+        // ═══ Pass 1: Sum up totals by method ═══
+        $totalCashBank = 0;
+        $totalBalanceUsed = 0;
+        $totalDeferred = 0;
+
         foreach ($payments as $p) {
             $method = $p['method'] ?? 'cash';
             $amount = (float) ($p['amount'] ?? 0);
-            if ($amount <= 0) {
-                continue;
+            if ($amount <= 0) continue;
+
+            if ($method === 'cash' || $method === 'bank_transfer') {
+                $totalCashBank += $amount;
+            } elseif ($method === 'customer_balance') {
+                $totalBalanceUsed += $amount;
+            } elseif ($method === 'deferred') {
+                $totalDeferred += $amount;
             }
-            $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
+        }
+
+        if ($totalCashBank <= 0 && $totalBalanceUsed <= 0 && $totalDeferred <= 0) {
+            return 0;
+        }
+
+        // ═══ Pass 2: Customer debt before this invoice ═══
+        $ledgerAgg = DB::table('customer_ledger')
+            ->where('customer_id', $customerId)
+            ->selectRaw('COALESCE(SUM(debit),0) as debit, COALESCE(SUM(credit),0) as credit')
+            ->first();
+        $customerDebtBefore = max(0, (float) ($ledgerAgg->debit ?? 0) - (float) ($ledgerAgg->credit ?? 0));
+
+        // ═══ Pass 3: 3-Stage allocation ═══
+        $invoiceNet = (float) $invoice->net_total;
+
+        // Stage ①: Cover invoice
+        $invoiceRemainingAfterBalance = max(0, $invoiceNet - $totalBalanceUsed);
+        $cashAppliedToInvoice = min($totalCashBank, $invoiceRemainingAfterBalance);
+        $cashRemainingAfterInvoice = max(0, $totalCashBank - $cashAppliedToInvoice);
+
+        // Stage ②: Settle old debt
+        $debtPayment = min($cashRemainingAfterInvoice, $customerDebtBefore);
+
+        // Stage ③: Remaining → advance
+        $advance = max(0, $cashRemainingAfterInvoice - $debtPayment);
+
+        $totalPaid = $totalCashBank + $totalBalanceUsed;
+        $now = now();
+
+        // ═══ Pass 4: Create collections (deferred skips) ═══
+        foreach ($payments as $p) {
+            $method = $p['method'] ?? 'cash';
+            $amount = (float) ($p['amount'] ?? 0);
+            if ($amount <= 0 || $method === 'deferred') continue;
+
+            $pm = DB::table('payment_methods')
                 ->where('code', $method)->where('is_active', true)->first();
             $paymentMethodId = $pm?->id;
 
             $bankAccountId = null;
             if ($method === 'bank_transfer') {
                 $bankAccountId = (int) ($p['bank_account_id'] ?? 0);
-                $bank = \Illuminate\Support\Facades\DB::table('bank_accounts')
+                $bank = DB::table('bank_accounts')
                     ->where('id', $bankAccountId)
                     ->where('company_id', $user->company_id)
                     ->where('is_active', true)
                     ->whereNull('deleted_at')
                     ->first();
                 if (!$bank) {
-                    $bank = \Illuminate\Support\Facades\DB::table('bank_accounts')
+                    $bank = DB::table('bank_accounts')
                         ->where('company_id', $user->company_id)
                         ->where('is_active', true)
                         ->whereNull('deleted_at')
@@ -1267,33 +1256,13 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                     $bankAccountId = $bank?->id;
                 }
                 if ($bankAccountId) {
-                    \Illuminate\Support\Facades\DB::table('bank_accounts')
+                    DB::table('bank_accounts')
                         ->where('id', $bankAccountId)
                         ->increment('current_balance', $amount);
                 }
             }
 
-            if ($method === 'customer_balance') {
-                if ($amount > $availableCredit) {
-                    $amount = $availableCredit;
-                }
-                if ($amount <= 0) {
-                    continue;
-                }
-                \Illuminate\Support\Facades\DB::table('customer_ledger')->insert([
-                    'customer_id' => $customerId,
-                    'transaction_date' => $now->toDateString(),
-                    'reference_type' => 'balance_payment',
-                    'reference_id' => $invoice->id,
-                    'debit' => $amount,
-                    'credit' => 0,
-                    'balance' => 0,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-            }
-
-            \Illuminate\Support\Facades\DB::table('collections')->insert([
+            DB::table('collections')->insert([
                 'company_id' => $user->company_id,
                 'branch_id' => $invoice->branch_id,
                 'collection_no' => 'HH-' . $now->format('YmdHis') . '-' . $invoice->id . '-' . rand(100, 999),
@@ -1316,8 +1285,49 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+        }
 
-            $totalPaid += $amount;
+        // ═══ Pass 5: Ledger entries (no cached balance) ═══
+        if ($totalBalanceUsed > 0) {
+            DB::table('customer_ledger')->insert([
+                'customer_id' => $customerId,
+                'transaction_date' => $now->toDateString(),
+                'reference_type' => 'balance_payment',
+                'reference_id' => $invoice->id,
+                'debit' => $totalBalanceUsed,
+                'credit' => 0,
+                'balance' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        if ($debtPayment > 0) {
+            DB::table('customer_ledger')->insert([
+                'customer_id' => $customerId,
+                'transaction_date' => $now->toDateString(),
+                'reference_type' => 'debt_payment',
+                'reference_id' => $invoice->id,
+                'debit' => 0,
+                'credit' => $debtPayment,
+                'balance' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        if ($advance > 0) {
+            DB::table('customer_ledger')->insert([
+                'customer_id' => $customerId,
+                'transaction_date' => $now->toDateString(),
+                'reference_type' => 'customer_advance',
+                'reference_id' => $invoice->id,
+                'debit' => 0,
+                'credit' => $advance,
+                'balance' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
         }
 
         return $totalPaid;
@@ -1458,6 +1468,8 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                         'tax_percent' => $itemData['tax_percent'],
                         'tax_amount' => $itemData['tax_amount'],
                         'net_amount' => $itemData['net_amount'],
+                        'created_at' => $existing->invoice_date ?? now(),
+                        'updated_at' => $existing->invoice_date ?? now(),
                     ]);
                 }
 
@@ -1465,7 +1477,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 if (!empty($payments)) {
                     $collectedTotal = $createCollections($payments, $existing, (int) $invoiceData['customer_id']);
                     if ($collectedTotal > 0) {
-                        $paidAmount = $collectedTotal;
+                        $paidAmount = min($collectedTotal, $netTotal);
                         $remainingAmount = max(0, $netTotal - $paidAmount);
                         $existing->update([
                             'paid_amount' => $paidAmount,
@@ -1475,6 +1487,62 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 }
 
                 $applyDistribution($itemsData, 1);
+
+                $oldLedger = \Illuminate\Support\Facades\DB::table('customer_ledger')
+                    ->where('reference_type', 'invoice')
+                    ->where('reference_id', $existing->id)
+                    ->first();
+
+                $previousBal = (float) \Illuminate\Support\Facades\DB::table('customer_ledger')
+                    ->where('customer_id', $existing->customer_id)
+                    ->selectRaw('COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0) AS balance')
+                    ->value('balance') ?? 0;
+
+                if ($oldLedger) {
+                    $previousBal -= (float) $oldLedger->debit - (float) $oldLedger->credit;
+                }
+
+                $newRunning = $previousBal + (float) $existing->net_total - (float) $existing->paid_amount;
+
+                if ($oldLedger) {
+                    \Illuminate\Support\Facades\DB::table('customer_ledger')
+                        ->where('id', $oldLedger->id)
+                        ->update([
+                            'debit' => $existing->net_total,
+                            'credit' => $existing->paid_amount,
+                            'balance' => round($newRunning, 2),
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    \Illuminate\Support\Facades\DB::table('customer_ledger')->insert([
+                        'customer_id' => $existing->customer_id,
+                        'transaction_date' => $existing->invoice_date ?? now()->toDateString(),
+                        'reference_type' => 'invoice',
+                        'reference_id' => $existing->id,
+                        'debit' => $existing->net_total,
+                        'credit' => $existing->paid_amount,
+                        'balance' => round($newRunning, 2),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                \Illuminate\Support\Facades\DB::table('customer_ledger')
+                    ->where('customer_id', $existing->customer_id)
+                    ->where('id', '>', $oldLedger?->id ?? 0)
+                    ->orderBy('transaction_date')
+                    ->orderBy('id')
+                    ->each(function ($row) {
+                        $prev = \Illuminate\Support\Facades\DB::table('customer_ledger')
+                            ->where('customer_id', $row->customer_id)
+                            ->where('id', '<', $row->id)
+                            ->orderByDesc('id')
+                            ->value('balance') ?? 0;
+                        \Illuminate\Support\Facades\DB::table('customer_ledger')
+                            ->where('id', $row->id)
+                            ->update(['balance' => round($prev + $row->debit - $row->credit, 2)]);
+                    });
+
                 return $existing;
             });
             $results[] = [
@@ -1584,6 +1652,8 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                     'tax_percent' => $itemData['tax_percent'],
                     'tax_amount' => $itemData['tax_amount'],
                     'net_amount' => $itemData['net_amount'],
+                    'created_at' => $invoiceData['invoice_date'] ?? now(),
+                    'updated_at' => $invoiceData['invoice_date'] ?? now(),
                 ]);
             }
 
@@ -1591,7 +1661,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             if (!empty($payments)) {
                 $collectedTotal = $createCollections($payments, $inv, (int) $invoiceData['customer_id']);
                 if ($collectedTotal > 0) {
-                    $paidAmount = $collectedTotal;
+                    $paidAmount = min($collectedTotal, $netTotal);
                     $remainingAmount = max(0, $netTotal - $paidAmount);
                     $inv->update([
                         'paid_amount' => $paidAmount,
@@ -1635,6 +1705,40 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 Device::where('id', $invoiceData['device_id'])->update(['last_sync_at' => now()]);
             }
 
+            $prevBalance = (float) \Illuminate\Support\Facades\DB::table('customer_ledger')
+                ->where('customer_id', $inv->customer_id)
+                ->selectRaw('COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0) AS balance')
+                ->value('balance') ?? 0;
+
+            $newRunning = $prevBalance + (float) $inv->net_total - (float) $inv->paid_amount;
+
+            \Illuminate\Support\Facades\DB::table('customer_ledger')->insert([
+                'customer_id' => $inv->customer_id,
+                'transaction_date' => $inv->invoice_date ?? now()->toDateString(),
+                'reference_type' => 'invoice',
+                'reference_id' => $inv->id,
+                'debit' => $inv->net_total,
+                'credit' => $inv->paid_amount,
+                'balance' => round($newRunning, 2),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            \Illuminate\Support\Facades\DB::table('customer_ledger')
+                ->where('customer_id', $inv->customer_id)
+                ->orderBy('transaction_date')
+                ->orderBy('id')
+                ->each(function ($row) {
+                    $prev = \Illuminate\Support\Facades\DB::table('customer_ledger')
+                        ->where('customer_id', $row->customer_id)
+                        ->where('id', '<', $row->id)
+                        ->orderByDesc('id')
+                        ->value('balance') ?? 0;
+                    \Illuminate\Support\Facades\DB::table('customer_ledger')
+                        ->where('id', $row->id)
+                        ->update(['balance' => round($prev + $row->debit - $row->credit, 2)]);
+                });
+
             return $inv;
         });
 
@@ -1643,10 +1747,48 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             'status' => 'synced',
             'invoice_no' => $invoice->invoice_no,
             'id' => $invoice->id,
+            'customer_id' => $invoice->customer_id,
         ];
     }
 
-    return response()->json(['message' => 'تمت المزامنة', 'data' => $results]);
+    $allCustomerIds = collect($results)->pluck('customer_id')->filter()->unique()->values()->all();
+    $customerBalancesArr = [];
+    if (!empty($allCustomerIds)) {
+        $ledgerData = \Illuminate\Support\Facades\DB::table('customer_ledger')
+            ->whereIn('customer_id', $allCustomerIds)
+            ->selectRaw('customer_id, COALESCE(SUM(debit), 0) AS debit_amount, COALESCE(SUM(credit), 0) AS credit_amount')
+            ->groupBy('customer_id')
+            ->get();
+
+        $standaloneData = \Illuminate\Support\Facades\DB::table('collections')
+            ->whereIn('customer_id', $allCustomerIds)
+            ->where('company_id', $user->company_id)
+            ->where('status', 'approved')
+            ->whereNull('sales_invoice_id')
+            ->selectRaw('customer_id, COALESCE(SUM(amount), 0) AS standalone_credit')
+            ->groupBy('customer_id')
+            ->get()
+            ->keyBy('customer_id');
+
+        foreach ($ledgerData as $row) {
+            $sid = (int) $row->customer_id;
+            $standalone = (float) ($standaloneData[$sid]->standalone_credit ?? 0);
+            $debit = (float) $row->debit_amount;
+            $credit = (float) $row->credit_amount + $standalone;
+            $customerBalancesArr[$sid] = [
+                'customer_id' => $sid,
+                'debit_amount' => round($debit, 2),
+                'credit_amount' => round($credit, 2),
+                'balance' => round($debit - $credit, 2),
+            ];
+        }
+    }
+
+    return response()->json([
+        'message' => 'تمت المزامنة',
+        'data' => $results,
+        'customer_balances' => $customerBalancesArr,
+    ]);
 });
 
 RouteFacade::post('handheld/sync/reconcile', [HandheldSyncController::class, 'reconcile']);
@@ -2129,7 +2271,8 @@ RouteFacade::post('handheld/pay-from-balance', function (\Illuminate\Http\Reques
 
     $balance = calculateCustomerBalance($request->customer_id, $user->company_id);
 
-    if ($request->amount > $balance) {
+    $availableCredit = $balance < 0 ? -$balance : 0;
+    if ($request->amount > $availableCredit) {
         return response()->json(['message' => 'المبلغ أكبر من الرصيد المتاح'], 422);
     }
 
@@ -2154,7 +2297,7 @@ RouteFacade::post('handheld/pay-from-balance', function (\Illuminate\Http\Reques
             'collection_id' => $collection->id,
             'collection_no' => $collection->collection_no,
             'amount' => (float) $collection->amount,
-            'remaining_balance' => round($balance - $request->amount, 2),
+            'remaining_balance' => round($balance + $request->amount, 2),
         ],
     ], 201);
 });
@@ -3318,3 +3461,34 @@ RouteFacade::get('handheld/database/latest', [DatabaseBackupController::class, '
 RouteFacade::post('handheld/database/download', [DatabaseBackupController::class, 'download']);
 RouteFacade::get('handheld/database/list', [DatabaseBackupController::class, 'list']);
 RouteFacade::post('handheld/database/delete-all', [DatabaseBackupController::class, 'deleteAll']);
+
+// ===== ????? ????? ?????? ??????? (OCR) =====
+RouteFacade::post('handheld/ocr-id-card', function (\Illuminate\Http\Request $request) {
+    $request->validate([
+        'image' => 'required|file|image|max:8192',
+        'side' => 'required|in:front,back',
+    ]);
+
+    try {
+        $raw = app(\App\Services\IdCardOcrService::class)->recognize($request->file('image'));
+    } catch (\RuntimeException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 503);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('id-card-ocr: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => '?????? ????? ???? ???????? ???? ????? ????',
+        ], 500);
+    }
+
+    $data = \App\Services\IdCardParser::parse($raw, $request->side);
+
+    return response()->json([
+        'success' => true,
+        'message' => '??? ????? ???????',
+        'data' => $data + ['raw_text' => $raw],
+    ]);
+});

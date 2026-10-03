@@ -37,6 +37,9 @@ sudo apt install -y supervisor
 # Install SQLite (if not already installed)
 sudo apt install -y sqlite3
 
+# Install Tesseract OCR + Arabic language pack (for ID card reading)
+sudo apt install -y tesseract-ocr tesseract-ocr-ara tesseract-ocr-osd
+
 # Install Git
 sudo apt install -y git
 

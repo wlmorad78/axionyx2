@@ -196,6 +196,8 @@ Route::get('reports/rep-daily-sales', [\App\Http\Controllers\Api\Reports\ReportC
 Route::get('reports/customer-sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerSales'])->middleware('auth:sanctum')->name('reports.customer-sales');
 Route::get('reports/rep-movement-by-item', [\App\Http\Controllers\Api\Reports\ReportController::class, 'repMovementByItem'])->middleware('auth:sanctum')->name('reports.rep-movement-by-item');
 Route::get('reports/daily-rep-product-movement', [\App\Http\Controllers\Api\Reports\ReportController::class, 'dailyRepProductMovement'])->middleware('auth:sanctum')->name('reports.daily-rep-product-movement');
+Route::get('reports/sales-by-rep', [\App\Http\Controllers\Api\Reports\ReportController::class, 'salesByRep'])->middleware('auth:sanctum')->name('reports.sales-by-rep');
+Route::get('reports/customer-invoice-payments', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerInvoicePayments'])->middleware('auth:sanctum')->name('reports.customer-invoice-payments');
 
 // ===== شاشة وحدات الأصناف وقوائم أسعارها (للقراءة فقط) =====
 Route::get('catalog/items-pricing', [\App\Http\Controllers\Api\CatalogController::class, 'itemsWithPricing']);

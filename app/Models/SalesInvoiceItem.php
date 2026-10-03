@@ -9,14 +9,15 @@ class SalesInvoiceItem extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'sales_invoice_id', 'item_id', 'unit_id', 'warehouse_id',
+        'sales_invoice_id', 'invoice_date', 'item_id', 'unit_id', 'warehouse_id',
         'qty', 'bonus_qty', 'conversion_factor', 'base_quantity',
         'price', 'gross_amount', 'unit_cost', 'total_cost',
         'discount_type', 'discount_value', 'discount_amount',
-        'tax_id', 'tax_percent', 'tax_amount', 'net_amount', 'notes',
+        'tax_id', 'tax_percent', 'tax_amount', 'net_amount', 'profit', 'notes',
     ];
 
     protected $casts = [
+        'invoice_date' => 'date',
         'qty' => 'decimal:2',
         'bonus_qty' => 'decimal:2',
         'conversion_factor' => 'decimal:4',
@@ -25,6 +26,7 @@ class SalesInvoiceItem extends Model
         'gross_amount' => 'decimal:2',
         'unit_cost' => 'decimal:4',
         'total_cost' => 'decimal:4',
+        'profit' => 'decimal:2',
         'discount_value' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'tax_percent' => 'decimal:2',
@@ -39,12 +41,20 @@ class SalesInvoiceItem extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (SalesInvoiceItem $model) {
+            $model->syncProfit();
+        });
         static::saved(function (SalesInvoiceItem $model) {
             $model->updateParentTotals();
         });
         static::deleted(function (SalesInvoiceItem $model) {
             $model->updateParentTotals();
         });
+    }
+
+    public function syncProfit(): void
+    {
+        $this->profit = round((float) $this->net_amount - (float) $this->total_cost, 2);
     }
 
     public function updateParentTotals(): void

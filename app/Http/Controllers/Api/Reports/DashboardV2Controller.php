@@ -90,12 +90,20 @@ class DashboardV2Controller extends Controller
             ->where('si.status', '!=', 'cancelled')
             ->sum('sii.total_cost');
 
+        $monthProfitFromItems = DB::table('sales_invoice_items as sii')
+            ->join('sales_invoices as si', 'si.id', '=', 'sii.sales_invoice_id')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', '>=', $monthStart)
+            ->whereDate('si.invoice_date', '<=', $monthEnd)
+            ->where('si.status', '!=', 'cancelled')
+            ->sum('sii.profit');
+
         $monthExpenses = Expense::where('company_id', $companyId)
             ->whereDate('expense_date', '>=', $monthStart)
             ->whereDate('expense_date', '<=', $monthEnd)
             ->sum('amount');
 
-        $monthProfit = $monthSales - $monthCogs - $monthExpenses;
+        $monthProfit = $monthProfitFromItems - $monthExpenses;
 
         $customersCount = Customer::where('company_id', $companyId)
             ->where('is_active', true)

@@ -564,10 +564,8 @@ class Handheld2Controller extends Controller
      */
     private function customerBalances(int $companyId): array
     {
-        $invoices = DB::table('sales_invoices')
-            ->where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->selectRaw('customer_id, COALESCE(SUM(net_total), 0) AS debit_amount, COALESCE(SUM(paid_amount), 0) AS invoice_credit')
+        $ledger = DB::table('customer_ledger')
+            ->selectRaw('customer_id, COALESCE(SUM(debit), 0) AS debit_amount, COALESCE(SUM(credit), 0) AS credit_amount, COALESCE(SUM(debit) - SUM(credit), 0) AS balance')
             ->groupBy('customer_id')
             ->get()
             ->keyBy('customer_id');
@@ -581,32 +579,113 @@ class Handheld2Controller extends Controller
             ->get()
             ->keyBy('customer_id');
 
-        $ledger = DB::table('customer_ledger')
-            ->selectRaw('customer_id, COALESCE(SUM(debit), 0) AS ledger_debit, COALESCE(SUM(credit), 0) AS ledger_credit')
-            ->groupBy('customer_id')
-            ->get()
-            ->keyBy('customer_id');
-
         $balances = [];
-        $customerIds = $invoices->keys()
+        $customerIds = $ledger->keys()
             ->merge($receipts->keys())
-            ->merge($ledger->keys())
             ->unique();
 
         foreach ($customerIds as $customerId) {
-            $debit = (float) ($invoices[$customerId]->debit_amount ?? 0)
-                + (float) ($ledger[$customerId]->ledger_debit ?? 0);
-            $credit = (float) ($invoices[$customerId]->invoice_credit ?? 0)
-                + (float) ($receipts[$customerId]->standalone_credit ?? 0)
-                + (float) ($ledger[$customerId]->ledger_credit ?? 0);
+            $debit = (float) ($ledger[$customerId]->debit_amount ?? 0);
+            $ledgerCredit = (float) ($ledger[$customerId]->credit_amount ?? 0);
+            $standaloneCredit = (float) ($receipts[$customerId]->standalone_credit ?? 0);
             $balances[(int) $customerId] = [
                 'debit_amount' => round($debit, 2),
-                'credit_amount' => round($credit, 2),
-                'balance' => round($debit - $credit, 2),
+                'credit_amount' => round($ledgerCredit + $standaloneCredit, 2),
+                'balance' => round($debit - $ledgerCredit + $standaloneCredit, 2),
             ];
         }
 
         return $balances;
+    }
+
+    public function customerBalance(Request $request, int $customerId)
+    {
+        $user = $request->user();
+        $companyId = $user->company_id;
+
+        $allBalances = $this->customerBalances($companyId);
+        $balance = $allBalances[$customerId] ?? ['debit_amount' => 0, 'credit_amount' => 0, 'balance' => 0];
+
+        return response()->json([
+            'customer_id' => $customerId,
+            'debit_amount' => $balance['debit_amount'],
+            'credit_amount' => $balance['credit_amount'],
+            'balance' => $balance['balance'],
+        ]);
+    }
+
+    private function insertInvoiceLedgerEntry($invoice, $customerId): void
+    {
+        $now = now();
+
+        $runningBalance = (float) DB::table('customer_ledger')
+            ->where('customer_id', $customerId)
+            ->selectRaw('COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0) AS balance')
+            ->value('balance') ?? 0;
+
+        $runningBalance += (float) $invoice->net_total - (float) $invoice->paid_amount;
+
+        DB::table('customer_ledger')->insert([
+            'customer_id' => $customerId,
+            'transaction_date' => $invoice->invoice_date ?? $now->toDateString(),
+            'reference_type' => 'invoice',
+            'reference_id' => $invoice->id,
+            'debit' => $invoice->net_total,
+            'credit' => $invoice->paid_amount,
+            'balance' => round($runningBalance, 2),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    private function updateInvoiceLedgerEntry($invoice, int $customerId): void
+    {
+        $now = now();
+
+        $existingEntry = DB::table('customer_ledger')
+            ->where('reference_type', 'invoice')
+            ->where('reference_id', $invoice->id)
+            ->first();
+
+        if ($existingEntry) {
+            DB::table('customer_ledger')
+                ->where('id', $existingEntry->id)
+                ->update([
+                    'debit' => $invoice->net_total,
+                    'credit' => $invoice->paid_amount,
+                    'updated_at' => $now,
+                ]);
+        } else {
+            $this->insertInvoiceLedgerEntry($invoice, $customerId);
+        }
+
+        $this->recalculateLedgerBalances($customerId);
+    }
+
+    private function recalculateLedgerBalances(int $customerId): void
+    {
+        $entries = DB::table('customer_ledger')
+            ->where('customer_id', $customerId)
+            ->orderBy('transaction_date')
+            ->orderBy('id')
+            ->get();
+
+        $runningBalance = 0;
+        foreach ($entries as $entry) {
+            $runningBalance += (float) $entry->debit - (float) $entry->credit;
+            DB::table('customer_ledger')
+                ->where('id', $entry->id)
+                ->update(['balance' => round($runningBalance, 2)]);
+        }
+    }
+
+    public function customerBalancesBulk(Request $request)
+    {
+        $user = $request->user();
+        $companyId = $user->company_id;
+        $allBalances = $this->customerBalances($companyId);
+
+        return response()->json(['balances' => $allBalances]);
     }
 
     public function bankAccounts(Request $request)
@@ -624,9 +703,15 @@ class Handheld2Controller extends Controller
 
     /**
      * Create collection records for a handheld sale from a payments array.
-     * Each payment: ['method' => 'cash'|'bank_transfer'|'customer_balance',
+     * Each payment: ['method' => 'cash'|'bank_transfer'|'customer_balance'|'deferred',
      * 'amount' => float, 'bank_account_id' => int?].
-     * Returns the total collected amount (added to the invoice paid_amount).
+     *
+     * Payment allocation priority:
+     *   1. Invoice (current)
+     *   2. Old debt (settle customer's previous debt)
+     *   3. Remaining → Customer Advance (credit)
+     *
+     * Returns total collected (cash + bank + balance) — excludes deferred.
      */
     private function createSaleCollections(array $payments, SalesInvoice $invoice, int $customerId, $user, $employee): float
     {
@@ -634,12 +719,10 @@ class Handheld2Controller extends Controller
             return 0;
         }
 
-        $balances = $this->customerBalances($user->company_id);
-        $bal = $balances[$customerId] ?? ['balance' => 0];
-        $availableCredit = ($bal['balance'] ?? 0) < 0 ? -(float) ($bal['balance']) : 0;
-
-        $totalPaid = 0;
-        $now = now();
+        // ═══ Pass 1: Sum up totals by method ═══
+        $totalCashBank = 0;
+        $totalBalanceUsed = 0;
+        $totalDeferred = 0;
 
         foreach ($payments as $p) {
             $method = $p['method'] ?? 'cash';
@@ -648,11 +731,62 @@ class Handheld2Controller extends Controller
                 continue;
             }
 
-            $pm = DB::table('payment_methods')
-                ->where('code', $method)
-                ->where('is_active', true)
-                ->first();
-            $paymentMethodId = $pm?->id;
+            if ($method === 'cash' || $method === 'bank_transfer') {
+                $totalCashBank += $amount;
+            } elseif ($method === 'customer_balance') {
+                $totalBalanceUsed += $amount;
+            } elseif ($method === 'deferred') {
+                $totalDeferred += $amount;
+            }
+        }
+
+        if ($totalCashBank <= 0 && $totalBalanceUsed <= 0 && $totalDeferred <= 0) {
+            return 0;
+        }
+
+        // ═══ Pass 2: Calculate customer debt before this invoice ═══
+        $ledgerAgg = DB::table('customer_ledger')
+            ->where('customer_id', $customerId)
+            ->selectRaw('COALESCE(SUM(debit),0) as debit, COALESCE(SUM(credit),0) as credit')
+            ->first();
+        $customerDebtBefore = max(0, (float) ($ledgerAgg->debit ?? 0) - (float) ($ledgerAgg->credit ?? 0));
+
+        // ═══ Pass 3: 3-Stage allocation ═══
+        $invoiceNet = (float) $invoice->net_total;
+
+        // Stage ①: Cover invoice
+        $invoiceRemainingAfterBalance = max(0, $invoiceNet - $totalBalanceUsed);
+        $cashAppliedToInvoice = min($totalCashBank, $invoiceRemainingAfterBalance);
+        $cashRemainingAfterInvoice = max(0, $totalCashBank - $cashAppliedToInvoice);
+
+        // Stage ②: Settle old debt
+        $debtPayment = min($cashRemainingAfterInvoice, $customerDebtBefore);
+
+        // Stage ③: Remaining → advance
+        $advance = max(0, $cashRemainingAfterInvoice - $debtPayment);
+
+        $totalPaid = $totalCashBank + $totalBalanceUsed;
+        $now = now();
+
+        // ═══ Pass 4: Resolve payment method IDs & bank accounts ═══
+        $pmCache = [];
+
+        // ═══ Pass 5: Create collections for cash/bank ONLY (deferred skips) ═══
+        foreach ($payments as $p) {
+            $method = $p['method'] ?? 'cash';
+            $amount = (float) ($p['amount'] ?? 0);
+            if ($amount <= 0 || $method === 'deferred') {
+                continue;
+            }
+
+            if (!isset($pmCache[$method])) {
+                $pm = DB::table('payment_methods')
+                    ->where('code', $method)
+                    ->where('is_active', true)
+                    ->first();
+                $pmCache[$method] = $pm?->id;
+            }
+            $paymentMethodId = $pmCache[$method];
 
             $bankAccountId = null;
             if ($method === 'bank_transfer') {
@@ -674,26 +808,6 @@ class Handheld2Controller extends Controller
                 if ($bankAccountId) {
                     DB::table('bank_accounts')->where('id', $bankAccountId)->increment('current_balance', $amount);
                 }
-            }
-
-            if ($method === 'customer_balance') {
-                if ($amount > $availableCredit) {
-                    $amount = $availableCredit;
-                }
-                if ($amount <= 0) {
-                    continue;
-                }
-                DB::table('customer_ledger')->insert([
-                    'customer_id' => $customerId,
-                    'transaction_date' => $now->toDateString(),
-                    'reference_type' => 'balance_payment',
-                    'reference_id' => $invoice->id,
-                    'debit' => $amount,
-                    'credit' => 0,
-                    'balance' => 0,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
             }
 
             DB::table('collections')->insert([
@@ -719,8 +833,49 @@ class Handheld2Controller extends Controller
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+        }
 
-            $totalPaid += $amount;
+        // ═══ Pass 6: Ledger entries (no cached balance) ═══
+        if ($totalBalanceUsed > 0) {
+            DB::table('customer_ledger')->insert([
+                'customer_id' => $customerId,
+                'transaction_date' => $now->toDateString(),
+                'reference_type' => 'balance_payment',
+                'reference_id' => $invoice->id,
+                'debit' => $totalBalanceUsed,
+                'credit' => 0,
+                'balance' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        if ($debtPayment > 0) {
+            DB::table('customer_ledger')->insert([
+                'customer_id' => $customerId,
+                'transaction_date' => $now->toDateString(),
+                'reference_type' => 'debt_payment',
+                'reference_id' => $invoice->id,
+                'debit' => 0,
+                'credit' => $debtPayment,
+                'balance' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        if ($advance > 0) {
+            DB::table('customer_ledger')->insert([
+                'customer_id' => $customerId,
+                'transaction_date' => $now->toDateString(),
+                'reference_type' => 'customer_advance',
+                'reference_id' => $invoice->id,
+                'debit' => 0,
+                'credit' => $advance,
+                'balance' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
         }
 
         return $totalPaid;
@@ -1888,6 +2043,8 @@ class Handheld2Controller extends Controller
                     'tax_percent' => $itemData['tax_percent'],
                     'tax_amount' => $itemData['tax_amount'],
                     'net_amount' => $itemData['net_amount'],
+                    'created_at' => $invoice->invoice_date ?? now(),
+                    'updated_at' => $invoice->invoice_date ?? now(),
                 ]);
             }
 
@@ -1901,7 +2058,7 @@ class Handheld2Controller extends Controller
                     $employee
                 );
                 if ($collectedTotal > 0) {
-                    $paidAmount = $collectedTotal;
+                    $paidAmount = min($collectedTotal, $netTotal);
                     $remainingAmount = max(0, $netTotal - $paidAmount);
                     $invoice->update([
                         'paid_amount' => $paidAmount,
@@ -1915,6 +2072,8 @@ class Handheld2Controller extends Controller
             try { $invoice->post(); } catch (\Exception $e) {
                 Log::warning('[INVOICE SYNC] post failed', ['invoice_id' => $invoice->id, 'error' => $e->getMessage()]);
             }
+
+            $this->insertInvoiceLedgerEntry($invoice, $customer_id);
 
             $this->applyDistribution($user, $employee, $itemsData);
 
@@ -2050,6 +2209,8 @@ class Handheld2Controller extends Controller
                     'tax_percent' => $itemData['tax_percent'],
                     'tax_amount' => $itemData['tax_amount'],
                     'net_amount' => $itemData['net_amount'],
+                    'created_at' => $invoice->invoice_date ?? now(),
+                    'updated_at' => $invoice->invoice_date ?? now(),
                 ]);
             }
 
@@ -2063,7 +2224,7 @@ class Handheld2Controller extends Controller
                     $employee
                 );
                 if ($collectedTotal > 0) {
-                    $paidAmount = $collectedTotal;
+                    $paidAmount = min($collectedTotal, $netTotal);
                     $remainingAmount = max(0, $netTotal - $paidAmount);
                     $invoice->update([
                         'paid_amount' => $paidAmount,
@@ -2076,6 +2237,8 @@ class Handheld2Controller extends Controller
                 // If no payments sent, clear existing payment methods
                 SalesInvoicePaymentMethod::where('sales_invoice_id', $invoice->id)->delete();
             }
+
+            $this->updateInvoiceLedgerEntry($invoice, (int) $customer_id);
 
             $this->applyDistribution($user, $employee, $itemsData);
 
@@ -2131,7 +2294,6 @@ class Handheld2Controller extends Controller
             $taxPercent = $item['tax_percent'] ?? 0;
             $lineTotal = $qty * $price;
             $taxAmount = $lineTotal * ($taxPercent / 100);
-            $unitCost = (float) ($item['unit_cost'] ?? $item['purchase_price'] ?? 0);
             $subtotal += $lineTotal;
             $taxTotal += $taxAmount;
 
@@ -2145,6 +2307,19 @@ class Handheld2Controller extends Controller
             }
 
             $realItemId = $serverItem?->id ?? $item['item_id'] ?? null;
+
+            $unitCost = (float) ($item['unit_cost'] ?? $item['purchase_price'] ?? 0);
+            if ($unitCost <= 0 && $realItemId) {
+                $unitCost = (float) (
+                    DB::table('item_units')
+                        ->where('item_id', $realItemId)
+                        ->where('is_default', true)
+                        ->whereNull('deleted_at')
+                        ->whereNotNull('purchase_price')
+                        ->orderByDesc('id')
+                        ->value('purchase_price') ?? 0
+                );
+            }
 
             $itemsData[] = [
                 'item_id' => $realItemId,
@@ -2262,6 +2437,17 @@ class Handheld2Controller extends Controller
             ];
         }
 
+        DB::table('customer_ledger')
+            ->where('reference_type', 'invoice')
+            ->where('reference_id', $invoice->id)
+            ->update([
+                'debit' => 0,
+                'credit' => 0,
+                'updated_at' => now(),
+            ]);
+
+        $this->recalculateLedgerBalances((int) $invoice->customer_id);
+
         Log::info('[INVOICE SYNC] deleted (cancelled)', [
             'client_uuid' => $clientUuid,
             'invoice_id' => $invoice->id,
@@ -2313,7 +2499,22 @@ class Handheld2Controller extends Controller
                 ->where('is_active', true)
                 ->whereNull('deleted_at')
                 ->get(['id', 'code', 'name_ar', 'phone', 'address_line', 'latitude', 'longitude'])
-                ->map(function ($c) {
+                ->map(function ($c) use ($user) {
+                    $ledger = DB::table('customer_ledger')
+                        ->where('customer_id', $c->id)
+                        ->selectRaw('COALESCE(SUM(debit),0) AS debit_amount, COALESCE(SUM(credit),0) AS credit_amount')
+                        ->first();
+
+                    $standaloneCredit = (float) DB::table('collections')
+                        ->where('customer_id', $c->id)
+                        ->where('company_id', $user->company_id)
+                        ->where('status', 'approved')
+                        ->whereNull('sales_invoice_id')
+                        ->sum('amount');
+
+                    $debit = (float) ($ledger->debit_amount ?? 0);
+                    $credit = (float) ($ledger->credit_amount ?? 0) + $standaloneCredit;
+
                     return [
                         'id' => $c->id,
                         'code' => $c->code,
@@ -2322,6 +2523,9 @@ class Handheld2Controller extends Controller
                         'address' => $c->address_line,
                         'latitude' => $c->latitude,
                         'longitude' => $c->longitude,
+                        'debit_amount' => round($debit, 2),
+                        'credit_amount' => round($credit, 2),
+                        'balance' => round($debit - $credit, 2),
                         '_sync_action' => 'insert',
                     ];
                 })

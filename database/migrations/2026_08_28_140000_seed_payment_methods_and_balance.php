@@ -24,6 +24,7 @@ return new class extends Migration
             ['code' => 'cash', 'name' => 'نقدي', 'requires_bank_account' => false],
             ['code' => 'bank_transfer', 'name' => 'تحويل بنكي', 'requires_bank_account' => true],
             ['code' => 'customer_balance', 'name' => 'رصيد العميل', 'requires_bank_account' => false],
+            ['code' => 'deferred', 'name' => 'آجل', 'requires_bank_account' => false],
         ];
 
         foreach ($methods as $m) {
@@ -42,7 +43,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::table('payment_methods')->whereIn('code', ['cash', 'bank_transfer', 'customer_balance'])->delete();
+        DB::table('payment_methods')->whereIn('code', ['cash', 'bank_transfer', 'customer_balance', 'deferred'])->delete();
         if (Schema::hasColumn('payment_methods', 'requires_bank_account')) {
             Schema::table('payment_methods', fn (Blueprint $table) => $table->dropColumn('requires_bank_account'));
         }

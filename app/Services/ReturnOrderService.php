@@ -52,9 +52,6 @@ class ReturnOrderService
 
             // Create salesman debt if applicable
             $this->createSalesmanDebt($returnOrder, $employeeId);
-
-            // Create sales invoice
-            $this->createSalesInvoice($returnOrder, $employeeId);
         });
 
         return $returnOrder->fresh();

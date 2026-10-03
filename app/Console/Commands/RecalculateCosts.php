@@ -24,39 +24,49 @@ class RecalculateCosts extends Command
             $this->info("Updated purchase_price to {$price} for {$updated} default item units.");
         }
 
-        // 2. Batch update all sales invoice items with cost = qty * 47.85
+        // 2. Batch update all sales invoice items with cost = qty * purchase price
         $this->info('Recalculating costs for all sales invoices...');
 
-        $defaultCost = $purchasePrice ? (float) $purchasePrice : 47.85;
+        $latestPurchasePrice = '
+            (
+                SELECT pii.price
+                FROM purchase_invoice_items pii
+                JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
+                WHERE pii.item_id = sales_invoice_items.item_id
+                  AND pii.deleted_at IS NULL
+                  AND pi.deleted_at IS NULL
+                ORDER BY pi.invoice_date DESC, pii.id DESC
+                LIMIT 1
+            )';
 
-        // Update unit_cost from purchase_price lookup, fallback to provided price
+        $catalogPurchasePrice = '
+            (
+                SELECT iu.purchase_price
+                FROM item_units iu
+                WHERE iu.item_id = sales_invoice_items.item_id
+                  AND iu.is_default = 1
+                  AND iu.deleted_at IS NULL
+                  AND iu.purchase_price IS NOT NULL
+                ORDER BY iu.id DESC
+                LIMIT 1
+            )';
+
+        // unit_cost = item_units.purchase_price -> آخر فاتورة شراء -> القيمة الحالية
+        $unitCostSql = "COALESCE({$catalogPurchasePrice}, {$latestPurchasePrice}, unit_cost)";
+
         $updated = DB::statement("
             UPDATE sales_invoice_items
-            SET unit_cost = COALESCE(
-                (
-                    SELECT COALESCE(iu.purchase_price, ?)
-                    FROM item_units iu
-                    WHERE iu.item_id = sales_invoice_items.item_id
-                    AND iu.is_default = 1
-                    LIMIT 1
-                ),
-                ?
-            ),
-            total_cost = ABS(qty) * COALESCE(
-                (
-                    SELECT COALESCE(iu.purchase_price, ?)
-                    FROM item_units iu
-                    WHERE iu.item_id = sales_invoice_items.item_id
-                    AND iu.is_default = 1
-                    LIMIT 1
-                ),
-                ?
-            )
+            SET unit_cost = {$unitCostSql},
+                total_cost = ABS(qty) * {$unitCostSql}
             WHERE deleted_at IS NULL
-        ", [$defaultCost, $defaultCost, $defaultCost, $defaultCost]);
+        ");
 
         $affected = DB::table('sales_invoice_items')->where('unit_cost', '>', 0)->count();
         $this->info("Updated {$affected} sales invoice items with cost data.");
+
+        // 2b. Recalculate profit = net_amount - total_cost
+        $profits = app(\App\Services\CostingService::class)->recalculateAllProfits();
+        $this->info("Recalculated profit for {$profits} sales invoice items.");
 
         // 3. Show profit summary
         $this->newLine();

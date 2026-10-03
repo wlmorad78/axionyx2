@@ -199,11 +199,13 @@ class SalesInvoice extends Document
             // حفظ التكلفة على سطر الفاتورة لإ reported الأرباح
             $salesInvoiceItemId = $item['id'] ?? null;
             if ($salesInvoiceItemId) {
+                $totalCost = round((float) $cost['total_cost'], 4);
                 DB::table('sales_invoice_items')
                     ->where('id', $salesInvoiceItemId)
                     ->update([
                         'unit_cost' => $cost['unit_cost'],
-                        'total_cost' => $cost['total_cost'],
+                        'total_cost' => $totalCost,
+                        'profit' => DB::raw('ROUND(net_amount - ' . (float) $totalCost . ', 2)'),
                     ]);
             }
         }

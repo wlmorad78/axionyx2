@@ -188,16 +188,44 @@ class CostingService
                 $item->invoice_date
             );
 
+            $totalCost = round((float) $cost['total_cost'], 4);
+
             DB::table('sales_invoice_items')
                 ->where('id', $item->id)
                 ->update([
                     'unit_cost' => $cost['unit_cost'],
-                    'total_cost' => $cost['total_cost'],
+                    'total_cost' => $totalCost,
+                    'profit' => DB::raw('ROUND(net_amount - ' . (float) $totalCost . ', 2)'),
                 ]);
 
             $updated++;
         }
 
         return ['updated' => $updated, 'total' => $items->count()];
+    }
+
+    /**
+     * Recalculate the profit column for all sales invoice items.
+     * profit = net_amount - total_cost
+     *
+     * @param int|null $companyId
+     * @return int Number of updated rows
+     */
+    public function recalculateAllProfits(?int $companyId = null): int
+    {
+        $query = DB::table('sales_invoice_items');
+
+        if ($companyId) {
+            $invoiceIds = DB::table('sales_invoices')
+                ->where('company_id', $companyId)
+                ->pluck('id');
+
+            $query->whereIn('sales_invoice_id', $invoiceIds);
+        }
+
+        return $query->whereNull('deleted_at')
+            ->update([
+                'profit' => DB::raw('ROUND(COALESCE(net_amount, 0) - COALESCE(total_cost, 0), 2)'),
+            ]);
     }
 }

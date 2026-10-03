@@ -218,11 +218,18 @@ class ReportController extends Controller
             ->where('si.status', '!=', 'cancelled')
             ->sum('sii.total_cost');
 
+        $itemProfit = DB::table('sales_invoice_items as sii')
+            ->join('sales_invoices as si', 'si.id', '=', 'sii.sales_invoice_id')
+            ->where('si.company_id', $companyId)
+            ->whereBetween('si.invoice_date', [$startDate, $endDate])
+            ->where('si.status', '!=', 'cancelled')
+            ->sum('sii.profit');
+
         $expenses = \App\Models\Expense::where('company_id', $companyId)
             ->whereBetween('expense_date', [$startDate, $endDate])
             ->sum('amount');
 
-        $profit = (float) $sales - (float) $cost - (float) $expenses;
+        $profit = (float) $itemProfit - (float) $expenses;
 
         return response()->json([
             'data' => [
@@ -805,7 +812,11 @@ class ReportController extends Controller
         foreach ($result as &$rep) {
             $rep['total_sales'] = round($rep['total_sales'], 2);
             $rep['total_qty'] = round($rep['total_qty'], 2);
-            usort($rep['customers'], fn($a, $b) => strcmp($a['customer_name'], $b['customer_name']));
+            usort($rep['customers'], function ($a, $b) {
+                $aInv = is_array($a['invoice_nos'] ?? null) ? ($a['invoice_nos'][0] ?? '') : ($a['invoice_nos'] ?? '');
+                $bInv = is_array($b['invoice_nos'] ?? null) ? ($b['invoice_nos'][0] ?? '') : ($b['invoice_nos'] ?? '');
+                return strcmp($aInv, $bInv);
+            });
         }
 
         return response()->json([
@@ -1403,15 +1414,18 @@ class ReportController extends Controller
         // استعلام واحد يجمع كل حاجة
         $salesRows = DB::table('sales_invoices as si')
             ->join('sales_invoice_items as sii', 'sii.sales_invoice_id', '=', 'si.id')
+            ->join('items as it', 'it.id', '=', 'sii.item_id')
             ->where('si.company_id', $companyId)
-            ->where('si.status', '!=', 'cancelled')
+            ->where('si.status', 'posted')
+            ->whereNull('si.deleted_at')
             ->whereBetween('si.invoice_date', [$dateFrom, $dateTo])
             ->whereNull('sii.deleted_at')
+            ->whereNull('it.deleted_at')
             ->select(
                 'sii.item_id',
                 DB::raw('DATE(si.invoice_date) as sale_date'),
-                DB::raw('SUM(sii.qty) as total_qty'),
-                DB::raw('SUM(sii.net_amount) as total_amount')
+                DB::raw('ABS(SUM(COALESCE(NULLIF(sii.base_quantity, 0), sii.qty))) as total_qty'),
+                DB::raw('ABS(SUM(sii.net_amount)) as total_amount')
             )
             ->groupBy('sii.item_id', DB::raw('DATE(si.invoice_date)'))
             ->get();
@@ -1424,6 +1438,8 @@ class ReportController extends Controller
             $items = \App\Models\Item::whereIn('id', $soldItemIds)
                 ->get(['id', 'name_ar', 'name_en', 'code'])
                 ->keyBy('id');
+            // تجاهل أصناف محذوفة حتى لا تظهر أعمدة فارغة
+            $soldItemIds = $items->keys()->values()->all();
         }
 
         // بناء بيانات pivot
@@ -1852,6 +1868,249 @@ class ReportController extends Controller
                     'total_returns_amount' => round($totalReturnAmount, 2),
                     'total_purchases_qty'  => $totalPurchaseQty,
                     'total_purchases_amount'=> round($totalPurchaseAmount, 2),
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/reports/sales-by-rep
+     * تقرير مبيعات المندوبين - أعمدة = المنتجات، صفوف = المندوبين
+     */
+    public function salesByRep(Request $request)
+    {
+        $request->validate([
+            'date'    => 'required|date',
+            'rep_id'  => 'nullable|integer',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $date = $request->input('date');
+        $repId = $request->input('rep_id');
+
+        // 1. جلب المبيعات: quantity + amount per rep per item
+        $saleQuery = DB::table('sales_invoice_items as sii')
+            ->join('sales_invoices as si', 'sii.sales_invoice_id', '=', 'si.id')
+            ->whereNull('si.deleted_at')
+            ->whereNull('sii.deleted_at')
+            ->where('si.company_id', $companyId)
+            ->where('si.status', '!=', 'cancelled')
+            ->whereDate('si.invoice_date', $date)
+            ->select(
+                'si.sales_rep_id as user_id',
+                'sii.item_id',
+                DB::raw('ABS(SUM(COALESCE(NULLIF(sii.base_quantity, 0), sii.qty))) as total_qty'),
+                DB::raw('SUM(sii.net_amount) as total_amount')
+            )
+            ->groupBy('si.sales_rep_id', 'sii.item_id');
+
+        if ($repId) {
+            $saleQuery->where('si.sales_rep_id', $repId);
+        }
+
+        $saleRows = $saleQuery->get();
+
+        // 2. المرتجعات per rep per item
+        $returnQuery = DB::table('return_order_items as roi')
+            ->join('return_orders as ro', 'roi.return_order_id', '=', 'ro.id')
+            ->whereNull('ro.deleted_at')
+            ->where('ro.company_id', $companyId)
+            ->whereIn('ro.status_id', ['pending', 'approved', 'received'])
+            ->whereDate('ro.return_date', $date)
+            ->select(
+                'ro.user_id',
+                'roi.item_id',
+                DB::raw('SUM(roi.returned_quantity) as return_qty'),
+                DB::raw('SUM(roi.line_total) as return_amount')
+            )
+            ->groupBy('ro.user_id', 'roi.item_id');
+
+        if ($repId) {
+            $returnQuery->where('ro.user_id', $repId);
+        }
+
+        $returnRows = $returnQuery->get();
+
+        // 3. جمع كل الأصناف والمندوبين
+        $allItemIds = $saleRows->pluck('item_id')
+            ->merge($returnRows->pluck('item_id'))
+            ->unique()->filter()->values();
+
+        $allUserIds = $saleRows->pluck('user_id')
+            ->merge($returnRows->pluck('user_id'))
+            ->unique()->filter()->values();
+
+        // 4. جلب بيانات الأصناف
+        $items = $allItemIds->isEmpty() ? collect() : \App\Models\Item::whereIn('id', $allItemIds)
+            ->with('baseUnit:id,name_ar,name_en')
+            ->get(['id', 'name_ar', 'name_en', 'code'])
+            ->keyBy('id');
+
+        // 5. جلب أسماء المندوبين
+        $employees = $allUserIds->isEmpty() ? collect()->keyBy('user_id') : DB::table('employees')
+            ->whereNull('deleted_at')
+            ->whereIn('user_id', $allUserIds)
+            ->select(
+                'user_id',
+                DB::raw("TRIM(COALESCE(first_name_ar, '') || ' ' || COALESCE(second_name_ar, '') || ' ' || COALESCE(third_name_ar, '') || ' ' || COALESCE(last_name_ar, '')) as rep_name")
+            )
+            ->get()
+            ->keyBy('user_id');
+
+        // 6. بناء pivot: rep -> item -> {qty, amount, return_qty, return_amount}
+        $pivot = [];
+        foreach ($saleRows as $row) {
+            $uid = $row->user_id;
+            $iid = $row->item_id;
+            $pivot[$uid][$iid]['qty'] = (float) $row->total_qty;
+            $pivot[$uid][$iid]['amount'] = (float) $row->total_amount;
+        }
+        foreach ($returnRows as $row) {
+            $uid = $row->user_id;
+            $iid = $row->item_id;
+            if (!isset($pivot[$uid][$iid])) $pivot[$uid][$iid] = ['qty' => 0, 'amount' => 0];
+            $pivot[$uid][$iid]['return_qty'] = (float) $row->return_qty;
+            $pivot[$uid][$iid]['return_amount'] = (float) $row->return_amount;
+        }
+
+        // 7. بناء الاستجابة
+        $reps = [];
+        foreach ($allUserIds as $uid) {
+            $emp = $employees[$uid] ?? null;
+            $itemsData = [];
+            $totalQty = 0;
+            $totalAmount = 0;
+            $totalReturnQty = 0;
+            $totalReturnAmount = 0;
+
+            foreach ($allItemIds as $iid) {
+                $d = $pivot[$uid][$iid] ?? null;
+                $q = $d['qty'] ?? 0;
+                $a = $d['amount'] ?? 0;
+                $rq = $d['return_qty'] ?? 0;
+                $ra = $d['return_amount'] ?? 0;
+                $totalQty += $q;
+                $totalAmount += $a;
+                $totalReturnQty += $rq;
+                $totalReturnAmount += $ra;
+                $itemsData[$iid] = [
+                    'qty'           => round($q, 2),
+                    'amount'        => round($a, 2),
+                    'return_qty'    => round($rq, 2),
+                    'return_amount' => round($ra, 2),
+                ];
+            }
+
+            $reps[] = [
+                'user_id'            => $uid,
+                'rep_name'           => $emp?->rep_name ?? "مندوب #$uid",
+                'items'              => $itemsData,
+                'total_qty'          => round($totalQty, 2),
+                'total_amount'       => round($totalAmount, 2),
+                'total_return_qty'   => round($totalReturnQty, 2),
+                'total_return_amount'=> round($totalReturnAmount, 2),
+            ];
+        }
+
+        // 8. إجمالي كل صنف
+        $itemTotals = [];
+        foreach ($allItemIds as $iid) {
+            $tq = 0; $ta = 0; $trq = 0; $tra = 0;
+            foreach ($reps as $rep) {
+                $d = $rep['items'][$iid] ?? null;
+                if ($d) {
+                    $tq += $d['qty'];
+                    $ta += $d['amount'];
+                    $trq += $d['return_qty'];
+                    $tra += $d['return_amount'];
+                }
+            }
+            $item = $items->get($iid);
+            $itemTotals[$iid] = [
+                'item_name'    => $item?->name_ar ?? $item?->name_en ?? '',
+                'item_code'    => $item?->code ?? '',
+                'unit_name'    => $item?->baseUnit?->name_ar ?? $item?->baseUnit?->name_en ?? '',
+                'total_qty'    => round($tq, 2),
+                'total_amount' => round($ta, 2),
+                'return_qty'   => round($trq, 2),
+                'return_amount'=> round($tra, 2),
+            ];
+        }
+
+        return response()->json([
+            'data' => [
+                'date'       => $date,
+                'items'      => array_values($itemTotals),
+                'reps'       => $reps,
+                'item_ids'   => $allItemIds->values()->all(),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/reports/customer-invoice-payments
+     * تقرير تفاصيل فواتير العملاء: قيمة الفاتورة، المدفوع، المتبقي
+     */
+    public function customerInvoicePayments(Request $request)
+    {
+        $request->validate([
+            'date_from'    => 'required|date',
+            'date_to'      => 'required|date|after_or_equal:date_from',
+            'customer_id'  => 'nullable|integer',
+            'sales_rep_id' => 'nullable|integer',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $customerId = $request->input('customer_id');
+        $salesRepId = $request->input('sales_rep_id');
+
+        $invoices = DB::table('sales_invoices')
+            ->join('customers', 'sales_invoices.customer_id', '=', 'customers.id')
+            ->whereNull('customers.deleted_at')
+            ->leftJoin('employees', 'sales_invoices.sales_rep_id', '=', 'employees.user_id')
+            ->whereNull('employees.deleted_at')
+            ->where('sales_invoices.company_id', $companyId)
+            ->whereDate('sales_invoices.invoice_date', '>=', $dateFrom)
+            ->whereDate('sales_invoices.invoice_date', '<=', $dateTo)
+            ->where('sales_invoices.status', 'posted')
+            ->whereNull('sales_invoices.deleted_at')
+            ->select(
+                'sales_invoices.id',
+                'sales_invoices.invoice_no',
+                'sales_invoices.invoice_date',
+                'customers.code as customer_code',
+                'customers.name_ar as customer_name',
+                DB::raw("COALESCE(employees.first_name_ar, '') || ' ' || COALESCE(employees.last_name_ar, '') as sales_rep_name"),
+                'sales_invoices.net_total',
+                'sales_invoices.paid_amount',
+                DB::raw('(sales_invoices.net_total - sales_invoices.paid_amount) as remaining_amount')
+            );
+
+        if ($customerId) {
+            $invoices->where('sales_invoices.customer_id', $customerId);
+        }
+        if ($salesRepId) {
+            $invoices->where('sales_invoices.sales_rep_id', $salesRepId);
+        }
+
+        $invoices = $invoices->orderBy('sales_invoices.invoice_date')
+            ->orderBy('sales_invoices.invoice_no')
+            ->get();
+
+        $totalNet = $invoices->sum('net_total');
+        $totalPaid = $invoices->sum('paid_amount');
+        $totalRemaining = $invoices->sum('remaining_amount');
+
+        return response()->json([
+            'data' => [
+                'invoices' => $invoices,
+                'summary' => [
+                    'total_invoices' => $invoices->count(),
+                    'total_net' => round($totalNet, 2),
+                    'total_paid' => round($totalPaid, 2),
+                    'total_remaining' => round($totalRemaining, 2),
                 ],
             ],
         ]);

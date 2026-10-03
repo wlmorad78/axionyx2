@@ -10,7 +10,7 @@ Route::get('handheld2/version', function () {
     return response()->json([
         'success' => true,
         'data' => [
-            'version' => '1.9.5',
+            'version' => '1.9.6',
             'build_number' => 1,
             'min_required_version' => '1.9.5',
             'force_update' => false,
@@ -44,6 +44,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('handheld2/sync/pull', [Handheld2Controller::class, 'syncPull']);
     Route::post('handheld2/start-day', [Handheld2Controller::class, 'startDay']);
     Route::get('handheld2/customer-statement', [Handheld2Controller::class, 'customerStatement']);
+    Route::get('handheld2/customer-balance/{customerId}', [Handheld2Controller::class, 'customerBalance']);
+    Route::get('handheld2/customer-balances-bulk', [Handheld2Controller::class, 'customerBalancesBulk']);
     Route::get('handheld2/customer-sales-report', [Handheld2Controller::class, 'customerSalesReport']);
     Route::get('handheld2/invoice-details', [Handheld2Controller::class, 'invoiceDetails']);
     Route::get('handheld2/invoice-payment-methods/{clientUuid}', [Handheld2Controller::class, 'invoicePaymentMethods']);
