@@ -126,12 +126,41 @@ class DashboardV2Controller extends Controller
             ->where('is_active', true)
             ->sum(DB::raw('CASE WHEN current_balance IS NULL THEN COALESCE(opening_balance, 0) ELSE current_balance END'));
 
-        $inventoryQuantity = DB::table('inventory_transaction_items as iti')
+        // الكمية مخزنة بعلامتها أصلاً (+ للوارد / - للصادر) فلا داعي لعكس الإشارة
+        $netQtyPerItem = DB::table('inventory_transaction_items as iti')
             ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
-            ->join('inventory_transaction_types as itt', 'itt.id', '=', 'it.transaction_type_id')
             ->where('it.company_id', $companyId)
             ->where('it.status', 'posted')
-            ->sum(DB::raw("COALESCE(iti.qty, 0) * CASE WHEN itt.effect = 'subtraction' THEN -1 ELSE 1 END"));
+            ->groupBy('iti.item_id')
+            ->select('iti.item_id', DB::raw('SUM(COALESCE(iti.qty, 0)) as net_qty'))
+            ->get();
+
+        $inventoryQuantity = (float) $netQtyPerItem->sum('net_qty');
+
+        // سعر الشراء الافتراضي (الوحدة is_default) لكل صنف
+        $purchasePrices = DB::table('item_units')
+            ->where('is_default', true)
+            ->whereNull('deleted_at')
+            ->where('purchase_price', '>', 0)
+            ->groupBy('item_id')
+            ->pluck('purchase_price', 'item_id');
+
+        // بديل: آخر تكلفة مسجلة على حركات المخزون لو مفيش سعر شراء افتراضي
+        $fallbackCosts = DB::table('inventory_transaction_items as iti')
+            ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
+            ->where('it.company_id', $companyId)
+            ->where('it.status', 'posted')
+            ->where('iti.unit_cost', '>', 0)
+            ->groupBy('iti.item_id')
+            ->select(DB::raw('MAX(iti.unit_cost) as cost'), 'iti.item_id')
+            ->pluck('cost', 'item_id');
+
+        // القيمة (الرصيد) = صافي الكمية × سعر الشراء
+        $inventoryValue = 0.0;
+        foreach ($netQtyPerItem as $row) {
+            $price = (float) ($purchasePrices[$row->item_id] ?? $fallbackCosts[$row->item_id] ?? 0);
+            $inventoryValue += (float) $row->net_qty * $price;
+        }
 
         $debtors = SalesInvoice::where('company_id', $companyId)
             ->where('status', '!=', 'cancelled')
@@ -166,6 +195,7 @@ class DashboardV2Controller extends Controller
             'treasury_balance' => (float) ($treasuryBalance ?? 0),
             'bank_balance' => (float) ($bankBalance ?? 0),
             'inventory_quantity' => (float) ($inventoryQuantity ?? 0),
+            'inventory_value' => round($inventoryValue, 2),
             'debtors_count' => $debtors->count(),
             'debtors_total' => (float) $debtors->sum(),
             'creditors_count' => $creditors->count(),
@@ -371,6 +401,7 @@ class DashboardV2Controller extends Controller
                 'treasury_balance' => 0,
                 'bank_balance' => 0,
                 'inventory_quantity' => 0,
+                'inventory_value' => 0,
                 'debtors_count' => 0,
                 'debtors_total' => 0,
                 'creditors_count' => 0,
