@@ -26,7 +26,7 @@ class IdCardParser
         'تاريخ الانتهاء',
         'تاريخ الإصدار',
         'رقم البطاقة',
-        'الرقم القومي',
+        'الرقم القوم',
         'الحالة الاجتماعية',
         'الأحوال المدنية',
         'المهنة',
@@ -100,13 +100,119 @@ class IdCardParser
             $birthDate = self::birthDateFromNationalId($nationalId);
         }
 
+        $positional = self::extractPositional($lines);
+
         return [
             'national_id' => $nationalId,
             'national_id_valid' => $nationalId !== null && self::isValidStructure($nationalId),
-            'full_name' => self::extractName($lines),
+            'full_name' => $positional['name'] ?? self::extractName($lines),
             'birth_date' => $birthDate,
-            'address' => self::extractAddress($lines),
+            'address' => $positional['address'] ?? self::extractAddress($lines),
         ];
+    }
+
+    /**
+     * الاستخراج حسب مواضع الأسطر كما تُطبع على البطاقة:
+     * السطران الأولان = الاسم، السطران التاليان = العنوان،
+     * والسطر الأخير (الأرقام) = الرقم القومي.
+     *
+     * يُهمَل ما عدا هذه الأسطر (ترويسات، تسميات حقول، تواريخ، كود الصورة)
+     * ويُهمل الناتج كله إن لم تتطابق البنية مع المتوقع.
+     *
+     * @return array{name: ?string, address: ?string}
+     */
+    private static function extractPositional(array $lines): array
+    {
+        $pool = [];
+        foreach ($lines as $line) {
+            if (self::isNoiseLine($line)) {
+                continue;
+            }
+
+            $line = self::cleanValue(self::stripFieldLabel($line));
+            if ($line === '') {
+                continue;
+            }
+            if (!preg_match('/\p{Arabic}/u', $line)) {
+                continue;
+            }
+            if (preg_match('/\d{14}/', $line)) {
+                continue;
+            }
+            if (preg_match('/^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}$/', $line)) {
+                continue;
+            }
+            if (preg_match('/\d{6,}/', $line)) {
+                continue;
+            }
+
+            $pool[] = $line;
+        }
+
+        if ($pool === []) {
+            return ['name' => null, 'address' => null];
+        }
+
+        // الاسم: أول سطرين لا يبدوان عنواناً.
+        $nameLines = [];
+        foreach ($pool as $line) {
+            if (self::isAddressLine($line)) {
+                break;
+            }
+            $nameLines[] = $line;
+            if (count($nameLines) === 2) {
+                break;
+            }
+        }
+
+        $name = null;
+        if ($nameLines !== []) {
+            $candidate = trim(implode(' ', $nameLines));
+            if (self::looksLikeName($candidate)) {
+                $name = $candidate;
+            }
+        }
+
+        // العنوان: السطرين التاليان بعد الاسم (أو ما تبقّى من السطور).
+        $address = null;
+        $addressLines = array_slice($pool, count($nameLines), 2);
+        if ($addressLines !== []) {
+            $candidate = trim(implode(' - ', $addressLines));
+            if (self::isAddressLine($candidate)) {
+                $address = $candidate;
+            }
+        }
+
+        return ['name' => $name, 'address' => $address];
+    }
+
+    /**
+     * هل السطر ترويسة أو تسمية حقل يجب إهمالها في الاستخراج الموضعي؟
+     */
+    private static function isNoiseLine(string $line): bool
+    {
+        foreach (self::NOISE as $noise) {
+            if (str_contains($line, $noise)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * إزالة تسميات الحقول (الاسم/العنوان/الرقم القومي/التاريخ) من بداية السطر.
+     */
+    private static function stripFieldLabel(string $value): string
+    {
+        $value = self::stripNameLabel($value);
+        $stripped = preg_replace(
+            '/^(?:العنوان|الرقم القوم[يى]|تاريخ الميلاد|تاريخ الإصدار|التاريخ|الميلاد|الحالة الاجتماعية|المهنة|الديانة|النوع)\s*[:：\-–—]?\s*/u',
+            '',
+            $value
+        );
+
+        return $stripped ?? $value;
     }
 
     /**

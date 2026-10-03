@@ -167,4 +167,60 @@ TEXT;
 
         $this->assertSame('2001-07-03', $result['birth_date']);
     }
+
+    public function test_positional_extraction_matches_card_layout(): void
+    {
+        // بنية البطاقة: السطران الأولان اسم، التاليان عنوان، الأخير رقم قومي
+        $text = <<<'TEXT'
+بصيرة
+رمضان محمود عبد النبى تركى
+خلف حضارة الموج الاسلامية
+مرزق مركز البيرشين - الجيزة
+٢٩٧٠١٠١٠٢٠١٠٦٤
+TEXT;
+
+        $result = IdCardParser::parse($text, 'front');
+
+        $this->assertSame(
+            'بصيرة رمضان محمود عبد النبى تركى',
+            $result['full_name']
+        );
+        $this->assertSame(
+            'خلف حضارة الموج الاسلامية - مرزق مركز البيرشين - الجيزة',
+            $result['address']
+        );
+        $this->assertSame('29701010201064', $result['national_id']);
+        $this->assertTrue($result['national_id_valid']);
+    }
+
+    public function test_positional_extraction_skips_headers_labels_and_serials(): void
+    {
+        $text = <<<'TEXT'
+جمهورية مصر العربية
+بطاقة تحقيق شخصية
+الاسم
+بصيرة
+رمضان محمود عبد النبى تركى
+تاريخ الميلاد 1/1/1997
+العنوان
+خلف حضارة الموج الاسلامية
+مرزق مركز البيرشين - الجيزة
+الرقم القومى
+٢٩٧٠١٠١٠٢٠١٠٦٤
+HC7856601
+TEXT;
+
+        $result = IdCardParser::parse($text, 'front');
+
+        $this->assertSame(
+            'بصيرة رمضان محمود عبد النبى تركى',
+            $result['full_name']
+        );
+        $this->assertSame(
+            'خلف حضارة الموج الاسلامية - مرزق مركز البيرشين - الجيزة',
+            $result['address']
+        );
+        $this->assertSame('29701010201064', $result['national_id']);
+        $this->assertSame('1997-01-01', $result['birth_date']);
+    }
 }
