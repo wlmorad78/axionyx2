@@ -3467,6 +3467,13 @@ RouteFacade::post('handheld/ocr-id-card', function (\Illuminate\Http\Request $re
     $request->validate([
         'image' => 'required|file|image|max:8192',
         'side' => 'required|in:front,back',
+    ], [
+        'image.required' => 'صورة البطاقة مطلوبة',
+        'image.uploaded' => 'تعذّر رفع الصورة — تأكد من حجمها ثم حاول مجدداً',
+        'image.image' => 'الملف المرفوع يجب أن يكون صورة',
+        'image.max' => 'حجم الصورة يتجاوز 8 ميجابايت',
+        'side.required' => 'وجه البطاقة (front/back) مطلوب',
+        'side.in' => 'وجه البطاقة غير صالح',
     ]);
 
     try {

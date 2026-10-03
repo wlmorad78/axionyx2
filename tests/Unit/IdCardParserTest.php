@@ -135,4 +135,36 @@ TEXT;
         $this->assertFalse(IdCardParser::isValidStructure('2980512010123'));  // 13 رقم
         $this->assertTrue(IdCardParser::isValidStructure('29805120101234'));
     }
+
+    public function test_rejects_garbage_name_after_label(): void
+    {
+        // نص قراءة مشوّه لا يحتوي اسمًا عربيًا حقيقياً
+        $result = IdCardParser::parse('الاسم ٠. YVA A 64', 'front');
+
+        $this->assertNull($result['full_name']);
+    }
+
+    public function test_strips_label_when_name_on_same_line(): void
+    {
+        $result = IdCardParser::parse('الاسم محمد أحمد علي محمود', 'front');
+
+        $this->assertSame('محمد أحمد علي محمود', $result['full_name']);
+    }
+
+    public function test_derives_birth_date_from_national_id_when_not_printed(): void
+    {
+        $text = "الاسم محمد أحمد علي\nالرقم القومي 29805120101234";
+        $result = IdCardParser::parse($text, 'front');
+
+        $this->assertSame('1998-05-12', $result['birth_date']);
+    }
+
+    public function test_printed_birth_date_takes_precedence_over_national_id(): void
+    {
+        // تاريخ مطبوع مختلف عن المستخرج من الرقم القومي (سنة ميلاد 2001)
+        $text = "الرقم القومي 29805120101234\nتاريخ الميلاد 3-7-2001";
+        $result = IdCardParser::parse($text, 'front');
+
+        $this->assertSame('2001-07-03', $result['birth_date']);
+    }
 }

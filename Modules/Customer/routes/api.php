@@ -10,7 +10,6 @@ use App\Modules\Customer\src\Controllers\CustomerExportController;
 Route::prefix('v2')->group(function () {
 
     // ─── CRUD ──────────────────────────────────────────────────
-    Route::apiResource('customers', CustomerController::class);
     Route::post('customers/{customer}/restore', [CustomerController::class, 'restore']);
     Route::delete('customers/{customer}/force-delete', [CustomerController::class, 'forceDelete']);
     Route::get('customers/next-code', [CustomerController::class, 'nextCode']);

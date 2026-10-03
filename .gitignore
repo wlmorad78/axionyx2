@@ -54,3 +54,6 @@ database/check_*.php
 database/delete_*.php
 database/fix_*.php
 database/review_*.php
+
+*.sqlite-shm
+*.sqlite-wal

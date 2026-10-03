@@ -95,14 +95,35 @@ class IdCardParser
         $lines = self::lines($text);
 
         $nationalId = self::extractNationalId($lines, $text);
+        $birthDate = self::extractBirthDate($lines);
+        if ($birthDate === null && $nationalId !== null && self::isValidStructure($nationalId)) {
+            $birthDate = self::birthDateFromNationalId($nationalId);
+        }
 
         return [
             'national_id' => $nationalId,
             'national_id_valid' => $nationalId !== null && self::isValidStructure($nationalId),
             'full_name' => self::extractName($lines),
-            'birth_date' => self::extractBirthDate($lines),
+            'birth_date' => $birthDate,
             'address' => self::extractAddress($lines),
         ];
+    }
+
+    /**
+     * اشتقاق تاريخ الميلاد من الرقم القومي (خاصيتاه 2–6).
+     */
+    private static function birthDateFromNationalId(string $nationalId): string
+    {
+        $year = $nationalId[0] === '2'
+            ? 1900 + (int) substr($nationalId, 1, 2)
+            : 2000 + (int) substr($nationalId, 1, 2);
+
+        return sprintf(
+            '%04d-%02d-%02d',
+            $year,
+            (int) substr($nationalId, 3, 2),
+            (int) substr($nationalId, 5, 2)
+        );
     }
 
     /**
@@ -230,14 +251,14 @@ class IdCardParser
             }
 
             $value = self::cleanValue(
-                mb_substr($lines[$i], $position + mb_strlen('الاسم'))
+                self::stripNameLabel(mb_substr($lines[$i], $position + mb_strlen('الاسم')))
             );
             if (self::looksLikeName($value)) {
                 return $value;
             }
 
             for ($j = $i + 1; $j < min($i + 3, $count); $j++) {
-                $next = self::cleanValue($lines[$j]);
+                $next = self::cleanValue(self::stripNameLabel($lines[$j]));
                 if (self::looksLikeName($next)) {
                     return $next;
                 }
@@ -247,15 +268,16 @@ class IdCardParser
         // بديل: أطول سطر عربي يشبه اسمًا
         $best = null;
         foreach ($lines as $line) {
-            if (!self::looksLikeName($line)) {
+            $candidate = self::cleanValue(self::stripNameLabel($line));
+            if (!self::looksLikeName($candidate)) {
                 continue;
             }
-            if ($best === null || mb_strlen($line) > mb_strlen($best)) {
-                $best = $line;
+            if ($best === null || mb_strlen($candidate) > mb_strlen($best)) {
+                $best = $candidate;
             }
         }
 
-        return $best !== null ? self::cleanValue($best) : null;
+        return $best;
     }
 
     private static function extractBirthDate(array $lines): ?string
@@ -358,10 +380,13 @@ class IdCardParser
 
     /**
      * هل يبدو النص اسم شخص (سطر عربي بلا أرقام وبلا ترويسات)؟
+     *
+     * يشترط كلمتين عربيتين حقيقيتين على الأقل حتى لا يمرّ نص القراءة
+     * المشوّه (مثل "0. YVA A 64") كاسم.
      */
     private static function looksLikeName(string $value): bool
     {
-        $value = trim($value);
+        $value = self::cleanValue(self::stripNameLabel($value));
         if (mb_strlen($value) < 5) {
             return false;
         }
@@ -391,6 +416,10 @@ class IdCardParser
             return false;
         }
 
+        $arabicWords = 0;
+        $arabicLetters = 0;
+        $totalLetters = 0;
+
         foreach ($words as $word) {
             if (mb_strlen($word) < 2) {
                 continue;
@@ -398,9 +427,42 @@ class IdCardParser
             if (mb_strlen($word) > 20) {
                 return false;
             }
+
+            preg_match_all('/\p{Arabic}/u', $word, $arabicMatches);
+            preg_match_all('/\p{L}/u', $word, $letterMatches);
+            $wordArabic = count($arabicMatches[0]);
+            $wordLetters = count($letterMatches[0]);
+
+            if ($wordArabic >= 2) {
+                $arabicWords++;
+            }
+            $arabicLetters += $wordArabic;
+            $totalLetters += $wordLetters;
+        }
+
+        if ($arabicWords < 2) {
+            return false;
+        }
+
+        if ($totalLetters > 0 && $arabicLetters < (int) ceil($totalLetters * 0.4)) {
+            return false;
         }
 
         return true;
+    }
+
+    /**
+     * إزالة تسمية حقل "الاسم" الظاهرة في بداية المرشح.
+     */
+    private static function stripNameLabel(string $value): string
+    {
+        $stripped = preg_replace(
+            '/^(?:الاسم(?:\s+الكامل|\s+الرباعي)?)\s*[:：\-–—]?\s*/u',
+            '',
+            trim($value)
+        );
+
+        return $stripped ?? trim($value);
     }
 
     private static function cleanValue(string $value): string

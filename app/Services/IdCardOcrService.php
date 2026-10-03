@@ -35,8 +35,49 @@ class IdCardOcrService
         $input = $this->preprocess($original);
 
         $langs = (string) config('ocr.languages', 'ara+eng');
-        $psm = (int) config('ocr.psm', 4);
+        $preferredPsm = (int) config('ocr.psm', 4);
+        $psms = array_values(array_unique([$preferredPsm, 6, 11]));
 
+        $bestText = '';
+        $bestScore = -1;
+        $lastExit = 0;
+
+        try {
+            foreach ($psms as $psm) {
+                [$text, $exitCode] = $this->runTesseract($binary, $input, $langs, $psm);
+                $lastExit = $exitCode;
+
+                $score = $this->score($text);
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestText = $text;
+                }
+
+                // نتيجة قوية (رقم قومي كامل أو مؤشرات حقول كثيرة) لا تحتاج محاولة أخرى.
+                if ($score >= 70) {
+                    break;
+                }
+            }
+        } finally {
+            if ($input !== $original && is_file($input)) {
+                @unlink($input);
+            }
+        }
+
+        if ($lastExit !== 0 && trim($bestText) === '') {
+            throw new RuntimeException('تعذّرت قراءة صورة البطاقة، حاول بصورة أوضح');
+        }
+
+        return trim($bestText);
+    }
+
+    /**
+     * تنفيذ أمر Tesseract واحداً وإرجاع [النص, رمز الخروج].
+     *
+     * @return array{0: string, 1: int}
+     */
+    private function runTesseract(string $binary, string $input, string $langs, int $psm): array
+    {
         $cmd = escapeshellarg($binary)
             . ' ' . escapeshellarg($input)
             . ' stdout -l ' . escapeshellarg($langs)
@@ -45,21 +86,37 @@ class IdCardOcrService
 
         $output = [];
         $exitCode = 0;
-        try {
-            exec($cmd, $output, $exitCode);
-        } finally {
-            if ($input !== $original && is_file($input)) {
-                @unlink($input);
+        exec($cmd, $output, $exitCode);
+
+        return [implode("\n", $output), $exitCode];
+    }
+
+    /**
+     * تقييم جودة النص الخام: رقم قومي كامل أقوى إشارة، ثم مؤشرات الحقول
+     * والكلمات العربية وأسطر النص.
+     */
+    private function score(string $text): int
+    {
+        if (trim($text) === '') {
+            return 0;
+        }
+
+        $score = 0;
+        $score += 40 * preg_match_all('/\d{14}/', $text);
+        $score += 15 * preg_match_all('/\d{8,}/', $text);
+
+        foreach (['الاسم', 'العنوان', 'ميلاد', 'الرقم القومي', 'مصر'] as $marker) {
+            if (str_contains($text, $marker)) {
+                $score += 12;
             }
         }
 
-        $text = trim(implode("\n", $output));
+        preg_match_all('/[\x{0600}-\x{06FF}]{2,}/u', $text, $words);
+        $score += 4 * count($words[0]);
 
-        if ($exitCode !== 0 && $text === '') {
-            throw new RuntimeException('تعذّرت قراءة صورة البطاقة، حاول بصورة أوضح');
-        }
+        $score += min(10, substr_count($text, "\n"));
 
-        return $text;
+        return $score;
     }
 
     /**
@@ -114,9 +171,18 @@ class IdCardOcrService
         $max = max(400, (int) config('ocr.max_dimension', 2400));
         $width = imagesx($image);
         $height = imagesy($image);
+        $longest = max($width, $height);
 
-        if (max($width, $height) > $max) {
-            $scale = $max / max($width, $height);
+        // تصغير الصور الكبيرة، وتكبير الصور الصغيرة لضمان وضوح النص للقراءة.
+        $target = null;
+        if ($longest > $max) {
+            $target = $max;
+        } elseif ($longest < 1600) {
+            $target = $max;
+        }
+
+        if ($target !== null) {
+            $scale = $target / $longest;
             $newWidth = max(1, (int) round($width * $scale));
             $newHeight = max(1, (int) round($height * $scale));
             $resized = imagecreatetruecolor($newWidth, $newHeight);
