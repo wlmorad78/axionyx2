@@ -12,10 +12,10 @@ Route::get('handheld2/version', function () {
         'data' => [
             'version' => '1.9.6',
             'build_number' => 1,
-            'min_required_version' => '1.9.5',
+            'min_required_version' => '1.9.6',
             'force_update' => false,
             'release_notes' => 'تحسينات المزامنة والأوامر التكميلية',
-            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_hh_v1.9.5.apk',
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_hh_v1.9.6.apk',
         ],
     ]);
 });
