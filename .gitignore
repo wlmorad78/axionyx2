@@ -42,3 +42,15 @@ database.sqlite-wal
 /test_report.php
 /distribution_tables_schema.txt
 /vehicle_tables_schema.txt
+
+# Junk / generated files (removed from repo 2026-10-03)
+*.csv
+*.sqlite
+*.sqlite.gz
+New folder*/
+tmp_*.php
+.env.backup_*
+database/check_*.php
+database/delete_*.php
+database/fix_*.php
+database/review_*.php
