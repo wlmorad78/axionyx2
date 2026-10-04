@@ -6,15 +6,15 @@ use Illuminate\Http\UploadedFile;
 use RuntimeException;
 
 /**
- * قراءة صور بطاقات الهوية إلى نص خام عبر Tesseract.
- * التدقيق واستخراج الحقول يتم في IdCardParser.
+ * قراءة صور بطاقات الهوية إلى نص خام عبر محرك سحابي (Google Vision أو Gemini)
+ * أو Tesseract. التدقيق واستخراج الحقول يتم في IdCardParser.
  */
 class IdCardOcrService
 {
     /**
      * تحويل صورة البطاقة إلى نص.
      *
-     * @throws RuntimeException عند غياب Tesseract أو فشل القراءة
+     * @throws RuntimeException عند غياب كل المحركات أو فشل القراءة
      */
     public function recognize(UploadedFile $file): string
     {
@@ -23,18 +23,18 @@ class IdCardOcrService
             throw new RuntimeException('تعذّر الوصول إلى صورة البطاقة');
         }
 
-        // محرك Google Cloud Vision إن كان مُفعَّلاً ومفتاحه مسجّلاً.
-        if (
-            (string) config('ocr.provider', 'tesseract') === 'google'
-            && (string) config('ocr.google_api_key', '') !== ''
-        ) {
+        // محرك سحابي إن كان مُفعَّلاً ومفتاحه مسجّلاً، مع رجوع تلقائي لـ Tesseract.
+        $cloud = $this->resolveCloudProvider();
+        if ($cloud !== null) {
             try {
-                return $this->recognizeWithGoogle($original);
+                return $cloud === 'gemini'
+                    ? $this->recognizeWithGemini($original)
+                    : $this->recognizeWithGoogle($original);
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Google Vision OCR failed, falling back to tesseract', [
+                \Illuminate\Support\Facades\Log::warning("{$cloud} OCR failed, falling back to tesseract", [
                     'error' => $e->getMessage(),
                 ]);
-                // فشل Google → نكمل على Tesseract بالأسفل.
+                // فشل المحرك السحابي → نكمل على Tesseract بالأسفل.
             }
         }
 
@@ -171,6 +171,135 @@ class IdCardOcrService
         if ($text === '') {
             throw new RuntimeException('لم يتم العثور على نص في الصورة');
         }
+
+        return $text;
+    }
+
+    /**
+     * اختيار المحرك السحابي المُفعَّل والمفتاحه موجود، أو null لاستخدام Tesseract.
+     */
+    private function resolveCloudProvider(): ?string
+    {
+        $provider = (string) config('ocr.provider', 'tesseract');
+
+        if ($provider === 'google' && (string) config('ocr.google_api_key', '') !== '') {
+            return 'google';
+        }
+
+        if ($provider === 'gemini' && (string) config('ocr.gemini_api_key', '') !== '') {
+            return 'gemini';
+        }
+
+        return null;
+    }
+
+    /**
+     * قراءة الصورة عبر Google Gemini API (generateContent مع الصورة مضمّنة).
+     *
+     * @throws RuntimeException عند غياب curl أو فشل الاتصال أو ردّ خطأ
+     */
+    private function recognizeWithGemini(string $path): string
+    {
+        if (!function_exists('curl_init')) {
+            throw new RuntimeException('امتداد curl غير مثبت على الخادم');
+        }
+
+        $image = @file_get_contents($path);
+        if ($image === false) {
+            throw new RuntimeException('تعذّر قراءة ملف الصورة');
+        }
+
+        $mime = function_exists('mime_content_type') ? (mime_content_type($path) ?: '') : '';
+        if ($mime === '' || !str_starts_with($mime, 'image/')) {
+            $mime = 'image/jpeg';
+        }
+
+        $payload = json_encode([
+            'contents' => [[
+                'parts' => [
+                    ['text' => (string) config('ocr.gemini_prompt', $this->geminiPrompt())],
+                    ['inline_data' => [
+                        'mime_type' => $mime,
+                        'data' => base64_encode($image),
+                    ]],
+                ],
+            ]],
+            'generationConfig' => [
+                'temperature' => 0.0,
+                'maxOutputTokens' => 4096,
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+
+        $model = rawurlencode((string) config('ocr.gemini_model', 'gemini-2.5-flash'));
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+            . $model . ':generateContent?key='
+            . urlencode((string) config('ocr.gemini_api_key'));
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => (int) config('ocr.gemini_timeout', 45),
+        ]);
+
+        $response = curl_exec($ch);
+        $error = curl_error($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response === false) {
+            throw new RuntimeException('تعذّر الاتصال بخدمة Gemini: ' . $error);
+        }
+
+        $data = json_decode($response, true);
+        if (!is_array($data)) {
+            throw new RuntimeException('ردّ غير متوقع من Gemini (HTTP ' . $status . ')');
+        }
+
+        if (isset($data['error'])) {
+            throw new RuntimeException(
+                'Gemini: ' . ($data['error']['message'] ?? 'خطأ غير معروف')
+            );
+        }
+
+        $parts = $data['candidates'][0]['content']['parts'] ?? [];
+        $text = '';
+        foreach ((array) $parts as $part) {
+            $text .= (string) ($part['text'] ?? '');
+        }
+
+        $text = trim($this->stripCodeFences($text));
+        if ($text === '') {
+            $blocked = $data['promptFeedback']['blockReason'] ?? null;
+            throw new RuntimeException(
+                $blocked
+                    ? 'رُفض الطلب بواسطة Gemini: ' . $blocked
+                    : 'لم يتم العثور على نص في الصورة'
+            );
+        }
+
+        return $text;
+    }
+
+    /**
+     * نص التعليم الافتراضي لـ Gemini: نسخ حرفياً لمحتوى البطاقة دون تعليق.
+     */
+    private function geminiPrompt(): string
+    {
+        return 'انسخ النص الظاهر في صورة بطاقة الهوية هذه حرفياً سطراً بسطر '
+            . '(عربي وإنجليزي كما هو مكتوب)، دون أي تعليق أو وصف أو تنسيق أو ترجمة. '
+            . 'أعد النص فقط.';
+    }
+
+    /**
+     * إزالة أحوار ``` إن أضافها النموذج حول الناتج.
+     */
+    private function stripCodeFences(string $text): string
+    {
+        $text = preg_replace('/^```[a-zA-Z]*\s*\n?/', '', $text) ?? $text;
+        $text = preg_replace('/\n?```\s*$/', '', $text) ?? $text;
 
         return $text;
     }
