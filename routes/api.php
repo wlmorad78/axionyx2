@@ -24,7 +24,7 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
             'release_notes' => ['تحسينات تحديث النظام وتسوية المندوبين وطلب الارتجاع'],
             'release_date' => '2026-09-08',
             'minimum_supported_version' => '1.9.5',
-            'minimum_supported_build' => 3,
+            'minimum_supported_build' => 2,
             'file_size' => 66289865,
             'checksum' => null,
         ],
