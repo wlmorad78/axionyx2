@@ -31,6 +31,7 @@ use App\Models\RepItemDistribution;
 use App\Models\IssueOrder;
 use App\Services\UnitConversionService;
 use App\Support\DayOfWeekHelper;
+use App\Support\InvoiceDiscounts;
 use Illuminate\Support\Facades\DB;
 
 RouteFacade::get('handheld/route-lines', function (\Illuminate\Http\Request $request) {
@@ -830,8 +831,20 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
         'items.*.qty' => 'required|numeric|min:1',
         'items.*.price' => 'required|numeric|min:0',
         'items.*.tax_percent' => 'nullable|numeric|min:0|max:100',
+        'items.*.discount_type' => 'nullable|string|in:percentage,fixed',
+        'items.*.discount_value' => 'nullable|numeric|min:0',
+        'items.*.discount_amount' => 'nullable|numeric|min:0',
         'items.*.unit_id' => 'nullable|exists:units,id',
         'items.*.issue_order_id' => 'nullable|exists:issue_orders,id',
+        'discounts' => 'nullable|array',
+        'discounts.*.discount_type' => 'nullable|string|in:percentage,fixed',
+        'discounts.*.discount_value' => 'nullable|numeric|min:0',
+        'discounts.*.discount_amount' => 'nullable|numeric|min:0',
+        'discounts.*.reason' => 'nullable|string',
+        'invoice_discount_type' => 'nullable|string|in:percentage,fixed',
+        'invoice_discount_value' => 'nullable|numeric|min:0',
+        'invoice_discount_total' => 'nullable|numeric|min:0',
+        'discount_reason' => 'nullable|string',
         'device_id' => 'nullable|exists:devices,id',
         'temp_invoice_no' => 'nullable|string|max:50',
         'invoice_no' => 'nullable|string|max:50',
@@ -850,6 +863,7 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
 
     $result = DB::transaction(function () use ($request, $user, $employee) {
         $subtotal = 0;
+        $itemDiscountTotal = 0;
         $taxTotal = 0;
 
         $itemsData = [];
@@ -857,7 +871,9 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
             $lineTotal = $item['qty'] * $item['price'];
             $taxPercent = $item['tax_percent'] ?? 0;
             $taxAmount = $lineTotal * ($taxPercent / 100);
+            [$discountType, $discountValue, $discountAmount] = InvoiceDiscounts::line($item, (float) $lineTotal);
             $subtotal += $lineTotal;
+            $itemDiscountTotal += $discountAmount;
             $taxTotal += $taxAmount;
 
             $itemsData[] = [
@@ -867,13 +883,23 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
                 'tax_percent' => $taxPercent,
                 'tax_amount' => $taxAmount,
                 'gross_amount' => $lineTotal,
-                'net_amount' => $lineTotal + $taxAmount,
+                'discount_type' => $discountType,
+                'discount_value' => $discountValue,
+                'discount_amount' => $discountAmount,
+                'net_amount' => $lineTotal - $discountAmount + $taxAmount,
                 'unit_id' => $item['unit_id'] ?? null,
                 'issue_order_id' => $item['issue_order_id'] ?? null,
             ];
         }
 
-        $netTotal = $subtotal + $taxTotal;
+        $subtotal = round($subtotal, 2);
+        $itemDiscountTotal = round($itemDiscountTotal, 2);
+        $taxTotal = round($taxTotal, 2);
+
+        // الإجمالي النهائي = (المجموع - خصومات الأصناف - خصم الفاتورة + الضريبة).
+        $base = round(max(0, $subtotal - $itemDiscountTotal), 2);
+        $invoiceDiscountTotal = SalesInvoice::invoiceDiscountTotalFromPayload($request->all(), $base);
+        $netTotal = round($base - $invoiceDiscountTotal + $taxTotal, 2);
         $paidAmount = $request->input('paid_amount', $netTotal);
         $cashReceived = $request->input('cash_received', $paidAmount);
         $skipTreasury = $request->input('skip_treasury', false);
@@ -909,8 +935,8 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
             'invoice_date' => now()->toDateString(),
             'invoice_time' => now()->format('H:i:s'),
             'subtotal' => $subtotal,
-            'item_discount_total' => 0,
-            'invoice_discount_total' => 0,
+            'item_discount_total' => $itemDiscountTotal,
+            'invoice_discount_total' => $invoiceDiscountTotal,
             'tax_total' => $taxTotal,
             'incentive_total' => 0,
             'net_total' => $netTotal,
@@ -932,14 +958,24 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
                 'bonus_qty' => 0,
                 'price' => $itemData['price'],
                 'gross_amount' => $itemData['gross_amount'],
-                'discount_type' => null,
-                'discount_value' => 0,
-                'discount_amount' => 0,
+                'discount_type' => $itemData['discount_type'],
+                'discount_value' => $itemData['discount_value'],
+                'discount_amount' => $itemData['discount_amount'],
                 'tax_percent' => $itemData['tax_percent'],
                 'tax_amount' => $itemData['tax_amount'],
                 'net_amount' => $itemData['net_amount'],
             ]);
         }
+
+        // خصم مستوى الفاتورة + إعادة الحساب النهائية للإجماليات.
+        $invoice->applyDiscounts($request->all());
+
+        $netTotal = round((float) $invoice->net_total, 2);
+        $remainingAmount = $isBalancePayment ? 0 : max(0, $netTotal - $paidAmount);
+        $invoice->update([
+            'paid_amount' => $effectivePaid,
+            'remaining_amount' => $remainingAmount,
+        ]);
 
         if ($request->input('skip_treasury', false)) {
             $invoice->update([
@@ -1110,8 +1146,20 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             'invoices.*.items.*.price' => 'required|numeric|min:0',
             'invoices.*.items.*.unit_cost' => 'nullable|numeric|min:0',
             'invoices.*.items.*.tax_percent' => 'nullable|numeric|min:0',
+            'invoices.*.items.*.discount_type' => 'nullable|string|in:percentage,fixed',
+            'invoices.*.items.*.discount_value' => 'nullable|numeric|min:0',
+            'invoices.*.items.*.discount_amount' => 'nullable|numeric|min:0',
             'invoices.*.items.*.unit_id' => 'nullable|integer',
             'invoices.*.items.*.issue_order_id' => 'nullable|integer',
+            'invoices.*.discounts' => 'nullable|array',
+            'invoices.*.discounts.*.discount_type' => 'nullable|string|in:percentage,fixed',
+            'invoices.*.discounts.*.discount_value' => 'nullable|numeric|min:0',
+            'invoices.*.discounts.*.discount_amount' => 'nullable|numeric|min:0',
+            'invoices.*.discounts.*.reason' => 'nullable|string',
+            'invoices.*.invoice_discount_type' => 'nullable|string|in:percentage,fixed',
+            'invoices.*.invoice_discount_value' => 'nullable|numeric|min:0',
+            'invoices.*.invoice_discount_total' => 'nullable|numeric|min:0',
+            'invoices.*.item_discount_total' => 'nullable|numeric|min:0',
             'invoices.*.branch_id' => 'nullable|integer',
             'invoices.*.paid_amount' => 'nullable|numeric|min:0',
             'invoices.*.cash_received' => 'nullable|numeric|min:0',
@@ -1135,6 +1183,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             if ($deleted) {
                 $deleted->update(['deleted_at' => now()]);
                 SalesInvoiceItem::where('sales_invoice_id', $deleted->id)->update(['deleted_at' => now()]);
+                \App\Models\SalesInvoiceDiscount::where('sales_invoice_id', $deleted->id)->update(['deleted_at' => now()]);
 
                 \Illuminate\Support\Facades\DB::table('customer_ledger')
                     ->where('reference_type', 'invoice')
@@ -1335,6 +1384,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
 
     $buildItemsData = function (array $lines) {
         $subtotal = 0;
+        $itemDiscountTotal = 0;
         $taxTotal = 0;
         $itemsData = [];
         foreach ($lines as $item) {
@@ -1344,7 +1394,9 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
             $taxPercent = $item['tax_percent'] ?? 0;
             $taxAmount = $lineTotal * ($taxPercent / 100);
             $unitCost = (float) ($item['unit_cost'] ?? $item['purchase_price'] ?? 0);
+            [$discountType, $discountValue, $discountAmount] = InvoiceDiscounts::line($item, (float) $lineTotal);
             $subtotal += $lineTotal;
+            $itemDiscountTotal += $discountAmount;
             $taxTotal += $taxAmount;
             $itemsData[] = [
                 'item_id' => $item['item_id'],
@@ -1355,12 +1407,20 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 'tax_percent' => $taxPercent,
                 'tax_amount' => $taxAmount,
                 'gross_amount' => $lineTotal,
-                'net_amount' => $lineTotal + $taxAmount,
+                'discount_type' => $discountType,
+                'discount_value' => $discountValue,
+                'discount_amount' => $discountAmount,
+                'net_amount' => $lineTotal - $discountAmount + $taxAmount,
                 'unit_id' => $item['unit_id'] ?? null,
                 'issue_order_id' => $item['issue_order_id'] ?? null,
             ];
         }
-        return [$subtotal, $taxTotal, $itemsData];
+        return [
+            round($subtotal, 2),
+            round($taxTotal, 2),
+            $itemsData,
+            round($itemDiscountTotal, 2),
+        ];
     };
 
     $applyDistribution = function (array $itemsData, int $sign) use ($user, $employee) {
@@ -1428,15 +1488,19 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                     }
                 }
 
-                [$subtotal, $taxTotal, $itemsData] = $buildItemsData($invoiceData['items']);
+                [$subtotal, $taxTotal, $itemsData, $itemDiscountTotal] = $buildItemsData($invoiceData['items']);
 
-                $netTotal = $subtotal + $taxTotal;
+                $base = round(max(0, $subtotal - $itemDiscountTotal), 2);
+                $invoiceDiscountTotal = SalesInvoice::invoiceDiscountTotalFromPayload($invoiceData, $base);
+                $netTotal = round($base - $invoiceDiscountTotal + $taxTotal, 2);
                 $paidAmount = $invoiceData['paid_amount'] ?? $netTotal;
                 $cashReceived = $invoiceData['cash_received'] ?? $paidAmount;
                 $remainingAmount = max(0, $netTotal - $paidAmount);
 
                 $existing->update([
                     'subtotal' => $subtotal,
+                    'item_discount_total' => $itemDiscountTotal,
+                    'invoice_discount_total' => $invoiceDiscountTotal,
                     'tax_total' => $taxTotal,
                     'net_total' => $netTotal,
                     'paid_amount' => $paidAmount,
@@ -1462,9 +1526,9 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                         'gross_amount' => $itemData['gross_amount'],
                         'unit_cost' => $itemData['unit_cost'] ?? 0,
                         'total_cost' => $itemData['total_cost'] ?? 0,
-                        'discount_type' => null,
-                        'discount_value' => 0,
-                        'discount_amount' => 0,
+                        'discount_type' => $itemData['discount_type'],
+                        'discount_value' => $itemData['discount_value'],
+                        'discount_amount' => $itemData['discount_amount'],
                         'tax_percent' => $itemData['tax_percent'],
                         'tax_amount' => $itemData['tax_amount'],
                         'net_amount' => $itemData['net_amount'],
@@ -1472,6 +1536,20 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                         'updated_at' => $existing->invoice_date ?? now(),
                     ]);
                 }
+
+                // خصم مستوى الفاتورة + إعادة الحساب النهائي.
+                if (SalesInvoice::hasDiscountPayload($invoiceData)) {
+                    $existing->applyDiscounts($invoiceData);
+                } else {
+                    $existing->recalculateTotals();
+                }
+                $netTotal = round((float) $existing->net_total, 2);
+                $remainingAmount = max(0, $netTotal - $paidAmount);
+                $existing->update([
+                    'paid_amount' => $paidAmount,
+                    'remaining_amount' => $remainingAmount,
+                ]);
+
 
                 $payments = $invoiceData['payments'] ?? [];
                 if (!empty($payments)) {
@@ -1556,6 +1634,7 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
 
         $invoice = DB::transaction(function () use ($invoiceData, $user, $employee, $request, $clientUuid, $toNullable, $createCollections) {
             $subtotal = 0;
+            $itemDiscountTotal = 0;
             $taxTotal = 0;
             $itemsData = [];
 
@@ -1566,7 +1645,9 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 $taxPercent = $item['tax_percent'] ?? 0;
                 $taxAmount = $lineTotal * ($taxPercent / 100);
                 $unitCost = (float) ($item['unit_cost'] ?? $item['purchase_price'] ?? 0);
+                [$discountType, $discountValue, $discountAmount] = InvoiceDiscounts::line($item, (float) $lineTotal);
                 $subtotal += $lineTotal;
+                $itemDiscountTotal += $discountAmount;
                 $taxTotal += $taxAmount;
                 $itemsData[] = [
                     'item_id' => $item['item_id'],
@@ -1577,16 +1658,26 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                     'tax_percent' => $taxPercent,
                     'tax_amount' => $taxAmount,
                     'gross_amount' => $lineTotal,
-                    'net_amount' => $lineTotal + $taxAmount,
+                    'discount_type' => $discountType,
+                    'discount_value' => $discountValue,
+                    'discount_amount' => $discountAmount,
+                    'net_amount' => $lineTotal - $discountAmount + $taxAmount,
                     'unit_id' => $item['unit_id'] ?? null,
                     'issue_order_id' => $item['issue_order_id'] ?? null,
                 ];
             }
 
-        $netTotal = $subtotal + $taxTotal;
-        $paidAmount = $invoiceData['paid_amount'] ?? $netTotal;
-        $cashReceived = $invoiceData['cash_received'] ?? $paidAmount;
-        $remainingAmount = max(0, $netTotal - $paidAmount);
+            $subtotal = round($subtotal, 2);
+            $itemDiscountTotal = round($itemDiscountTotal, 2);
+            $taxTotal = round($taxTotal, 2);
+
+            // الإجمالي النهائي = (المجموع - خصومات الأصناف - خصم الفاتورة + الضريبة).
+            $base = round(max(0, $subtotal - $itemDiscountTotal), 2);
+            $invoiceDiscountTotal = SalesInvoice::invoiceDiscountTotalFromPayload($invoiceData, $base);
+            $netTotal = round($base - $invoiceDiscountTotal + $taxTotal, 2);
+            $paidAmount = $invoiceData['paid_amount'] ?? $netTotal;
+            $cashReceived = $invoiceData['cash_received'] ?? $paidAmount;
+            $remainingAmount = max(0, $netTotal - $paidAmount);
 
             $now = now();
 
@@ -1619,8 +1710,8 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 'invoice_date' => $invoiceData['invoice_date'],
                 'invoice_time' => now()->format('H:i:s'),
                 'subtotal' => $subtotal,
-                'item_discount_total' => 0,
-                'invoice_discount_total' => 0,
+                'item_discount_total' => $itemDiscountTotal,
+                'invoice_discount_total' => $invoiceDiscountTotal,
                 'tax_total' => $taxTotal,
                 'incentive_total' => 0,
                 'net_total' => $netTotal,
@@ -1646,9 +1737,9 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                     'gross_amount' => $itemData['gross_amount'],
                     'unit_cost' => $itemData['unit_cost'] ?? 0,
                     'total_cost' => $itemData['total_cost'] ?? 0,
-                    'discount_type' => null,
-                    'discount_value' => 0,
-                    'discount_amount' => 0,
+                    'discount_type' => $itemData['discount_type'],
+                    'discount_value' => $itemData['discount_value'],
+                    'discount_amount' => $itemData['discount_amount'],
                     'tax_percent' => $itemData['tax_percent'],
                     'tax_amount' => $itemData['tax_amount'],
                     'net_amount' => $itemData['net_amount'],
@@ -1656,6 +1747,20 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                     'updated_at' => $invoiceData['invoice_date'] ?? now(),
                 ]);
             }
+
+            // خصم مستوى الفاتورة + إعادة الحساب النهائي.
+            if (SalesInvoice::hasDiscountPayload($invoiceData)) {
+                $inv->applyDiscounts($invoiceData);
+            } else {
+                $inv->recalculateTotals();
+            }
+            $netTotal = round((float) $inv->net_total, 2);
+            $remainingAmount = max(0, $netTotal - $paidAmount);
+            $inv->update([
+                'paid_amount' => $paidAmount,
+                'remaining_amount' => $remainingAmount,
+            ]);
+
 
             $payments = $invoiceData['payments'] ?? [];
             if (!empty($payments)) {

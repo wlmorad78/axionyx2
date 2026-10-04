@@ -18,6 +18,26 @@ class IdCardOcrService
      */
     public function recognize(UploadedFile $file): string
     {
+        $original = $file->getRealPath();
+        if ($original === null || !is_file($original)) {
+            throw new RuntimeException('تعذّر الوصول إلى صورة البطاقة');
+        }
+
+        // محرك Google Cloud Vision إن كان مُفعَّلاً ومفتاحه مسجّلاً.
+        if (
+            (string) config('ocr.provider', 'tesseract') === 'google'
+            && (string) config('ocr.google_api_key', '') !== ''
+        ) {
+            try {
+                return $this->recognizeWithGoogle($original);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Google Vision OCR failed, falling back to tesseract', [
+                    'error' => $e->getMessage(),
+                ]);
+                // فشل Google → نكمل على Tesseract بالأسفل.
+            }
+        }
+
         if (!function_exists('exec')) {
             throw new RuntimeException('دالة exec معطّلة على الخادم، لا يمكن تشغيل محرك القراءة');
         }
@@ -25,11 +45,6 @@ class IdCardOcrService
         $binary = $this->resolveBinary();
         if ($binary === null) {
             throw new RuntimeException('محرك قراءة Tesseract غير مثبت على الخادم');
-        }
-
-        $original = $file->getRealPath();
-        if ($original === null || !is_file($original)) {
-            throw new RuntimeException('تعذّر الوصول إلى صورة البطاقة');
         }
 
         $input = $this->preprocess($original);
@@ -92,6 +107,75 @@ class IdCardOcrService
     }
 
     /**
+     * قراءة الصورة عبر Google Cloud Vision API (TEXT_DETECTION).
+     *
+     * @throws RuntimeException عند غياب curl أو فشل الاتصال أو ردّ خطأ
+     */
+    private function recognizeWithGoogle(string $path): string
+    {
+        if (!function_exists('curl_init')) {
+            throw new RuntimeException('امتداد curl غير مثبت على الخادم');
+        }
+
+        $image = @file_get_contents($path);
+        if ($image === false) {
+            throw new RuntimeException('تعذّر قراءة ملف الصورة');
+        }
+
+        $payload = json_encode([
+            'requests' => [[
+                'image' => ['content' => base64_encode($image)],
+                'features' => [[
+                    'type' => 'TEXT_DETECTION',
+                    'maxResults' => 1,
+                ]],
+                'imageContext' => [
+                    'languageHints' => config('ocr.google_language_hints', ['ara', 'en']),
+                ],
+            ]],
+        ]);
+
+        $url = 'https://vision.googleapis.com/v1/images:annotate?key='
+            . urlencode((string) config('ocr.google_api_key'));
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+
+        $response = curl_exec($ch);
+        $error = curl_error($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response === false) {
+            throw new RuntimeException('تعذّر الاتصال بخدمة Google Vision: ' . $error);
+        }
+
+        $data = json_decode($response, true);
+        if (!is_array($data)) {
+            throw new RuntimeException('ردّ غير متوقع من Google Vision (HTTP ' . $status . ')');
+        }
+
+        if (isset($data['error'])) {
+            throw new RuntimeException(
+                'Google Vision: ' . ($data['error']['message'] ?? 'خطأ غير معروف')
+            );
+        }
+
+        $text = trim((string) ($data['responses'][0]['fullTextAnnotation']['text'] ?? ''));
+        if ($text === '') {
+            throw new RuntimeException('لم يتم العثور على نص في الصورة');
+        }
+
+        return $text;
+    }
+
+    /**
      * تقييم جودة النص الخام: رقم قومي كامل أقوى إشارة، ثم مؤشرات الحقول
      * والكلمات العربية وأسطر النص.
      */
@@ -147,8 +231,10 @@ class IdCardOcrService
     }
 
     /**
-     * تجهيز الصورة للقراءة: تدوير حسب EXIF + تدرج رمادي + تصغير.
-     * يعيد مسار الملف المؤقت الجديد، أو المسار الأصلي إن تعذّر التجهيز.
+     * تجهيز الصورة للقراءة: تدوير حسب EXIF + تصغير الصور الكبيرة فقط.
+     * لا نستخدم التدرج الرمادي ولا تكبير الصور الصغيرة — كلاهما يقلّل
+     * دقة Tesseract على صور البطاقات منخفضة الدقة.
+     * يعيد مسار الملف المؤقت الجديد، أو المسار الأصلي إن لم تكن بحاجة معالجة.
      */
     private function preprocess(string $path): string
     {
@@ -166,29 +252,27 @@ class IdCardOcrService
             return $path;
         }
 
-        $image = $this->applyExifOrientation($image, $path);
+        $oriented = $this->applyExifOrientation($image, $path);
 
         $max = max(400, (int) config('ocr.max_dimension', 2400));
-        $width = imagesx($image);
-        $height = imagesy($image);
+        $width = imagesx($oriented);
+        $height = imagesy($oriented);
         $longest = max($width, $height);
 
-        // تصغير الصور الكبيرة، وتكبير الصور الصغيرة لضمان وضوح النص للقراءة.
-        $target = null;
-        if ($longest > $max) {
-            $target = $max;
-        } elseif ($longest < 1600) {
-            $target = $max;
+        // لا حاجة لأي معالجة: الصورة لم تُدوَّر ومقاسها ضمن الحد الأقصى.
+        if ($oriented === $image && $longest <= $max) {
+            imagedestroy($image);
+            return $path;
         }
 
-        if ($target !== null) {
-            $scale = $target / $longest;
+        if ($longest > $max) {
+            $scale = $max / $longest;
             $newWidth = max(1, (int) round($width * $scale));
             $newHeight = max(1, (int) round($height * $scale));
             $resized = imagecreatetruecolor($newWidth, $newHeight);
             imagecopyresampled(
                 $resized,
-                $image,
+                $oriented,
                 0,
                 0,
                 0,
@@ -198,11 +282,14 @@ class IdCardOcrService
                 $width,
                 $height
             );
+            if ($oriented !== $image) {
+                imagedestroy($oriented);
+            }
             imagedestroy($image);
             $image = $resized;
+        } else {
+            $image = $oriented;
         }
-
-        imagefilter($image, IMG_FILTER_GRAYSCALE);
 
         $temp = tempnam(sys_get_temp_dir(), 'idcard_ocr_');
         if ($temp === false) {
@@ -210,12 +297,12 @@ class IdCardOcrService
             return $path;
         }
 
-        $pngPath = $temp . '.png';
+        $jpgPath = $temp . '.jpg';
         @unlink($temp);
-        imagepng($image, $pngPath);
+        imagejpeg($image, $jpgPath, 95);
         imagedestroy($image);
 
-        return is_file($pngPath) ? $pngPath : $path;
+        return is_file($jpgPath) ? $jpgPath : $path;
     }
 
     /**

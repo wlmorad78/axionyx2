@@ -23,6 +23,7 @@ use App\Models\InventoryTransactionType;
 use App\Models\TreasuryTransaction;
 use Illuminate\Support\Facades\Log;
 use App\Support\ValidationRules;
+use App\Support\InvoiceDiscounts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -73,8 +74,8 @@ class SalesInvoiceController extends Controller
             if (!empty($items)) {
                 foreach ($items as $item) {
                     $grossAmount = ($item['qty'] ?? 0) * ($item['price'] ?? 0);
-                    $discountAmount = $item['discount_amount'] ?? 0;
                     $taxAmount = $item['tax_amount'] ?? 0;
+                    [, , $discountAmount] = InvoiceDiscounts::line($item, (float) $grossAmount);
                     $netAmount = $grossAmount - $discountAmount + $taxAmount;
 
                     SalesInvoiceItem::create([
@@ -86,14 +87,20 @@ class SalesInvoiceController extends Controller
                         'bonus_qty' => $item['bonus_qty'] ?? 0,
                         'price' => $item['price'] ?? 0,
                         'gross_amount' => $grossAmount,
+                        'discount_type' => $item['discount_type'] ?? null,
+                        'discount_value' => $item['discount_value'] ?? 0,
                         'discount_amount' => $discountAmount,
-                        'tax_percent' => $item['tax_rate'] ?? 0,
+                        'tax_percent' => $item['tax_rate'] ?? $item['tax_percent'] ?? 0,
                         'tax_amount' => $taxAmount,
                         'net_amount' => $netAmount,
                         'notes' => $item['notes'] ?? null,
                     ]);
                 }
             }
+
+            // خصومات مستوى الفاتورة (صفوف متعددة أو نسبة/مبلغ واحد).
+            $invoice->applyDiscounts($request->all());
+
             // Note: stock and treasury side-effects are applied when the document is posted
             // via the SalesInvoice::post() lifecycle which calls onPost().
 
@@ -141,8 +148,8 @@ class SalesInvoiceController extends Controller
                 $salesInvoice->items()->delete();
                 foreach ($items as $item) {
                     $grossAmount = ($item['qty'] ?? 0) * ($item['price'] ?? 0);
-                    $discountAmount = $item['discount_amount'] ?? 0;
                     $taxAmount = $item['tax_amount'] ?? 0;
+                    [, , $discountAmount] = InvoiceDiscounts::line($item, (float) $grossAmount);
                     $netAmount = $grossAmount - $discountAmount + $taxAmount;
 
                     SalesInvoiceItem::create([
@@ -154,14 +161,25 @@ class SalesInvoiceController extends Controller
                         'bonus_qty' => $item['bonus_qty'] ?? 0,
                         'price' => $item['price'] ?? 0,
                         'gross_amount' => $grossAmount,
+                        'discount_type' => $item['discount_type'] ?? null,
+                        'discount_value' => $item['discount_value'] ?? 0,
                         'discount_amount' => $discountAmount,
-                        'tax_percent' => $item['tax_rate'] ?? 0,
+                        'tax_percent' => $item['tax_rate'] ?? $item['tax_percent'] ?? 0,
                         'tax_amount' => $taxAmount,
                         'net_amount' => $netAmount,
                         'notes' => $item['notes'] ?? null,
                     ]);
                 }
             }
+
+            // خصومات مستوى الفاتورة (تُستبدل بالصفوف المُرسلة إن وُجدت).
+            if (SalesInvoice::hasDiscountPayload($request->all())) {
+                $salesInvoice->applyDiscounts($request->all());
+            } else {
+                // صفوف الخصم القائمة تبقى كما هي؛ نعيد حساب الإجماليات فقط.
+                $salesInvoice->recalculateTotals();
+            }
+
             // Stock/treasury sync happens on post() (SalesInvoice::onPost)
         });
 

@@ -29,6 +29,7 @@ use App\Models\Device;
 use App\Models\Warehouse;
 use App\Services\RepresentativeTransferService;
 use App\Models\RepresentativeTransfer;
+use App\Support\InvoiceDiscounts;
 
 class Handheld2Controller extends Controller
 {
@@ -1978,9 +1979,12 @@ class Handheld2Controller extends Controller
                 ];
             }
 
-            [$itemsData, $subtotal, $taxTotal] = $this->buildInvoiceItems($user, $employee, $payload, $items);
+            [$itemsData, $subtotal, $taxTotal, $itemDiscountTotal] = $this->buildInvoiceItems($user, $employee, $payload, $items);
 
-            $netTotal = $payload['net_total'] ?? ($subtotal + $taxTotal);
+            // الإجمالي النهائي = (المجموع - خصومات الأصناف - خصم الفاتورة + الضريبة).
+            $base = round(max(0, $subtotal - $itemDiscountTotal), 2);
+            $invoiceDiscountTotal = SalesInvoice::invoiceDiscountTotalFromPayload($payload, $base);
+            $netTotal = round($base - $invoiceDiscountTotal + $taxTotal, 2);
             $paidAmount = $payload['paid_amount'] ?? $netTotal;
             $remainingAmount = $payload['remaining_amount'] ?? max(0, $netTotal - $paidAmount);
 
@@ -2014,8 +2018,8 @@ class Handheld2Controller extends Controller
                 'invoice_date' => $payload['invoice_date'] ?? now()->toDateString(),
                 'invoice_time' => $payload['invoice_time'] ?? now()->format('H:i:s'),
                 'subtotal' => $payload['subtotal'] ?? $subtotal,
-                'item_discount_total' => $payload['item_discount_total'] ?? 0,
-                'invoice_discount_total' => $payload['invoice_discount_total'] ?? 0,
+                'item_discount_total' => $itemDiscountTotal,
+                'invoice_discount_total' => $invoiceDiscountTotal,
                 'tax_total' => $payload['tax_total'] ?? $taxTotal,
                 'incentive_total' => $payload['incentive_total'] ?? 0,
                 'net_total' => $netTotal,
@@ -2037,9 +2041,9 @@ class Handheld2Controller extends Controller
                     'gross_amount' => $itemData['gross_amount'],
                     'unit_cost' => $itemData['unit_cost'] ?? 0,
                     'total_cost' => $itemData['total_cost'] ?? 0,
-                    'discount_type' => null,
-                    'discount_value' => 0,
-                    'discount_amount' => 0,
+                    'discount_type' => $itemData['discount_type'],
+                    'discount_value' => $itemData['discount_value'],
+                    'discount_amount' => $itemData['discount_amount'],
                     'tax_percent' => $itemData['tax_percent'],
                     'tax_amount' => $itemData['tax_amount'],
                     'net_amount' => $itemData['net_amount'],
@@ -2047,6 +2051,16 @@ class Handheld2Controller extends Controller
                     'updated_at' => $invoice->invoice_date ?? now(),
                 ]);
             }
+
+            // خصم مستوى الفاتورة + إعادة الحساب النهائي للإجماليات.
+            $invoice->applyDiscounts($payload);
+            $netTotal = round((float) $invoice->net_total, 2);
+            $paidAmount = $payload['paid_amount'] ?? $netTotal;
+            $remainingAmount = $payload['remaining_amount'] ?? max(0, $netTotal - $paidAmount);
+            $invoice->update([
+                'paid_amount' => $paidAmount,
+                'remaining_amount' => $remainingAmount,
+            ]);
 
             $payments = $payload['payments'] ?? [];
             if (!empty($payments)) {
@@ -2140,11 +2154,13 @@ class Handheld2Controller extends Controller
             // Replace line items with the edited ones.
             $invoice->items()->delete();
 
-            [$itemsData, $subtotal, $taxTotal] = $this->buildInvoiceItems($user, $employee, $payload, $items);
+            [$itemsData, $subtotal, $taxTotal, $itemDiscountTotal] = $this->buildInvoiceItems($user, $employee, $payload, $items);
 
             // Recompute totals from the source of truth (the item lines), not blindly
             // from the client payload — but honour explicit client totals when provided.
-            $netTotal = $payload['net_total'] ?? ($subtotal + $taxTotal);
+            $base = round(max(0, $subtotal - $itemDiscountTotal), 2);
+            $invoiceDiscountTotal = SalesInvoice::invoiceDiscountTotalFromPayload($payload, $base);
+            $netTotal = round($base - $invoiceDiscountTotal + $taxTotal, 2);
             $paidAmount = $payload['paid_amount'] ?? $netTotal;
             $remainingAmount = $payload['remaining_amount'] ?? max(0, $netTotal - $paidAmount);
 
@@ -2170,8 +2186,8 @@ class Handheld2Controller extends Controller
                 'invoice_date' => $payload['invoice_date'] ?? $invoice->invoice_date,
                 'invoice_time' => $payload['invoice_time'] ?? $invoice->invoice_time,
                 'subtotal' => $payload['subtotal'] ?? $subtotal,
-                'item_discount_total' => $payload['item_discount_total'] ?? 0,
-                'invoice_discount_total' => $payload['invoice_discount_total'] ?? 0,
+                'item_discount_total' => $itemDiscountTotal,
+                'invoice_discount_total' => $invoiceDiscountTotal,
                 'tax_total' => $payload['tax_total'] ?? $taxTotal,
                 'incentive_total' => $payload['incentive_total'] ?? 0,
                 'net_total' => $netTotal,
@@ -2203,9 +2219,9 @@ class Handheld2Controller extends Controller
                     'gross_amount' => $itemData['gross_amount'],
                     'unit_cost' => $itemData['unit_cost'] ?? 0,
                     'total_cost' => $itemData['total_cost'] ?? 0,
-                    'discount_type' => null,
-                    'discount_value' => 0,
-                    'discount_amount' => 0,
+                    'discount_type' => $itemData['discount_type'],
+                    'discount_value' => $itemData['discount_value'],
+                    'discount_amount' => $itemData['discount_amount'],
                     'tax_percent' => $itemData['tax_percent'],
                     'tax_amount' => $itemData['tax_amount'],
                     'net_amount' => $itemData['net_amount'],
@@ -2213,6 +2229,20 @@ class Handheld2Controller extends Controller
                     'updated_at' => $invoice->invoice_date ?? now(),
                 ]);
             }
+
+            // خصم مستوى الفاتورة + إعادة الحساب النهائي للإجماليات.
+            if (SalesInvoice::hasDiscountPayload($payload)) {
+                $invoice->applyDiscounts($payload);
+            } else {
+                $invoice->recalculateTotals();
+            }
+            $netTotal = round((float) $invoice->net_total, 2);
+            $paidAmount = $payload['paid_amount'] ?? $netTotal;
+            $remainingAmount = $payload['remaining_amount'] ?? max(0, $netTotal - $paidAmount);
+            $invoice->update([
+                'paid_amount' => $paidAmount,
+                'remaining_amount' => $remainingAmount,
+            ]);
 
             $payments = $payload['payments'] ?? [];
             if (!empty($payments)) {
@@ -2285,6 +2315,7 @@ class Handheld2Controller extends Controller
     private function buildInvoiceItems($user, $employee, $payload, $items)
     {
         $subtotal = 0;
+        $itemDiscountTotal = 0;
         $taxTotal = 0;
         $itemsData = [];
 
@@ -2294,7 +2325,9 @@ class Handheld2Controller extends Controller
             $taxPercent = $item['tax_percent'] ?? 0;
             $lineTotal = $qty * $price;
             $taxAmount = $lineTotal * ($taxPercent / 100);
+            [$discountType, $discountValue, $discountAmount] = InvoiceDiscounts::line($item, (float) $lineTotal);
             $subtotal += $lineTotal;
+            $itemDiscountTotal += $discountAmount;
             $taxTotal += $taxAmount;
 
             $itemCode = $item['item_code'] ?? null;
@@ -2330,13 +2363,21 @@ class Handheld2Controller extends Controller
                 'tax_percent' => $taxPercent,
                 'tax_amount' => $taxAmount,
                 'gross_amount' => $lineTotal,
-                'net_amount' => $lineTotal + $taxAmount,
+                'discount_type' => $discountType,
+                'discount_value' => $discountValue,
+                'discount_amount' => $discountAmount,
+                'net_amount' => $lineTotal - $discountAmount + $taxAmount,
                 'unit_id' => $item['unit_id'] ?? $serverItem?->base_unit_id ?? null,
                 'issue_order_id' => $item['issue_order_id'] ?? null,
             ];
         }
 
-        return [$itemsData, $subtotal, $taxTotal];
+        return [
+            $itemsData,
+            round($subtotal, 2),
+            round($taxTotal, 2),
+            round($itemDiscountTotal, 2),
+        ];
     }
 
     /**
@@ -2858,6 +2899,7 @@ class Handheld2Controller extends Controller
                 'sales_invoice_items.qty',
                 'sales_invoice_items.price',
                 'sales_invoice_items.gross_amount',
+                'sales_invoice_items.discount_amount',
                 'sales_invoice_items.net_amount',
                 'items.code',
                 'items.name_ar',
@@ -2871,9 +2913,21 @@ class Handheld2Controller extends Controller
                 'code' => $it->code,
                 'qty' => (float) $it->qty,
                 'price' => (float) $it->price,
+                'discount_amount' => (float) ($it->discount_amount ?? 0),
                 'gross_amount' => (float) ($it->net_amount ?? $it->gross_amount),
             ];
         });
+
+        $discountRows = DB::table('sales_invoice_discounts')
+            ->where('sales_invoice_id', $invoice->id)
+            ->whereNull('deleted_at')
+            ->get(['discount_type', 'discount_value', 'discount_amount', 'reason'])
+            ->map(fn ($d) => [
+                'discount_type' => $d->discount_type,
+                'discount_value' => (float) $d->discount_value,
+                'discount_amount' => (float) $d->discount_amount,
+                'reason' => $d->reason,
+            ]);
 
         return response()->json([
             'invoice' => [
@@ -2886,7 +2940,10 @@ class Handheld2Controller extends Controller
                 'customer_address' => $customer ? $customer->address_line : '',
                 'subtotal' => (float) $invoice->subtotal,
                 'tax_total' => (float) ($invoice->tax_total ?? 0),
+                'item_discount_total' => (float) ($invoice->item_discount_total ?? 0),
                 'discount_total' => (float) ($invoice->invoice_discount_total ?? 0),
+                'invoice_discount_total' => (float) ($invoice->invoice_discount_total ?? 0),
+                'discounts' => $discountRows,
                 'net_total' => (float) $invoice->net_total,
                 'total' => (float) $invoice->net_total,
                 'paid_amount' => (float) $invoice->paid_amount,

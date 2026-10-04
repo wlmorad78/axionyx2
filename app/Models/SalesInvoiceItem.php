@@ -3,6 +3,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Support\InvoiceDiscounts;
 
 class SalesInvoiceItem extends Model
 {
@@ -42,6 +43,7 @@ class SalesInvoiceItem extends Model
     protected static function booted(): void
     {
         static::saving(function (SalesInvoiceItem $model) {
+            $model->syncDiscount();
             $model->syncProfit();
         });
         static::saved(function (SalesInvoiceItem $model) {
@@ -50,6 +52,40 @@ class SalesInvoiceItem extends Model
         static::deleted(function (SalesInvoiceItem $model) {
             $model->updateParentTotals();
         });
+    }
+
+    /**
+     * توحيد خصم السطر قبل الحفظ:
+     *  - يشتق gross_amount من (الكمية × السعر) إن لم يُرسل.
+     *  - يحسب discount_amount من discount_type/discount_value إن لم يُرسل مبلغ صريح،
+     *    ويحدّه بقيمة السطر حتى لا يصبح السطر بالسالب.
+     *  - يعيد اشتقاق net_amount متى لم يحدّده المستخدم صراحةً.
+     */
+    public function syncDiscount(): void
+    {
+        if ($this->gross_amount === null || $this->gross_amount === '') {
+            $this->gross_amount = round((float) $this->qty * (float) $this->price, 2);
+        }
+
+        $gross = round((float) $this->gross_amount, 2);
+        $netWasProvided = $this->isDirty('net_amount');
+
+        [$type, $value, $amount] = InvoiceDiscounts::line([
+            'discount_type' => $this->discount_type,
+            'discount_value' => $this->discount_value,
+            'discount_amount' => $this->discount_amount,
+        ], $gross);
+
+        $this->discount_type = $type;
+        $this->discount_value = $value;
+        $this->discount_amount = $amount;
+
+        if (!$netWasProvided) {
+            $this->net_amount = round(
+                $gross - $amount + (float) ($this->tax_amount ?? 0),
+                2
+            );
+        }
     }
 
     public function syncProfit(): void
@@ -61,12 +97,7 @@ class SalesInvoiceItem extends Model
     {
         $invoice = $this->salesInvoice;
         if ($invoice) {
-            $items = $invoice->items;
-            $invoice->update([
-                'subtotal' => $items->sum('gross_amount'),
-                'item_discount_total' => $items->sum('discount_amount'),
-                'tax_total' => $items->sum('tax_amount'),
-            ]);
+            $invoice->recalculateTotals();
         }
     }
 }

@@ -18,6 +18,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SalesInvoiceDiscount;
 use App\Support\ValidationRules;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SalesInvoiceDiscountController extends Controller
 {

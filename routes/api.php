@@ -13,24 +13,56 @@ Route::get('health-check', function () {
     return response()->json(['status' => 'Server is running', 'timestamp' => now()]);
 });
 
-// App Update (no auth required)
-Route::get('app/version', function () {
-    return response()->json([
-        'success' => true,
-        'data' => [
-            'version' => '1.1.0',
-            'build' => 2,
-            'platform' => 'android',
-            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.1.1.apk',
+// App Update (no auth required) — البيانات كلها هنا في الملف، بدون قاعدة بيانات
+Route::get('app/version', function (Illuminate\Http\Request $request) {
+    $releases = [
+        'android' => [
+            'version' => '1.9.5',
+            'build' => 3,
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+3.apk',
             'force_update' => false,
             'release_notes' => ['تحسينات تحديث النظام وتسوية المندوبين وطلب الارتجاع'],
             'release_date' => '2026-09-08',
-            'minimum_supported_version' => '1.0.0',
-            'minimum_supported_build' => 1,
+            'minimum_supported_version' => '1.9.5',
+            'minimum_supported_build' => 3,
             'file_size' => 66289865,
             'checksum' => null,
-            'is_active' => true,
         ],
+        'windows' => [
+            'version' => '1.9.5',
+            'build' => 3,
+            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+3.zip',
+            'force_update' => false,
+            'release_notes' => [
+                'الإصدار الأول من نسخة الديسك توب Axionyx Desktop',
+                'بحث تلقائي ويدوي عن التحديثات من شاشة الإعدادات',
+                'تحديث تلقائي: تنزيل الحزمة ثم تثبيتها وإعادة تشغيل البرنامج',
+            ],
+            'release_date' => '2026-10-04',
+            'minimum_supported_version' => '1.9.5',
+            'minimum_supported_build' => 2,
+            'file_size' => 17375546,
+            'checksum' => '48edc7db4b88e6a46aebf7fc4b23a908da2f069c1743594e9cab4552b75ebc36',
+        ],
+    ];
+
+    $platform = $request->input('platform', 'android');
+    $release = $releases[$platform] ?? null;
+
+    if ($release === null) {
+        return response()->json([
+            'success' => true,
+            'data' => null,
+            'message' => 'No version available for this platform',
+        ]);
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => array_merge($release, [
+            'platform' => $platform,
+            'is_active' => true,
+        ]),
     ]);
 });
 Route::get('app/versions', [\App\Http\Controllers\Api\AppUpdate\AppVersionController::class, 'index']);

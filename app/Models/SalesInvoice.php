@@ -9,6 +9,7 @@ use App\Traits\BelongsToCompany;
 use App\Services\Document;
 use App\Services\UnitConversionService;
 use App\Services\CostingService;
+use App\Support\InvoiceDiscounts;
 
 class SalesInvoice extends Document
 {
@@ -59,6 +60,166 @@ class SalesInvoice extends Document
     public function taxes() { return $this->hasMany(SalesInvoiceTax::class); }
     public function invoiceIncentives() { return $this->hasMany(SalesInvoiceIncentive::class); }
     public function device() { return $this->belongsTo(Device::class, 'device_id', 'id'); }
+
+    // ─── Discounts & Totals ─────────────────────────────────
+
+    /**
+     * استخراج صفوف خصم الفاتورة من الـ payload المُرسَل من أي عميل
+     * (API عام / هاند هيلد / مزامنة). يدعم الشكلين:
+     *  - صفوف متعددة: discounts = [{discount_type, discount_value, reason}, ...]
+     *  - خصم واحد: invoice_discount_type + invoice_discount_value
+     *  - إجمالي صريح: invoice_discount_total
+     */
+    public static function discountRowsFromPayload(?array $payload): array
+    {
+        if (!is_array($payload)) {
+            return [];
+        }
+
+        $rows = $payload['discounts'] ?? $payload['invoice_discounts'] ?? null;
+        if (is_array($rows) && count($rows) > 0) {
+            return array_values(array_filter($rows, 'is_array'));
+        }
+
+        $type = $payload['invoice_discount_type'] ?? null;
+        $value = (float) ($payload['invoice_discount_value'] ?? 0);
+        $amount = (float) ($payload['invoice_discount_total'] ?? 0);
+        $reason = $payload['discount_reason'] ?? null;
+
+        if ($type !== null && $value > 0) {
+            return [[
+                'discount_type' => InvoiceDiscounts::type($type),
+                'discount_value' => $value,
+                'reason' => $reason,
+            ]];
+        }
+
+        if ($amount > 0) {
+            return [[
+                'discount_type' => InvoiceDiscounts::TYPE_FIXED,
+                'discount_value' => $amount,
+                'discount_amount' => $amount,
+                'reason' => $reason,
+            ]];
+        }
+
+        return [];
+    }
+
+    /**
+     * حساب إجمالي خصم مستوى الفاتورة مبكراً (قبل إنشاء الفاتورة) حتى تُحسب
+     *_paid_amount و remaining_amount على الإجمالي الصحيح.
+     */
+    public static function invoiceDiscountTotalFromPayload(?array $payload, float $base): float
+    {
+        [, $total] = InvoiceDiscounts::rows(
+            static::discountRowsFromPayload($payload),
+            $base
+        );
+
+        return $total;
+    }
+
+    /**
+     * هل يحمل الـ payload بيانات خصم على مستوى الفاتورة؟
+     * يُستخدم لتمييز التحديثات الجزئية (التي لا تذكر الخصم) عن الحذف الصريح.
+     */
+    public static function hasDiscountPayload(?array $payload): bool
+    {
+        if (!is_array($payload)) {
+            return false;
+        }
+
+        foreach (['discounts', 'invoice_discounts', 'invoice_discount_type', 'invoice_discount_value', 'invoice_discount_total'] as $key) {
+            if (array_key_exists($key, $payload)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * استبدال صفوف خصم الفاتورة بالصفوف المستخرجة من الـ payload
+     * ثم إعادة حساب إجماليات الفاتورة.
+     */
+    public function applyDiscounts(?array $payload): void
+    {
+        if (!is_array($payload)) {
+            return;
+        }
+
+        $rows = static::discountRowsFromPayload($payload);
+
+        $this->discounts()->delete();
+
+        if (count($rows) > 0) {
+            $base = $this->discountBase();
+            [$normalized] = InvoiceDiscounts::rows($rows, $base);
+
+            foreach ($normalized as $row) {
+                $this->discounts()->create($row);
+            }
+        }
+
+        $this->recalculateTotals();
+    }
+
+    /**
+     * الأساس الذي تُخصم منه خصومات الفاتورة = المجموع - خصومات الأصناف.
+     */
+    public function discountBase(): float
+    {
+        $subtotal = (float) $this->items()->sum('gross_amount');
+        $itemDiscount = (float) $this->items()->sum('discount_amount');
+
+        if ($subtotal <= 0) {
+            $subtotal = (float) $this->subtotal;
+            $itemDiscount = (float) $this->item_discount_total;
+        }
+
+        return round(max(0, $subtotal - $itemDiscount), 2);
+    }
+
+    /**
+     * إعادة حساب إجماليات الفاتورة من مصادرها الحقيقية:
+     * أصناف الفاتورة + صفوف الخصم.
+     *
+     *   net_total = subtotal - item_discount_total - invoice_discount_total + tax_total
+     */
+    public function recalculateTotals(): void
+    {
+        $items = $this->items()->get();
+
+        if ($items->isNotEmpty()) {
+            $subtotal = round((float) $items->sum('gross_amount'), 2);
+            $itemDiscountTotal = round((float) $items->sum('discount_amount'), 2);
+            $taxTotal = round((float) $items->sum('tax_amount'), 2);
+        } else {
+            // فاتورة بدون أصناف (ترويسة فقط): نحافظ على الإجماليات المُدخلة يدوياً.
+            $subtotal = round((float) $this->subtotal, 2);
+            $itemDiscountTotal = round((float) $this->item_discount_total, 2);
+            $taxTotal = round((float) $this->tax_total, 2);
+        }
+
+        $base = round(max(0, $subtotal - $itemDiscountTotal), 2);
+        $invoiceDiscountTotal = round((float) $this->discounts()->sum('discount_amount'), 2);
+        $invoiceDiscountTotal = round(min($invoiceDiscountTotal, $base), 2);
+
+        $netTotal = round($subtotal - $itemDiscountTotal - $invoiceDiscountTotal + $taxTotal, 2);
+        $paidAmount = round((float) ($this->paid_amount ?? 0), 2);
+        $remainingAmount = round(max(0, $netTotal - $paidAmount), 2);
+
+        $this->update([
+            'subtotal' => $subtotal,
+            'item_discount_total' => $itemDiscountTotal,
+            'invoice_discount_total' => $invoiceDiscountTotal,
+            'tax_total' => $taxTotal,
+            'net_total' => $netTotal,
+            'remaining_amount' => $remainingAmount,
+        ]);
+    }
+
 
     // ─── Document Implementation ────────────────────────────
 
