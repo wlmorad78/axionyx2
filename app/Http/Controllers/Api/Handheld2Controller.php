@@ -2915,6 +2915,8 @@ class Handheld2Controller extends Controller
                 'price' => (float) $it->price,
                 'discount_amount' => (float) ($it->discount_amount ?? 0),
                 'gross_amount' => (float) ($it->net_amount ?? $it->gross_amount),
+                // القيمة قبل الخصم (لعرض السطر بالسعر الأصلي في الطباعة).
+                'line_gross' => (float) ($it->gross_amount ?? 0),
             ];
         });
 
