@@ -18,20 +18,20 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
     $releases = [
         'android' => [
             'version' => '1.9.5',
-            'build' => 4,
-            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+4.apk',
+            'build' => 5,
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+5.apk',
             'force_update' => false,
             'release_notes' => ['إصلاح التحديث التلقائي على أندرويد ( إذن تثبيت التطبيقات)'],
             'release_date' => '2026-10-05',
             'minimum_supported_version' => '1.9.5',
             'minimum_supported_build' => 2,
             'file_size' => 67406117,
-            'checksum' => '9c8848f6cad725fc780fe8b3198ea6a9e64f702ce5ab90bf20163be96ce140dc',
+            'checksum' => '9778eac5168f2c94e592fff478db39c84d360a571d26badf9c5d0b2156e45b1d',
         ],
         'windows' => [
             'version' => '1.9.5',
-            'build' => 4,
-            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+4.zip',
+            'build' => 5,
+            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+5.zip',
             'force_update' => false,
             'release_notes' => [
                 'الإصدار الأول من نسخة الديسك توب Axionyx Desktop',
@@ -39,11 +39,11 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
                 'تحديث تلقائي: تنزيل الحزمة ثم تثبيتها وإعادة تشغيل البرنامج',
                 'إصلاح عدم تنفيذ سكربت التحديث التلقائي على ويندوز',
             ],
-            'release_date' => '2026-10-04',
+            'release_date' => '2026-10-05',
             'minimum_supported_version' => '1.9.5',
             'minimum_supported_build' => 2,
-            'file_size' => 17398259,
-            'checksum' => '96de89e3d84ef86ac6a0a52d6913be660a8787b0db12d4290cd820b17bb0858c',
+            'file_size' => 17398261,
+            'checksum' => 'ce1b001771a14e4d06aefb7f36f06e92a0fc04389b18d6b79aeac7b75f2b1c53',
         ],
     ];
 
