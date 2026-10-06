@@ -105,6 +105,23 @@ class DashboardV2Controller extends Controller
 
         $monthProfit = $monthProfitFromItems - $monthExpenses;
 
+        $discountExpr = 'COALESCE(si.item_discount_total, 0) + COALESCE(si.invoice_discount_total, 0)';
+
+        $monthDiscounts = (float) DB::table('sales_invoices as si')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', '>=', $monthStart)
+            ->whereDate('si.invoice_date', '<=', $monthEnd)
+            ->where('si.status', '!=', 'cancelled')
+            ->selectRaw("SUM($discountExpr) as total")
+            ->value('total');
+
+        $todayDiscounts = (float) DB::table('sales_invoices as si')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', $today)
+            ->where('si.status', '!=', 'cancelled')
+            ->selectRaw("SUM($discountExpr) as total")
+            ->value('total');
+
         $customersCount = Customer::where('company_id', $companyId)
             ->where('is_active', true)
             ->count();
@@ -200,6 +217,8 @@ class DashboardV2Controller extends Controller
             'debtors_total' => (float) $debtors->sum(),
             'creditors_count' => $creditors->count(),
             'creditors_total' => (float) $creditors->sum(),
+            'discounts_total' => round($monthDiscounts, 2),
+            'discounts_today' => round($todayDiscounts, 2),
         ];
     }
 
@@ -406,6 +425,8 @@ class DashboardV2Controller extends Controller
                 'debtors_total' => 0,
                 'creditors_count' => 0,
                 'creditors_total' => 0,
+                'discounts_total' => 0,
+                'discounts_today' => 0,
             ],
             'sales_trend' => [],
             'top_customers' => [],

@@ -1270,11 +1270,47 @@ class ReportController extends Controller
             ->whereDate('transaction_date', '<=', $dateTo)
             ->where('status', 'posted')
             ->whereHas('transactionType', fn($q) => $q->where('effect', 'addition')->where('code', 'PURCHASE_RECEIPT'))
-            ->with('items:id,inventory_transaction_id,item_id,qty,unit_cost');
+            ->with('items:id,inventory_transaction_id,item_id,qty,unit_cost,from_location_type,from_location_id');
         if ($warehouseId) {
             $inQuery->where('warehouse_id', $warehouseId);
         }
         $inTransactions = $inQuery->get();
+
+        // 3.1 تحديد المورد لكل حركة مشتريات (لعرض المشتريات باسم المورد)
+        $invoiceSupplierMap = [];
+        $invoiceIds = $inTransactions
+            ->filter(fn ($txn) => $txn->reference_type === \App\Models\PurchaseInvoice::class)
+            ->pluck('reference_id')->filter()->unique()->values()->all();
+        if (!empty($invoiceIds)) {
+            foreach (\App\Models\PurchaseInvoice::whereIn('id', $invoiceIds)->get(['id', 'supplier_id']) as $inv) {
+                $invoiceSupplierMap[$inv->id] = $inv->supplier_id;
+            }
+        }
+
+        $receiptSupplierMap = [];
+        $receiptIds = $inTransactions
+            ->filter(fn ($txn) => $txn->reference_type === \App\Models\PurchaseReceipt::class)
+            ->pluck('reference_id')->filter()->unique()->values()->all();
+        if (!empty($receiptIds)) {
+            foreach (\App\Models\PurchaseReceipt::whereIn('id', $receiptIds)->get(['id', 'supplier_id']) as $rec) {
+                $receiptSupplierMap[$rec->id] = $rec->supplier_id;
+            }
+        }
+
+        $resolveSupplierId = function ($txn, $item) use ($invoiceSupplierMap, $receiptSupplierMap) {
+            if (($item->from_location_type ?? null) === 'supplier' && !empty($item->from_location_id)) {
+                return (int) $item->from_location_id;
+            }
+            if ($txn->reference_type === \App\Models\PurchaseInvoice::class) {
+                $supplierId = $invoiceSupplierMap[$txn->reference_id] ?? null;
+                return $supplierId ? (int) $supplierId : null;
+            }
+            if ($txn->reference_type === \App\Models\PurchaseReceipt::class) {
+                $supplierId = $receiptSupplierMap[$txn->reference_id] ?? null;
+                return $supplierId ? (int) $supplierId : null;
+            }
+            return null;
+        };
 
         $itemIds = $allItems->keys()->all();
         $defaultUnitCostMap = [];
@@ -1289,12 +1325,42 @@ class ReportController extends Controller
         }
 
         $inQtyMap = [];
+        $inQtyBySupplierMap = [];
         foreach ($inTransactions as $txn) {
             foreach ($txn->items as $item) {
                 $itemId = $item->item_id;
-                $inQtyMap[$itemId] = ($inQtyMap[$itemId] ?? 0) + abs((float) $item->qty);
+                $qty = abs((float) $item->qty);
+                $inQtyMap[$itemId] = ($inQtyMap[$itemId] ?? 0) + $qty;
+                $supplierId = $resolveSupplierId($txn, $item) ?? 0;
+                $inQtyBySupplierMap[$itemId][$supplierId] = ($inQtyBySupplierMap[$itemId][$supplierId] ?? 0) + $qty;
             }
         }
+
+        // 3.2 الموردين الذين توجد لهم مشتريات خلال الفترة (لعرض المشتريات باسم المورد)
+        $supplierTotals = [];
+        foreach ($inQtyBySupplierMap as $perSupplier) {
+            foreach ($perSupplier as $supplierId => $qty) {
+                $supplierTotals[$supplierId] = ($supplierTotals[$supplierId] ?? 0) + $qty;
+            }
+        }
+        $supplierIds = collect(array_keys($supplierTotals))->filter(fn ($id) => (int) $id > 0)->values()->all();
+        $supplierNames = [];
+        if (!empty($supplierIds)) {
+            foreach (\App\Models\Supplier::whereIn('id', $supplierIds)->get(['id', 'supplier_name']) as $sup) {
+                $supplierNames[$sup->id] = $sup->supplier_name;
+            }
+        }
+
+        $purchases = [];
+        foreach ($supplierTotals as $supplierId => $totalQty) {
+            $supplierId = (int) $supplierId;
+            $purchases[] = [
+                'supplier_id'   => $supplierId,
+                'supplier_name' => $supplierNames[$supplierId] ?? ($supplierId > 0 ? 'مورد #' . $supplierId : 'بدون مورد'),
+                'total_qty'     => (float) $totalQty,
+            ];
+        }
+        usort($purchases, fn ($a, $b) => strcmp($a['supplier_name'], $b['supplier_name']));
 
         // 4. حركات الفترة - الصادر
         $outQtyMap = [];
@@ -1386,12 +1452,14 @@ class ReportController extends Controller
                 'closing_balance' => $closingBalance,
                 'total_value'     => $totalValue,
                 'unit_cost'       => $unitCost,
+                'incoming_by_supplier' => (object) array_map('floatval', $inQtyBySupplierMap[$itemId] ?? []),
             ];
         }
 
         return response()->json([
             'data' => [
-                'items' => $result,
+                'items'     => $result,
+                'purchases' => $purchases,
             ],
         ]);
     }
