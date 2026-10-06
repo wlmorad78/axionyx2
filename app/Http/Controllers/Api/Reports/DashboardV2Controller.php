@@ -122,6 +122,26 @@ class DashboardV2Controller extends Controller
             ->selectRaw("SUM($discountExpr) as total")
             ->value('total');
 
+        // عدد الفواتير المخفّضة وعدد العملاء الذين لديهم فواتير خصم (يوم وشهر)
+        $todayDiscountInvoices = DB::table('sales_invoices as si')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', $today)
+            ->where('si.status', '!=', 'cancelled')
+            ->whereNull('si.deleted_at')
+            ->whereRaw("$discountExpr > 0")
+            ->selectRaw('COUNT(*) as invoices, COUNT(DISTINCT si.customer_id) as customers')
+            ->first();
+
+        $monthDiscountInvoices = DB::table('sales_invoices as si')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', '>=', $monthStart)
+            ->whereDate('si.invoice_date', '<=', $monthEnd)
+            ->where('si.status', '!=', 'cancelled')
+            ->whereNull('si.deleted_at')
+            ->whereRaw("$discountExpr > 0")
+            ->selectRaw('COUNT(*) as invoices, COUNT(DISTINCT si.customer_id) as customers')
+            ->first();
+
         $customersCount = Customer::where('company_id', $companyId)
             ->where('is_active', true)
             ->count();
@@ -219,6 +239,10 @@ class DashboardV2Controller extends Controller
             'creditors_total' => (float) $creditors->sum(),
             'discounts_total' => round($monthDiscounts, 2),
             'discounts_today' => round($todayDiscounts, 2),
+            'discount_invoices_today' => (int) ($todayDiscountInvoices->invoices ?? 0),
+            'discount_customers_today' => (int) ($todayDiscountInvoices->customers ?? 0),
+            'discount_invoices_month' => (int) ($monthDiscountInvoices->invoices ?? 0),
+            'discount_customers_month' => (int) ($monthDiscountInvoices->customers ?? 0),
         ];
     }
 
