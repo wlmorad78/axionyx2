@@ -2183,4 +2183,149 @@ class ReportController extends Controller
             ],
         ]);
     }
+
+    /**
+     * GET /api/reports/inactive-customers
+     * تقرير العملاء غير الفعّالة (بدون مشتريات) خلال فترة
+     * فلاتر: تاريخ (من - إلى)، المنطقة (area_id)، خط السير (route_id)
+     */
+    public function inactiveCustomers(Request $request)
+    {
+        $request->validate([
+            'date_from' => 'required|date',
+            'date_to'   => 'required|date|after_or_equal:date_from',
+            'area_id'   => 'nullable|integer',
+            'route_id'  => 'nullable|integer',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $areaId = $request->input('area_id');
+        $routeId = $request->input('route_id');
+
+        $base = DB::table('customers')
+            ->whereNull('customers.deleted_at')
+            ->where('customers.company_id', $companyId);
+
+        if ($areaId) {
+            $base->where('customers.area_id', $areaId);
+        }
+        if ($routeId) {
+            $base->whereExists(function ($q) use ($routeId) {
+                $q->select(DB::raw(1))
+                    ->from('route_customers')
+                    ->whereColumn('route_customers.customer_id', 'customers.id')
+                    ->where('route_customers.route_id', $routeId)
+                    ->whereNull('route_customers.deleted_at');
+            });
+        }
+
+        $totalCustomers = (clone $base)->count();
+
+        // عملاء بدون أي فواتير شراء داخل الفترة المحددة
+        $rows = (clone $base)
+            ->whereNotExists(function ($q) use ($companyId, $dateFrom, $dateTo) {
+                $q->select(DB::raw(1))
+                    ->from('sales_invoices')
+                    ->whereColumn('sales_invoices.customer_id', 'customers.id')
+                    ->where('sales_invoices.company_id', $companyId)
+                    ->whereNull('sales_invoices.deleted_at')
+                    ->where('sales_invoices.status', '!=', 'cancelled')
+                    ->whereDate('sales_invoices.invoice_date', '>=', $dateFrom)
+                    ->whereDate('sales_invoices.invoice_date', '<=', $dateTo);
+            })
+            ->leftJoin('districts', 'districts.id', '=', 'customers.area_id')
+            ->select(
+                'customers.id as customer_id',
+                'customers.code as customer_code',
+                'customers.name_ar as customer_name',
+                'customers.phone',
+                'customers.mobile',
+                'customers.is_active',
+                'customers.created_at',
+                DB::raw("COALESCE(districts.name, '') as area_name"),
+            )
+            ->orderBy('customers.name_ar')
+            ->get();
+
+        $customerIds = $rows->pluck('customer_id');
+
+        $lastPurchases = $customerIds->isEmpty()
+            ? collect()
+            : DB::table('sales_invoices')
+                ->where('company_id', $companyId)
+                ->whereNull('deleted_at')
+                ->where('status', '!=', 'cancelled')
+                ->whereDate('invoice_date', '<', $dateFrom)
+                ->whereIn('customer_id', $customerIds)
+                ->groupBy('customer_id')
+                ->select(
+                    'customer_id',
+                    DB::raw('MAX(invoice_date) as last_date'),
+                    DB::raw('SUM(net_total) as total_before')
+                )
+                ->get()
+                ->keyBy('customer_id');
+
+        $visits = $customerIds->isEmpty()
+            ? collect()
+            : DB::table('customer_visits')
+                ->whereNull('deleted_at')
+                ->whereDate('visit_date', '>=', $dateFrom)
+                ->whereDate('visit_date', '<=', $dateTo)
+                ->whereIn('customer_id', $customerIds)
+                ->groupBy('customer_id')
+                ->select('customer_id', DB::raw('COUNT(*) as visits_count'))
+                ->get()
+                ->keyBy('customer_id');
+
+        $routeNames = $customerIds->isEmpty()
+            ? collect()
+            : DB::table('route_customers')
+                ->join('routes', 'routes.id', '=', 'route_customers.route_id')
+                ->whereNull('route_customers.deleted_at')
+                ->whereNull('routes.deleted_at')
+                ->whereIn('route_customers.customer_id', $customerIds)
+                ->orderBy('route_customers.visit_order')
+                ->get(['route_customers.customer_id', 'routes.name_ar as route_name'])
+                ->groupBy('customer_id')
+                ->map(fn($g) => $g->pluck('route_name')->unique()->filter()->implode('، '));
+
+        $customers = $rows->map(function ($c) use ($lastPurchases, $visits, $routeNames) {
+            $last = $lastPurchases[$c->customer_id] ?? null;
+
+            return [
+                'customer_id' => (int) $c->customer_id,
+                'customer_code' => (string) $c->customer_code,
+                'customer_name' => (string) $c->customer_name,
+                'phone' => (string) ($c->phone ?: ''),
+                'mobile' => (string) ($c->mobile ?: ''),
+                'is_active' => (bool) $c->is_active,
+                'area_name' => (string) $c->area_name,
+                'route_name' => (string) ($routeNames[$c->customer_id] ?? ''),
+                'last_purchase_date' => $last?->last_date,
+                'total_before_period' => round((float) ($last->total_before ?? 0), 2),
+                'visits_in_period' => (int) ($visits[$c->customer_id]->visits_count ?? 0),
+            ];
+        })->values();
+
+        $neverPurchased = $customers->whereNull('last_purchase_date')->count();
+
+        return response()->json([
+            'data' => [
+                'customers' => $customers,
+                'summary' => [
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                    'total_customers' => $totalCustomers,
+                    'total_inactive' => $customers->count(),
+                    'never_purchased' => $neverPurchased,
+                    'inactive_percentage' => $totalCustomers > 0
+                        ? round(($customers->count() / $totalCustomers) * 100, 1)
+                        : 0,
+                ],
+            ],
+        ]);
+    }
 }

@@ -47,6 +47,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('handheld2/customer-balance/{customerId}', [Handheld2Controller::class, 'customerBalance']);
     Route::get('handheld2/customer-balances-bulk', [Handheld2Controller::class, 'customerBalancesBulk']);
     Route::get('handheld2/customer-sales-report', [Handheld2Controller::class, 'customerSalesReport']);
+    Route::get('handheld2/customer-sales-invoices', [Handheld2Controller::class, 'customerSalesInvoices']);
+    Route::get('handheld2/customers-list', [Handheld2Controller::class, 'customersList']);
     Route::get('handheld2/invoice-details', [Handheld2Controller::class, 'invoiceDetails']);
     Route::get('handheld2/invoice-payment-methods/{clientUuid}', [Handheld2Controller::class, 'invoicePaymentMethods']);
 

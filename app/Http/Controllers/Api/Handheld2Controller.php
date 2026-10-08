@@ -2866,6 +2866,120 @@ class Handheld2Controller extends Controller
     }
 
     /**
+     * قائمة العملاء مبسطة (دروب داون) لشاشة مبيعات العملاء.
+     */
+    public function customersList(Request $request)
+    {
+        $user = $request->user();
+        $companyId = $user->company_id;
+        $branchId = $request->header('X-Branch-Id');
+        $branchId = $branchId ? (int) $branchId : null;
+        $search = trim((string) $request->input('search', ''));
+
+        $customers = DB::table('customers')
+            ->where('company_id', $companyId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->whereNull('deleted_at')
+            ->when($search !== '', fn ($q) => $q->where(function ($qq) use ($search) {
+                $qq->where('name_ar', 'like', "%{$search}%")
+                    ->orWhere('name_en', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('mobile', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            }))
+            ->orderBy('name_ar')
+            ->limit(500)
+            ->get(['id', 'code', 'name_ar', 'name_en', 'mobile', 'phone'])
+            ->map(fn ($c) => [
+                'id' => (int) $c->id,
+                'code' => $c->code,
+                'name' => $c->name_ar ?? $c->name_en,
+                'phone' => $c->mobile ?? $c->phone,
+            ])
+            ->values();
+
+        return response()->json(['data' => $customers]);
+    }
+
+    /**
+     * فواتير مبيعات عميل في فترة زمنية (شاشة مبيعات العملاء).
+     */
+    public function customerSalesInvoices(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|integer',
+            'from_date' => 'required|date',
+            'to_date' => 'required|date',
+        ]);
+
+        $user = $request->user();
+        $companyId = $user->company_id;
+        $branchId = $request->header('X-Branch-Id');
+        $branchId = $branchId ? (int) $branchId : null;
+
+        $customerId = (int) $validated['customer_id'];
+        $from = $validated['from_date'];
+        $to = $validated['to_date'];
+
+        $customer = DB::table('customers')
+            ->where('id', $customerId)
+            ->where('company_id', $companyId)
+            ->whereNull('deleted_at')
+            ->first(['id', 'code', 'name_ar', 'name_en', 'mobile', 'phone']);
+
+        if (!$customer) {
+            return response()->json(['message' => 'العميل غير موجود'], 404);
+        }
+
+        $invoices = DB::table('sales_invoices')
+            ->where('company_id', $companyId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->where('customer_id', $customerId)
+            ->where('status', '!=', 'cancelled')
+            ->whereNull('deleted_at')
+            ->whereDate('invoice_date', '>=', $from)
+            ->whereDate('invoice_date', '<=', $to)
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->get([
+                'id', 'invoice_no', 'invoice_date', 'invoice_time', 'status',
+                'subtotal', 'item_discount_total', 'invoice_discount_total', 'tax_total',
+                'net_total', 'paid_amount', 'remaining_amount',
+            ]);
+
+        $rows = $invoices->map(fn ($inv) => [
+            'id' => (int) $inv->id,
+            'invoice_no' => $inv->invoice_no,
+            'invoice_date' => substr((string) $inv->invoice_date, 0, 10),
+            'invoice_time' => $inv->invoice_time,
+            'status' => $inv->status,
+            'subtotal' => round((float) $inv->subtotal, 2),
+            'discount' => round((float) ($inv->item_discount_total ?? 0) + (float) ($inv->invoice_discount_total ?? 0), 2),
+            'tax' => round((float) ($inv->tax_total ?? 0), 2),
+            'total' => round((float) $inv->net_total, 2),
+            'paid' => round((float) $inv->paid_amount, 2),
+            'remaining' => round((float) $inv->remaining_amount, 2),
+        ])->values();
+
+        return response()->json([
+            'customer' => [
+                'id' => (int) $customer->id,
+                'code' => $customer->code,
+                'name' => $customer->name_ar ?? $customer->name_en,
+            ],
+            'from_date' => $from,
+            'to_date' => $to,
+            'totals' => [
+                'count' => $rows->count(),
+                'total' => round((float) $rows->sum('total'), 2),
+                'paid' => round((float) $rows->sum('paid'), 2),
+                'remaining' => round((float) $rows->sum('remaining'), 2),
+            ],
+            'rows' => $rows,
+        ]);
+    }
+
+    /**
      * تفاصيل فاتورة بيع واحدة لطباعتها من شاشة كشف الحساب.
      */
     public function invoiceDetails(Request $request)

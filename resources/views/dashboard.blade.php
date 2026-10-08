@@ -49,6 +49,17 @@
             <span class="chip">All</span>
         </div>
     </article>
+
+    <article class="panel">
+        <div class="metric">
+            <div>
+                <div class="muted">خصومات الشهر</div>
+                <div class="value">{{ number_format($monthDiscounts, 2) }}</div>
+                <div class="trend">خصومات اليوم {{ number_format($todayDiscounts, 2) }}</div>
+            </div>
+            <span class="chip" style="background:rgba(217,119,6,0.12);color:#fde68a;border-color:rgba(217,119,6,0.18);">%</span>
+        </div>
+    </article>
 </div>
 
 <div class="grid grid-2">
