@@ -2328,4 +2328,179 @@ class ReportController extends Controller
             ],
         ]);
     }
+
+    /**
+     * GET /api/reports/customer-sales-qty
+     * تقرير مبيعات العملاء بالكمية (كراتين) خلال فترة مع فلتر مرن على الكمية:
+     *   - qty_min / qty_max: الكمية ضمن النطاق (شامل الطرفين)
+     *   - qty_gt: أكثر من كمية   |   qty_lt: أقل من كمية
+     * أمثلة: أكثر من5 كراتين → qty_gt=5 | أقل من5 → qty_lt=5 | من1 إلى5 → qty_min=1&qty_max=5
+     */
+    public function customerSalesQty(Request $request)
+    {
+        $request->validate([
+            'date_from' => 'required|date',
+            'date_to' => 'required|date|after_or_equal:date_from',
+            'customer_id' => 'nullable|integer',
+            'territory_id' => 'nullable|integer',
+            'route_id' => 'nullable|integer',
+            'qty_min' => 'nullable|numeric|min:0',
+            'qty_max' => 'nullable|numeric|min:0',
+            'qty_gt' => 'nullable|numeric|min:0',
+            'qty_lt' => 'nullable|numeric|min:0',
+        ]);
+
+        $qtyMin = $request->filled('qty_min') ? (float) $request->input('qty_min') : null;
+        $qtyMax = $request->filled('qty_max') ? (float) $request->input('qty_max') : null;
+        $qtyGt = $request->filled('qty_gt') ? (float) $request->input('qty_gt') : null;
+        $qtyLt = $request->filled('qty_lt') ? (float) $request->input('qty_lt') : null;
+
+        if ($qtyMin !== null && $qtyMax !== null && $qtyMax < $qtyMin) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'qty_max' => 'الحد الأعلى للكمية يجب أن يكون أكبر من أو يساوي الحد الأدنى',
+            ]);
+        }
+
+        $companyId = $request->user()->company_id;
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $customerId = $request->input('customer_id');
+        $territoryId = $request->input('territory_id');
+        $routeId = $request->input('route_id');
+
+        // أساس الفواتير داخل الفترة (يُستدعى مرتين: للقيم وللكميات)
+        $invoiceBase = fn () => DB::table('sales_invoices as si')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', '>=', $dateFrom)
+            ->whereDate('si.invoice_date', '<=', $dateTo)
+            ->where('si.status', 'posted')
+            ->whereNull('si.deleted_at')
+            ->when($customerId, fn ($q) => $q->where('si.customer_id', $customerId))
+            ->when($territoryId, fn ($q) => $q->where('si.sales_territory_id', $territoryId))
+            ->when($routeId, fn ($q) => $q->where('si.route_id', $routeId));
+
+        // 1) عدد الفواتير والقيمة لكل عميل
+        $sales = $invoiceBase()
+            ->join('customers', 'customers.id', '=', 'si.customer_id')
+            ->whereNull('customers.deleted_at')
+            ->groupBy('si.customer_id', 'customers.code', 'customers.name_ar')
+            ->select(
+                'si.customer_id',
+                'customers.code as customer_code',
+                'customers.name_ar as customer_name',
+                DB::raw('COUNT(*) as invoices_count'),
+                DB::raw('SUM(si.net_total) as sales_total'),
+                DB::raw('SUM(si.paid_amount) as paid_total')
+            )
+            ->get();
+
+        // 2) الكميات (كراتين) وعدد الأصناف لكل عميل
+        $qties = $invoiceBase()
+            ->join('sales_invoice_items as sii', 'sii.sales_invoice_id', '=', 'si.id')
+            ->whereNull('sii.deleted_at')
+            ->groupBy('si.customer_id')
+            ->select(
+                'si.customer_id',
+                DB::raw('SUM(sii.qty) as qty_total'),
+                DB::raw('SUM(sii.bonus_qty) as bonus_total'),
+                DB::raw('COUNT(DISTINCT sii.item_id) as items_count')
+            )
+            ->get()
+            ->keyBy('customer_id');
+
+        // دمج + فلتر مرن على الكمية
+        $customers = $sales
+            ->map(function ($row) use ($qties, $qtyMin, $qtyMax, $qtyGt, $qtyLt) {
+                $qty = (float) ($qties[$row->customer_id]->qty_total ?? 0);
+
+                return [
+                    'customer_id' => (int) $row->customer_id,
+                    'customer_code' => (string) $row->customer_code,
+                    'customer_name' => (string) $row->customer_name,
+                    'invoices_count' => (int) $row->invoices_count,
+                    'qty_total' => round($qty, 2),
+                    'bonus_total' => round((float) ($qties[$row->customer_id]->bonus_total ?? 0), 2),
+                    'items_count' => (int) ($qties[$row->customer_id]->items_count ?? 0),
+                    'sales_total' => round((float) $row->sales_total, 2),
+                    'paid_total' => round((float) $row->paid_total, 2),
+                    'remaining_total' => round((float) $row->sales_total - (float) $row->paid_total, 2),
+                    'route_name' => '',
+                    'territory_name' => '',
+                    '_qty' => $qty,
+                ];
+            })
+            ->filter(function ($c) use ($qtyMin, $qtyMax, $qtyGt, $qtyLt) {
+                $q = $c['_qty'];
+                if ($qtyMin !== null && $q < $qtyMin) {
+                    return false;
+                }
+                if ($qtyMax !== null && $q > $qtyMax) {
+                    return false;
+                }
+                if ($qtyGt !== null && $q <= $qtyGt) {
+                    return false;
+                }
+                if ($qtyLt !== null && $q >= $qtyLt) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->sortByDesc('qty_total')
+            ->values();
+
+        // أسماء خطوط السير والمناطق للعملاء المطلوبين فقط
+        $customerIds = $customers->pluck('customer_id');
+        $routeInfo = $customerIds->isEmpty()
+            ? collect()
+            : DB::table('route_customers')
+                ->join('routes', 'routes.id', '=', 'route_customers.route_id')
+                ->leftJoin('sales_territories', 'sales_territories.id', '=', 'routes.sales_territory_id')
+                ->whereNull('route_customers.deleted_at')
+                ->whereNull('routes.deleted_at')
+                ->whereIn('route_customers.customer_id', $customerIds)
+                ->orderBy('route_customers.visit_order')
+                ->get([
+                    'route_customers.customer_id',
+                    'routes.name_ar as route_name',
+                    'sales_territories.name_ar as territory_name',
+                ])
+                ->groupBy('customer_id')
+                ->map(fn ($g) => [
+                    'route_name' => $g->pluck('route_name')->unique()->filter()->implode('، '),
+                    'territory_name' => $g->pluck('territory_name')->unique()->filter()->implode('، '),
+                ]);
+
+        $customers = $customers->map(function ($c) use ($routeInfo) {
+            unset($c['_qty']);
+            $info = $routeInfo[$c['customer_id']] ?? null;
+            $c['route_name'] = (string) ($info['route_name'] ?? '');
+            $c['territory_name'] = (string) ($info['territory_name'] ?? '');
+
+            return $c;
+        });
+
+        return response()->json([
+            'data' => [
+                'customers' => $customers,
+                'summary' => [
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                    'qty_min' => $qtyMin,
+                    'qty_max' => $qtyMax,
+                    'qty_gt' => $qtyGt,
+                    'qty_lt' => $qtyLt,
+                    'customers_count' => $customers->count(),
+                    'total_qty' => round($customers->sum('qty_total'), 2),
+                    'total_bonus' => round($customers->sum('bonus_total'), 2),
+                    'total_invoices' => (int) $customers->sum('invoices_count'),
+                    'total_sales' => round($customers->sum('sales_total'), 2),
+                    'total_remaining' => round($customers->sum('remaining_total'), 2),
+                    'avg_qty' => $customers->count() > 0
+                        ? round($customers->sum('qty_total') / $customers->count(), 2)
+                        : 0,
+                ],
+            ],
+        ]);
+    }
 }
