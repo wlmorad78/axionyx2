@@ -38,9 +38,27 @@ Route::get('/', function () {
     $totalBankToSupplier = \App\Models\BankSupplierPayment::where('status', 'completed')
         ->when($companyId, fn($q) => $q->where('company_id', $companyId))->sum('amount');
 
+    $discountExpr = 'COALESCE(si.item_discount_total, 0) + COALESCE(si.invoice_discount_total, 0)';
+
+    $monthDiscounts = (float) DB::table('sales_invoices as si')
+        ->when($companyId, fn($q) => $q->where('si.company_id', $companyId))
+        ->where('si.status', '!=', 'cancelled')
+        ->whereDate('si.invoice_date', '>=', now()->startOfMonth()->toDateString())
+        ->whereDate('si.invoice_date', '<=', now()->endOfMonth()->toDateString())
+        ->selectRaw("SUM($discountExpr) as total")
+        ->value('total');
+
+    $todayDiscounts = (float) DB::table('sales_invoices as si')
+        ->when($companyId, fn($q) => $q->where('si.company_id', $companyId))
+        ->where('si.status', '!=', 'cancelled')
+        ->whereDate('si.invoice_date', now()->toDateString())
+        ->selectRaw("SUM($discountExpr) as total")
+        ->value('total');
+
     return view('dashboard', compact(
         'treasuryBankTransfers', 'bankSupplierPayments',
-        'totalTreasuryToBank', 'totalBankToTreasury', 'totalBankToSupplier'
+        'totalTreasuryToBank', 'totalBankToTreasury', 'totalBankToSupplier',
+        'monthDiscounts', 'todayDiscounts'
     ));
 })->name('web.dashboard');
 
