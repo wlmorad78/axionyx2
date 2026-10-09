@@ -2330,8 +2330,43 @@ class ReportController extends Controller
     }
 
     /**
+     * item_id => conversion factor of the requested unit for that item.
+     * The sales line quantity is stored in the base unit (box), so
+     * qty in target unit = (qty * line conversion_factor) / unit factor.
+     * When $unitId is null the carton unit (units named carton) is used.
+     * Items without the requested unit fall back to factor 1.
+     */
+    private function unitFactorMap(array $itemIds, ?int $unitId): array
+    {
+        if (empty($itemIds) || $unitId === null) {
+            return [];
+        }
+
+        $rows = DB::table('item_units as iu')
+            ->join('units', 'units.id', '=', 'iu.unit_id')
+            ->whereNull('iu.deleted_at')
+            ->whereNull('units.deleted_at')
+            ->whereIn('iu.item_id', $itemIds)
+            ->where('iu.unit_id', $unitId)
+            ->get(['iu.item_id', 'iu.conversion_factor']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $factor = (float) $row->conversion_factor;
+            if ($factor <= 0) {
+                $factor = 1.0;
+            }
+            $itemId = (int) $row->item_id;
+            $map[$itemId] = max($map[$itemId] ?? 1.0, $factor);
+        }
+
+        return $map;
+    }
+
+    /**
      * GET /api/reports/customer-sales-qty
-     * تقرير مبيعات العملاء بالكمية (كراتين) خلال فترة مع فلتر مرن على الكمية:
+     * تقرير مبيعات العملاء بالكمية خلال فترة مع فلتر مرن على الكمية:
+     *   - unit_id: وحدة عرض الكميات (افتراضي الكرتونة) — تُقرأ معاملات التحويل من item_units
      *   - qty_min / qty_max: الكمية ضمن النطاق (شامل الطرفين)
      *   - qty_gt: أكثر من كمية   |   qty_lt: أقل من كمية
      * أمثلة: أكثر من5 كراتين → qty_gt=5 | أقل من5 → qty_lt=5 | من1 إلى5 → qty_min=1&qty_max=5
@@ -2344,6 +2379,7 @@ class ReportController extends Controller
             'customer_id' => 'nullable|integer',
             'territory_id' => 'nullable|integer',
             'route_id' => 'nullable|integer',
+            'unit_id' => 'nullable|integer|exists:units,id',
             'qty_min' => 'nullable|numeric|min:0',
             'qty_max' => 'nullable|numeric|min:0',
             'qty_gt' => 'nullable|numeric|min:0',
@@ -2354,6 +2390,26 @@ class ReportController extends Controller
         $qtyMax = $request->filled('qty_max') ? (float) $request->input('qty_max') : null;
         $qtyGt = $request->filled('qty_gt') ? (float) $request->input('qty_gt') : null;
         $qtyLt = $request->filled('qty_lt') ? (float) $request->input('qty_lt') : null;
+
+        // وحدة العرض: الوحدة المختارة، أو الكرتونة افتراضياً
+        $unitId = $request->filled('unit_id') ? (int) $request->input('unit_id') : null;
+        $unitName = '';
+        if ($unitId !== null) {
+            $unitName = (string) (DB::table('units')->where('id', $unitId)->value('name_ar') ?? '');
+        } else {
+            $cartonId = DB::table('units')
+                ->whereNull('deleted_at')
+                ->where(function ($q) {
+                    $q->where('name_ar', 'like', '%كرتون%')
+                        ->orWhere('name_en', 'like', '%carton%');
+                })
+                ->orderBy('id')
+                ->value('id');
+            $unitId = $cartonId !== null ? (int) $cartonId : null;
+            $unitName = $unitId !== null
+                ? (string) (DB::table('units')->where('id', $unitId)->value('name_ar') ?? '')
+                : '';
+        }
 
         if ($qtyMin !== null && $qtyMax !== null && $qtyMax < $qtyMin) {
             throw \Illuminate\Validation\ValidationException::withMessages([
@@ -2395,18 +2451,61 @@ class ReportController extends Controller
             ->get();
 
         // 2) الكميات (كراتين) وعدد الأصناف لكل عميل
-        $qties = $invoiceBase()
+        $lines = $invoiceBase()
             ->join('sales_invoice_items as sii', 'sii.sales_invoice_id', '=', 'si.id')
             ->whereNull('sii.deleted_at')
-            ->groupBy('si.customer_id')
+            ->groupBy('si.customer_id', 'sii.item_id')
             ->select(
                 'si.customer_id',
-                DB::raw('SUM(sii.qty) as qty_total'),
-                DB::raw('SUM(sii.bonus_qty) as bonus_total'),
-                DB::raw('COUNT(DISTINCT sii.item_id) as items_count')
+                'sii.item_id',
+                DB::raw('SUM(COALESCE(sii.qty, 0) * COALESCE(NULLIF(sii.conversion_factor, 0), 1)) as base_qty'),
+                DB::raw('SUM(COALESCE(sii.bonus_qty, 0) * COALESCE(NULLIF(sii.conversion_factor, 0), 1)) as bonus_base')
             )
-            ->get()
-            ->keyBy('customer_id');
+            ->get();
+
+        $itemIds = $lines->pluck('item_id')->unique()->values()->all();
+        $factors = $this->unitFactorMap($itemIds, $unitId);
+
+        // وحدات القياس المتاحة لأصناف التقرير (لعرضها في اختيار الوحدة)
+        $units = DB::table('item_units as iu')
+            ->join('units as u', 'u.id', '=', 'iu.unit_id')
+            ->whereNull('iu.deleted_at')
+            ->whereNull('u.deleted_at')
+            ->whereIn('iu.item_id', $itemIds)
+            ->groupBy('u.id', 'u.name_ar')
+            ->select('u.id', 'u.name_ar', DB::raw('MAX(iu.conversion_factor) as conversion_factor'))
+            ->orderByDesc('conversion_factor')
+            ->get();
+
+        if ($units->isEmpty()) {
+            $units = DB::table('units')
+                ->whereNull('deleted_at')
+                ->orderBy('id')
+                ->get(['id', 'name_ar']);
+        }
+
+        $qties = $lines
+            ->groupBy('customer_id')
+            ->map(function ($rows) use ($factors) {
+                $qty = 0.0;
+                $bonus = 0.0;
+
+                foreach ($rows as $row) {
+                    $factor = $factors[(int) $row->item_id] ?? 1.0;
+                    if ($factor <= 0) {
+                        $factor = 1.0;
+                    }
+
+                    $qty += (float) $row->base_qty / $factor;
+                    $bonus += (float) $row->bonus_base / $factor;
+                }
+
+                return (object) [
+                    'qty_total' => $qty,
+                    'bonus_total' => $bonus,
+                    'items_count' => $rows->count(),
+                ];
+            });
 
         // دمج + فلتر مرن على الكمية
         $customers = $sales
@@ -2483,9 +2582,12 @@ class ReportController extends Controller
         return response()->json([
             'data' => [
                 'customers' => $customers,
+                'units' => $units->values(),
                 'summary' => [
                     'date_from' => $dateFrom,
                     'date_to' => $dateTo,
+                    'unit_id' => $unitId,
+                    'qty_unit' => $unitName,
                     'qty_min' => $qtyMin,
                     'qty_max' => $qtyMax,
                     'qty_gt' => $qtyGt,
