@@ -2503,7 +2503,7 @@ class ReportController extends Controller
                 ->get()
                 ->keyBy('customer_id');
 
-        $routeNames = $customerIds->isEmpty()
+        $routeLinks = $customerIds->isEmpty()
             ? collect()
             : DB::table('route_customers')
                 ->join('routes', 'routes.id', '=', 'route_customers.route_id')
@@ -2511,12 +2511,16 @@ class ReportController extends Controller
                 ->whereNull('routes.deleted_at')
                 ->whereIn('route_customers.customer_id', $customerIds)
                 ->orderBy('route_customers.visit_order')
-                ->get(['route_customers.customer_id', 'routes.name_ar as route_name'])
-                ->groupBy('customer_id')
-                ->map(fn($g) => $g->pluck('route_name')->unique()->filter()->implode('، '));
+                ->get([
+                    'route_customers.customer_id',
+                    'route_customers.route_id',
+                    'routes.name_ar as route_name',
+                ])
+                ->groupBy('customer_id');
 
-        $customers = $rows->map(function ($c) use ($lastPurchases, $visits, $routeNames) {
+        $customers = $rows->map(function ($c) use ($lastPurchases, $visits, $routeLinks) {
             $last = $lastPurchases[$c->customer_id] ?? null;
+            $links = $routeLinks[$c->customer_id] ?? collect();
 
             return [
                 'customer_id' => (int) $c->customer_id,
@@ -2526,7 +2530,8 @@ class ReportController extends Controller
                 'mobile' => (string) ($c->mobile ?: ''),
                 'is_active' => (bool) $c->is_active,
                 'area_name' => (string) $c->area_name,
-                'route_name' => (string) ($routeNames[$c->customer_id] ?? ''),
+                'route_name' => $links->pluck('route_name')->unique()->filter()->implode('، '),
+                'route_ids' => $links->pluck('route_id')->unique()->values()->map(fn ($id) => (int) $id)->all(),
                 'last_purchase_date' => $last?->last_date,
                 'total_before_period' => round((float) ($last->total_before ?? 0), 2),
                 'visits_in_period' => (int) ($visits[$c->customer_id]->visits_count ?? 0),
