@@ -544,6 +544,187 @@ class ReportController extends Controller
     }
 
     /**
+     * GET /api/reports/discount-customers
+     * عملاء الخصم - سطر لكل (عميل + يوم): الأصناف المباعة، إجمالي الكمية،
+     * إجمالي الفاتورة، الخصم، الصافي.
+     * نفس منطق عدّادات الداشبورد: الفواتير التي فيها خصم (بند + فاتورة) وغير ملغاة.
+     * فلاتر: date_from / date_to (افتراضي: اليوم)، customer_id، sales_rep_id
+     */
+    public function discountCustomers(Request $request)
+    {
+        $request->validate([
+            'date_from'    => 'nullable|date',
+            'date_to'      => 'nullable|date|after_or_equal:date_from',
+            'customer_id'  => 'nullable|integer',
+            'sales_rep_id' => 'nullable|integer',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $dateFrom = $request->input('date_from') ?? now()->toDateString();
+        $dateTo = $request->input('date_to') ?? $dateFrom;
+        $discountExpr = 'COALESCE(si.item_discount_total, 0) + COALESCE(si.invoice_discount_total, 0)';
+
+        $invoicesQuery = DB::table('sales_invoices as si')
+            ->join('customers as c', 'c.id', '=', 'si.customer_id')
+            ->whereNull('c.deleted_at')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', '>=', $dateFrom)
+            ->whereDate('si.invoice_date', '<=', $dateTo)
+            ->whereNull('si.deleted_at')
+            ->where('si.status', '!=', 'cancelled')
+            ->whereRaw("$discountExpr > 0")
+            ->select(
+                'si.id as invoice_id',
+                'si.customer_id',
+                'si.invoice_date',
+                'si.sales_rep_id',
+                'c.code as customer_code',
+                'c.name_ar as customer_name',
+                DB::raw("$discountExpr as discount"),
+                'si.subtotal',
+                'si.tax_total',
+                'si.net_total'
+            );
+
+        if ($request->filled('customer_id')) {
+            $invoicesQuery->where('si.customer_id', $request->input('customer_id'));
+        }
+        if ($request->filled('sales_rep_id')) {
+            $invoicesQuery->where('si.sales_rep_id', $request->input('sales_rep_id'));
+        }
+
+        $invoices = $invoicesQuery->get();
+
+        $empty = [
+            'rows' => [],
+            'summary' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'customers' => 0,
+                'invoices' => 0,
+                'total_qty' => 0,
+                'invoice_total' => 0,
+                'discount' => 0,
+                'net_total' => 0,
+            ],
+        ];
+
+        if ($invoices->isEmpty()) {
+            return response()->json(['data' => $empty]);
+        }
+
+        $itemRows = DB::table('sales_invoice_items as sii')
+            ->join('items as i', 'i.id', '=', 'sii.item_id')
+            ->whereNull('sii.deleted_at')
+            ->whereNull('i.deleted_at')
+            ->whereIn('sii.sales_invoice_id', $invoices->pluck('invoice_id'))
+            ->groupBy('sii.sales_invoice_id', 'i.id', 'i.code', 'i.name_ar')
+            ->select(
+                'sii.sales_invoice_id',
+                'i.id as item_id',
+                'i.code as item_code',
+                'i.name_ar as item_name',
+                DB::raw('SUM(sii.qty) as qty')
+            )
+            ->get()
+            ->groupBy('sales_invoice_id');
+
+        $rows = [];
+        foreach ($invoices as $inv) {
+            $date = substr((string) $inv->invoice_date, 0, 10);
+            $key = $inv->customer_id . '|' . $date;
+
+            if (!isset($rows[$key])) {
+                $rows[$key] = [
+                    'customer_id' => (int) $inv->customer_id,
+                    'customer_code' => (string) $inv->customer_code,
+                    'customer_name' => (string) $inv->customer_name,
+                    'invoice_date' => $date,
+                    'invoice_count' => 0,
+                    'invoice_total' => 0.0,
+                    'discount' => 0.0,
+                    'net_total' => 0.0,
+                    'total_qty' => 0.0,
+                    'items' => [],
+                ];
+            }
+
+            $rows[$key]['invoice_count']++;
+            $rows[$key]['invoice_total'] += (float) $inv->subtotal + (float) $inv->tax_total;
+            $rows[$key]['discount'] += (float) $inv->discount;
+            $rows[$key]['net_total'] += (float) $inv->net_total;
+
+            foreach ($itemRows[$inv->invoice_id] ?? [] as $item) {
+                $itemKey = $item->item_id ?? $item->item_name;
+                if (!isset($rows[$key]['items'][$itemKey])) {
+                    $rows[$key]['items'][$itemKey] = [
+                        'item_id' => (int) ($item->item_id ?? 0),
+                        'item_code' => (string) ($item->item_code ?? ''),
+                        'item_name' => (string) $item->item_name,
+                        'qty' => 0.0,
+                    ];
+                }
+                $rows[$key]['items'][$itemKey]['qty'] += (float) $item->qty;
+            }
+        }
+
+        $result = [];
+        $summary = [
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'customers' => 0,
+            'invoices' => 0,
+            'total_qty' => 0.0,
+            'invoice_total' => 0.0,
+            'discount' => 0.0,
+            'net_total' => 0.0,
+        ];
+
+        foreach ($rows as $row) {
+            $row['items'] = array_values($row['items']);
+            usort($row['items'], fn ($a, $b) => strcmp($a['item_name'], $b['item_name']));
+
+            $row['total_qty'] = 0.0;
+            foreach ($row['items'] as $item) {
+                $row['total_qty'] += $item['qty'];
+            }
+
+            $row['invoice_total'] = round($row['invoice_total'], 2);
+            $row['discount'] = round($row['discount'], 2);
+            $row['net_total'] = round($row['net_total'], 2);
+            $row['total_qty'] = round($row['total_qty'], 2);
+            foreach ($row['items'] as $i => $item) {
+                $row['items'][$i]['qty'] = round($item['qty'], 2);
+            }
+
+            $summary['invoices'] += $row['invoice_count'];
+            $summary['total_qty'] += $row['total_qty'];
+            $summary['invoice_total'] += $row['invoice_total'];
+            $summary['discount'] += $row['discount'];
+            $summary['net_total'] += $row['net_total'];
+
+            $result[] = $row;
+        }
+
+        usort($result, function ($a, $b) {
+            return [$a['invoice_date'], $a['customer_name']] <=> [$b['invoice_date'], $b['customer_name']];
+        });
+
+        $summary['customers'] = count(array_unique(array_column($result, 'customer_id')));
+        $summary['total_qty'] = round($summary['total_qty'], 2);
+        $summary['invoice_total'] = round($summary['invoice_total'], 2);
+        $summary['discount'] = round($summary['discount'], 2);
+        $summary['net_total'] = round($summary['net_total'], 2);
+
+        return response()->json([
+            'data' => [
+                'rows' => $result,
+                'summary' => $summary,
+            ],
+        ]);
+    }
+
+    /**
      * GET /api/reports/rep-daily-sales
      * مبيعات المندوب اليومية - تقرير مبيعات كل مندوب مع العملاء خلال فترة
      */
@@ -2789,7 +2970,7 @@ class ReportController extends Controller
             ->selectRaw("p.id as party_id, p.{$nameColumn} as party_name, p.{$codeColumn} as party_code")
             ->selectRaw('COALESCE(SUM(COALESCE(d.net_total, 0)), 0) as debit_total')
             ->selectRaw('COALESCE(SUM(COALESCE(d.paid_amount, 0)), 0) as credit_total')
-            ->selectRaw("COALESCE(SUM(CASE WHEN d.invoice_date = '{$today}' THEN COALESCE(d.net_total, 0) ELSE 0 END), 0) as today_total")
+            ->selectRaw("COALESCE(SUM(CASE WHEN DATE(d.invoice_date) = '{$today}' THEN COALESCE(d.net_total, 0) ELSE 0 END), 0) as today_total")
             ->selectRaw("COALESCE(SUM({$balanceExpr}), 0) as balance")
             ->havingRaw('balance > 0')
             ->orderByDesc('balance')
@@ -2808,12 +2989,14 @@ class ReportController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'type' => $type,
-                'label' => $isDebtors ? 'المدينون' : 'الدائنون',
-                'name_header' => $isDebtors ? 'العميل' : 'المورد',
-                'today_header' => $isDebtors ? 'مبيعات اليوم' : 'مشتريات اليوم',
                 'date' => $today,
                 'rows' => $rows,
+                'meta' => [
+                    'type' => $type,
+                    'label' => $isDebtors ? 'المدينون' : 'الدائنون',
+                    'name_header' => $isDebtors ? 'العميل' : 'المورد',
+                    'today_header' => $isDebtors ? 'مبيعات اليوم' : 'مشتريات اليوم',
+                ],
                 'summary' => [
                     'count' => $rows->count(),
                     'today' => round((float) $rows->sum('today'), 2),

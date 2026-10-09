@@ -229,6 +229,7 @@ Route::get('reports/warehouse-daily-movement', [\App\Http\Controllers\Api\Report
 Route::get('reports/warehouse-monthly-movement', [\App\Http\Controllers\Api\Reports\ReportController::class, 'warehouseMonthlyMovement'])->middleware('auth:sanctum')->name('reports.warehouse-monthly-movement');
 Route::get('reports/daily-product-sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'dailyProductSales'])->middleware('auth:sanctum')->name('reports.daily-product-sales');
 Route::get('reports/customer-daily-sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerDailySales'])->middleware('auth:sanctum')->name('reports.customer-daily-sales');
+Route::get('reports/discount-customers', [\App\Http\Controllers\Api\Reports\ReportController::class, 'discountCustomers'])->middleware('auth:sanctum')->name('reports.discount-customers');
 Route::get('reports/rep-daily-sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'repDailySales'])->middleware('auth:sanctum')->name('reports.rep-daily-sales');
 Route::get('reports/customer-sales', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerSales'])->middleware('auth:sanctum')->name('reports.customer-sales');
 Route::get('reports/rep-movement-by-item', [\App\Http\Controllers\Api\Reports\ReportController::class, 'repMovementByItem'])->middleware('auth:sanctum')->name('reports.rep-movement-by-item');
