@@ -732,6 +732,7 @@ require __DIR__.'/api/auth.php';
 require __DIR__.'/api/companies.php';
 require __DIR__.'/api/branches.php';
 require __DIR__.'/api/users.php';
+require __DIR__.'/api/work_days.php';
 require __DIR__.'/api/user_types.php';
 require __DIR__.'/api/accounts.php';
 require __DIR__.'/api/customers.php';

@@ -544,6 +544,22 @@ class ValidationRules
                 'name_en' => ['nullable', 'string', 'max:255'],
                 'is_active' => ['sometimes', 'boolean'],
             ],
+            'work_day' => [
+                'company_id' => ['nullable', 'integer', 'exists:companies,id'],
+                'branch_id' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'exists:branches,id'],
+                'year' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'min:2000', 'max:2100'],
+                'month' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'min:1', 'max:12'],
+                'work_days' => [$isUpdate ? 'sometimes' : 'required', 'array', 'min:1'],
+                'work_days.*' => ['integer', 'min:1', 'max:31'],
+                'is_active' => ['sometimes', 'boolean'],
+            ],
+            'branch_target' => [
+                'company_id' => ['nullable', 'integer', 'exists:companies,id'],
+                'branch_id' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'exists:branches,id'],
+                'year' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'min:2000', 'max:2100'],
+                'month' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'min:1', 'max:12'],
+                'target_amount' => [$isUpdate ? 'sometimes' : 'required', 'numeric', 'min:0'],
+            ],
             'daily_task' => [
                 'user_id' => ['nullable', 'exists:users,id'],
                 'title' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:255'],
