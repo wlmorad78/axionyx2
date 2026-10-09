@@ -150,6 +150,37 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json(['data' => $customers]);
     });
 
+    // خط السير المربوط بالعميل من جدول route_customers
+    Route::get('handheld2/customer-route', function (\Illuminate\Http\Request $request) {
+        $customerId = $request->query('customer_id');
+        if (!$customerId) {
+            return response()->json(['message' => 'customer_id مطلوب'], 422);
+        }
+
+        $link = DB::table('route_customers as rc')
+            ->join('routes as r', 'r.id', '=', 'rc.route_id')
+            ->leftJoin('sales_territories as st', 'st.id', '=', 'r.sales_territory_id')
+            ->where('rc.customer_id', $customerId)
+            ->whereNull('rc.deleted_at')
+            ->whereNull('r.deleted_at')
+            ->select(
+                'rc.route_id',
+                'rc.customer_id',
+                'rc.visit_order',
+                'r.name_ar as route_name',
+                'r.sales_territory_id',
+                'st.name_ar as territory_name'
+            )
+            ->orderBy('rc.id')
+            ->first();
+
+        if (!$link) {
+            return response()->json(['data' => null]);
+        }
+
+        return response()->json(['data' => $link]);
+    });
+
     Route::post('handheld2/bulk-link-customers-to-route', function (\Illuminate\Http\Request $request) {
         $user = $request->user();
         $request->validate([
