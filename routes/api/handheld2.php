@@ -111,10 +111,17 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->toArray();
         }
 
-        $customers = DB::table('customers')
+        $query = DB::table('customers')
             ->where('customers.company_id', $user->company_id)
             ->where('customers.is_active', true)
-            ->whereNull('customers.deleted_at')
+            ->whereNull('customers.deleted_at');
+
+        // only_linked=1 => العملاء المربوطين على خط السير المحدد فقط
+        if ($routeId && $request->boolean('only_linked')) {
+            $query->whereIn('customers.id', $linkedIds);
+        }
+
+        $customers = $query
             ->leftJoin('customer_types', 'customers.customer_type_id', '=', 'customer_types.id')
             ->orderBy('customers.name_ar')
             ->get([
@@ -182,6 +189,69 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json([
             'message' => "تم ربط $added عميل بخط السير بنجاح",
             'added' => $added,
+        ]);
+    });
+
+    // العملاء غير المربوطين على أي خط سير (شاشة الإضافة)
+    Route::get('handheld2/customers-not-in-route', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+
+        $routeIds = DB::table('routes')
+            ->where('company_id', $user->company_id)
+            ->whereNull('deleted_at')
+            ->pluck('id');
+
+        $linkedIds = \App\Models\RouteCustomer::whereIn('route_id', $routeIds)
+            ->whereNull('deleted_at')
+            ->pluck('customer_id')
+            ->toArray();
+
+        $customers = DB::table('customers')
+            ->where('customers.company_id', $user->company_id)
+            ->where('customers.is_active', true)
+            ->whereNull('customers.deleted_at')
+            ->leftJoin('customer_types', 'customers.customer_type_id', '=', 'customer_types.id')
+            ->when(!empty($linkedIds), fn ($q) => $q->whereNotIn('customers.id', $linkedIds))
+            ->orderBy('customers.name_ar')
+            ->get([
+                'customers.id',
+                'customers.code',
+                'customers.name_ar',
+                'customers.phone',
+                'customers.mobile',
+                'customers.address_line',
+                'customers.customer_type_id',
+                'customer_types.name_ar as type_name',
+            ])
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'code' => $c->code,
+                'name' => $c->name_ar ?? '',
+                'phone' => $c->phone ?? $c->mobile ?? '',
+                'address' => $c->address_line ?? '',
+                'customer_type_id' => $c->customer_type_id ?? 0,
+                'type_name' => $c->type_name ?? '',
+            ]);
+
+        return response()->json(['data' => $customers]);
+    });
+
+    // حذف مجموعة عملاء من خط السير (فك الربط)
+    Route::post('handheld2/bulk-unlink-customers-from-route', function (\Illuminate\Http\Request $request) {
+        $request->validate([
+            'route_id' => 'required|exists:routes,id',
+            'customer_ids' => 'required|array',
+            'customer_ids.*' => 'integer|exists:customers,id',
+        ]);
+
+        $deleted = \App\Models\RouteCustomer::where('route_id', $request->route_id)
+            ->whereIn('customer_id', $request->customer_ids)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => now()]);
+
+        return response()->json([
+            'message' => "تم حذف $deleted عميل من خط السير",
+            'deleted' => (int) $deleted,
         ]);
     });
 

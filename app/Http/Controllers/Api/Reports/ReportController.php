@@ -347,6 +347,28 @@ class ReportController extends Controller
             return response()->json(['data' => ['customers' => []]]);
         }
 
+        // تجميع الفواتير لكل (عميل + يوم): القيمة، الخصم، الصافي
+        $discountDayExpr = 'COALESCE(item_discount_total, 0) + COALESCE(invoice_discount_total, 0)';
+        $dayTotals = DB::table('sales_invoices')
+            ->where('company_id', $companyId)
+            ->whereDate('invoice_date', '>=', $dateFrom)
+            ->whereDate('invoice_date', '<=', $dateTo)
+            ->where('status', 'posted')
+            ->whereNull('deleted_at')
+            ->whereIn('customer_id', $customerIds)
+            ->when($salesRepId, fn ($q) => $q->where('sales_rep_id', $salesRepId))
+            ->groupBy('customer_id', DB::raw('DATE(invoice_date)'))
+            ->select(
+                'customer_id',
+                DB::raw('DATE(invoice_date) as day'),
+                DB::raw('COUNT(*) as invoices'),
+                DB::raw('SUM(subtotal + tax_total) as invoice_total'),
+                DB::raw("SUM($discountDayExpr) as discount"),
+                DB::raw('SUM(net_total) as net_total')
+            )
+            ->get()
+            ->groupBy(fn ($r) => $r->customer_id . '|' . $r->day);
+
         // Get latest sales_rep_id per customer (replaces correlated subquery)
         $repMap = DB::table('sales_invoices')
             ->where('company_id', $companyId)
@@ -502,6 +524,9 @@ class ReportController extends Controller
             sort($visitDates);
 
             $totalQty = 0;
+            $custInvoiceTotal = 0.0;
+            $custDiscount = 0.0;
+            $custNetTotal = 0.0;
             foreach ($visitDates as $vDate) {
                 $vItems = $visitItemsMap[$cid][$vDate] ?? [];
                 $vTotalSales = 0;
@@ -511,11 +536,25 @@ class ReportController extends Controller
                     $vTotalQty += $vi['qty'];
                 }
                 $totalQty += $vTotalQty;
+
+                $dayRow = $dayTotals[$cid . '|' . $vDate]->first() ?? null;
+                $vInvoiceTotal = $dayRow ? (float) $dayRow->invoice_total : $vTotalSales;
+                $vDiscount = $dayRow ? (float) $dayRow->discount : 0.0;
+                $vNetTotal = $dayRow ? (float) $dayRow->net_total : $vTotalSales;
+
+                $custInvoiceTotal += $vInvoiceTotal;
+                $custDiscount += $vDiscount;
+                $custNetTotal += $vNetTotal;
+
                 $visits[] = [
-                    'visit_date'  => $vDate,
-                    'total_sales' => round($vTotalSales, 2),
-                    'total_qty'   => round($vTotalQty, 2),
-                    'items'       => $vItems,
+                    'visit_date'    => $vDate,
+                    'total_sales'   => round($vTotalSales, 2),
+                    'total_qty'     => round($vTotalQty, 2),
+                    'invoice_total' => round($vInvoiceTotal, 2),
+                    'discount'      => round($vDiscount, 2),
+                    'net_total'     => round($vNetTotal, 2),
+                    'invoices'      => $dayRow ? (int) $dayRow->invoices : 0,
+                    'items'         => $vItems,
                 ];
             }
 
@@ -529,6 +568,9 @@ class ReportController extends Controller
                 'total_sales'    => round((float) $sale->total_sales, 2),
                 'total_cash'     => round((float) $sale->total_cash, 2),
                 'total_qty'      => round($totalQty, 2),
+                'invoice_total'  => round($custInvoiceTotal, 2),
+                'discount_total' => round($custDiscount, 2),
+                'net_total'      => round($custNetTotal, 2),
                 'items'          => array_values($allItemsMap[$cid] ?? []),
                 'visits'         => $visits,
             ];
