@@ -30,6 +30,7 @@ use App\Models\Warehouse;
 use App\Services\RepresentativeTransferService;
 use App\Models\RepresentativeTransfer;
 use App\Support\InvoiceDiscounts;
+use App\Support\ProductQuantityDiscounts;
 
 class Handheld2Controller extends Controller
 {
@@ -2314,6 +2315,7 @@ class Handheld2Controller extends Controller
      */
     private function buildInvoiceItems($user, $employee, $payload, $items)
     {
+        $items = ProductQuantityDiscounts::apply((int) $user->company_id, $items);
         $subtotal = 0;
         $itemDiscountTotal = 0;
         $taxTotal = 0;

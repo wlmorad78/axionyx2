@@ -32,6 +32,7 @@ use App\Models\IssueOrder;
 use App\Services\UnitConversionService;
 use App\Support\DayOfWeekHelper;
 use App\Support\InvoiceDiscounts;
+use App\Support\ProductQuantityDiscounts;
 use Illuminate\Support\Facades\DB;
 
 RouteFacade::get('handheld/route-lines', function (\Illuminate\Http\Request $request) {
@@ -861,6 +862,13 @@ RouteFacade::post('handheld/create-invoice', function (\Illuminate\Http\Request 
         return response()->json(['message' => 'الموظف غير موجود'], 404);
     }
 
+    $request->merge([
+        'items' => ProductQuantityDiscounts::apply(
+            (int) $user->company_id,
+            $request->input('items', []),
+        ),
+    ]);
+
     $result = DB::transaction(function () use ($request, $user, $employee) {
         $subtotal = 0;
         $itemDiscountTotal = 0;
@@ -1382,7 +1390,8 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         return $totalPaid;
     };
 
-    $buildItemsData = function (array $lines) {
+    $buildItemsData = function (array $lines) use ($user) {
+        $lines = ProductQuantityDiscounts::apply((int) $user->company_id, $lines);
         $subtotal = 0;
         $itemDiscountTotal = 0;
         $taxTotal = 0;
@@ -1633,6 +1642,10 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
         }
 
         $invoice = DB::transaction(function () use ($invoiceData, $user, $employee, $request, $clientUuid, $toNullable, $createCollections) {
+            $invoiceData['items'] = ProductQuantityDiscounts::apply(
+                (int) $user->company_id,
+                $invoiceData['items'],
+            );
             $subtotal = 0;
             $itemDiscountTotal = 0;
             $taxTotal = 0;

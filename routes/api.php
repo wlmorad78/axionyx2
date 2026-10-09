@@ -1088,6 +1088,7 @@ $resources = [
     'marketing-support-types' => \App\Http\Controllers\Api\CRM\MarketingSupportTypeController::class,
     'customer-marketing-supports' => \App\Http\Controllers\Api\CRM\CustomerMarketingSupportController::class,
     'customer-rebate-rules' => \App\Http\Controllers\Api\Pricing\CustomerRebateRuleController::class,
+    'product-discount-rules' => \App\Http\Controllers\Api\Pricing\ProductDiscountRuleController::class,
     'customer-agreement-targets' => \App\Http\Controllers\Api\CRM\CustomerAgreementTargetController::class,
     'customer-agreement-payments' => \App\Http\Controllers\Api\CRM\CustomerAgreementPaymentController::class,
     'customer-agreement-history' => \App\Http\Controllers\Api\CRM\CustomerAgreementHistoryController::class,

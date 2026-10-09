@@ -24,6 +24,7 @@ use App\Models\TreasuryTransaction;
 use Illuminate\Support\Facades\Log;
 use App\Support\ValidationRules;
 use App\Support\InvoiceDiscounts;
+use App\Support\ProductQuantityDiscounts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -61,6 +62,7 @@ class SalesInvoiceController extends Controller
     {
         $validated = $request->validate(ValidationRules::for('sales_invoice', 'store'));
         $items = $request->input('items', []);
+        $items = ProductQuantityDiscounts::apply((int) $validated['company_id'], $items);
 
         $invoice = DB::transaction(function () use ($validated, $items) {
             $validated['net_total'] = ($validated['subtotal'] ?? 0)
@@ -129,6 +131,9 @@ class SalesInvoiceController extends Controller
     {
         $validated = $request->validate(ValidationRules::for('sales_invoice', 'update', $salesInvoice));
         $items = $request->input('items');
+        if (is_array($items)) {
+            $items = ProductQuantityDiscounts::apply((int) $salesInvoice->company_id, $items);
+        }
 
         DB::transaction(function () use ($salesInvoice, $validated, $items) {
             // Reverse old effects if posted
