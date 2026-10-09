@@ -18,30 +18,36 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
     $releases = [
         'android' => [
             'version' => '1.9.5',
-            'build' => 6,
-            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+6.apk',
+            'build' => 7,
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+7.apk',
             'force_update' => false,
-            'release_notes' => ['إضافة كارد الخصومات في الداش بورد'],
-            'release_date' => '2026-10-06',
+            'release_notes' => [
+                'شاشة تقارير جديدة بتخطيط مرن للموبايل والكمبيوتر',
+                'إضافة تقرير العملاء غير الفعالة',
+                'إضافة تقرير مبيعات العملاء بالكمية',
+            ],
+            'release_date' => '2026-10-09',
             'minimum_supported_version' => '1.9.5',
             'minimum_supported_build' => 2,
-            'file_size' => 67406309,
-            'checksum' => '49837a52f793daf7ac3e336041888c5bba8993119ba8a24302de4df1c799cb47',
+            'file_size' => 67783645,
+            'checksum' => 'f36800366a1df1220783243daa50b906ee4972513735d8db7958631a63d0fcea',
         ],
         'windows' => [
             'version' => '1.9.5',
-            'build' => 6,
-            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+6.zip',
+            'build' => 7,
+            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+7.zip',
             'force_update' => false,
             'release_notes' => [
-                'إضافة كارد الخصومات في الداش بورد',
+                'شاشة تقارير جديدة بتخطيط مرن للموبايل والكمبيوتر',
+                'إضافة تقرير العملاء غير الفعالة',
+                'إضافة تقرير مبيعات العملاء بالكمية',
                 'إصلاح التحديث التلقائي على ويندوز ( تشغيل مباشر للسكربت )',
             ],
-            'release_date' => '2026-10-06',
+            'release_date' => '2026-10-09',
             'minimum_supported_version' => '1.9.5',
             'minimum_supported_build' => 2,
-            'file_size' => 17401637,
-            'checksum' => '2fd9d44719220b8d9168230adb3db3eefbac6a0998e91e1521899a7daa0f99af',
+            'file_size' => 17441651,
+            'checksum' => 'c15bd85ff1e8c67dd847604d89511815546385597d8e497737472ac0eef1fd5f',
         ],
     ];
 
@@ -231,6 +237,8 @@ Route::get('reports/sales-by-rep', [\App\Http\Controllers\Api\Reports\ReportCont
 Route::get('reports/customer-invoice-payments', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerInvoicePayments'])->middleware('auth:sanctum')->name('reports.customer-invoice-payments');
 Route::get('reports/inactive-customers', [\App\Http\Controllers\Api\Reports\ReportController::class, 'inactiveCustomers'])->middleware('auth:sanctum')->name('reports.inactive-customers');
 Route::get('reports/customer-sales-qty', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerSalesQty'])->middleware('auth:sanctum')->name('reports.customer-sales-qty');
+Route::get('reports/customer-sales-qty-detail', [\App\Http\Controllers\Api\Reports\ReportController::class, 'customerSalesQtyDetail'])->middleware('auth:sanctum')->name('reports.customer-sales-qty-detail');
+Route::get('reports/balances/{type}', [\App\Http\Controllers\Api\Reports\ReportController::class, 'counterpartyBalances'])->middleware('auth:sanctum')->name('reports.counterparty-balances');
 
 // ===== شاشة وحدات الأصناف وقوائم أسعارها (للقراءة فقط) =====
 Route::get('catalog/items-pricing', [\App\Http\Controllers\Api\CatalogController::class, 'itemsWithPricing']);

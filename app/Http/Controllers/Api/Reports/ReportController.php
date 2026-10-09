@@ -2605,4 +2605,223 @@ class ReportController extends Controller
             ],
         ]);
     }
+
+    /**
+     * GET /api/reports/customer-sales-qty-detail
+     * داتا جرد باليوم لعميل واحد: صفوف = الأيام، أعمدة = الأصناف + الإجمالي
+     * الكميات محوّلة لوحدة العرض (unit_id، افتراضي الكرتونة).
+     */
+    public function customerSalesQtyDetail(Request $request)
+    {
+        $request->validate([
+            'date_from' => 'required|date',
+            'date_to' => 'required|date|after_or_equal:date_from',
+            'customer_id' => 'required|integer',
+            'unit_id' => 'nullable|integer|exists:units,id',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $customerId = (int) $request->input('customer_id');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        $unitId = $request->filled('unit_id') ? (int) $request->input('unit_id') : null;
+        $unitName = '';
+        if ($unitId !== null) {
+            $unitName = (string) (DB::table('units')->where('id', $unitId)->value('name_ar') ?? '');
+        } else {
+            $cartonId = DB::table('units')
+                ->whereNull('deleted_at')
+                ->where(function ($q) {
+                    $q->where('name_ar', 'like', '%كرتون%')
+                        ->orWhere('name_en', 'like', '%carton%');
+                })
+                ->orderBy('id')
+                ->value('id');
+            $unitId = $cartonId !== null ? (int) $cartonId : null;
+            $unitName = $unitId !== null
+                ? (string) (DB::table('units')->where('id', $unitId)->value('name_ar') ?? '')
+                : '';
+        }
+
+        $customer = DB::table('customers')
+            ->whereNull('deleted_at')
+            ->where('id', $customerId)
+            ->first(['id', 'code', 'name_ar']);
+
+        // الكميات الأساسية (بالعلبة) لكل يوم ولكل صنف
+        $rows = DB::table('sales_invoices as si')
+            ->join('sales_invoice_items as sii', 'sii.sales_invoice_id', '=', 'si.id')
+            ->join('items', 'items.id', '=', 'sii.item_id')
+            ->where('si.company_id', $companyId)
+            ->whereDate('si.invoice_date', '>=', $dateFrom)
+            ->whereDate('si.invoice_date', '<=', $dateTo)
+            ->where('si.status', 'posted')
+            ->whereNull('si.deleted_at')
+            ->whereNull('sii.deleted_at')
+            ->whereNull('items.deleted_at')
+            ->where('si.customer_id', $customerId)
+            ->groupBy(DB::raw('DATE(si.invoice_date)'), 'sii.item_id', 'items.name_ar')
+            ->selectRaw(
+                'DATE(si.invoice_date) as sale_date,
+                 sii.item_id,
+                 items.name_ar as item_name,
+                 SUM(COALESCE(sii.qty, 0) * COALESCE(NULLIF(sii.conversion_factor, 0), 1)) as base_qty'
+            )
+            ->get();
+
+        $itemIds = $rows->pluck('item_id')->unique()->values()->all();
+        $factors = $this->unitFactorMap($itemIds, $unitId);
+
+        $matrix = [];       // date => item_id => qty
+        $itemTotals = [];   // item_id => qty
+        foreach ($rows as $row) {
+            $factor = $factors[(int) $row->item_id] ?? 1.0;
+            if ($factor <= 0) {
+                $factor = 1.0;
+            }
+
+            $qty = (float) $row->base_qty / $factor;
+            $date = (string) $row->sale_date;
+            $itemId = (int) $row->item_id;
+
+            $matrix[$date][$itemId] = ($matrix[$date][$itemId] ?? 0.0) + $qty;
+            $itemTotals[$itemId] = ($itemTotals[$itemId] ?? 0.0) + $qty;
+        }
+
+        // ترتيب الأصناف: الأكثر كمية ثم الاسم
+        $itemNames = $rows->pluck('item_name', 'item_id');
+        $products = collect($itemTotals)
+            ->sortByDesc(fn ($qty, $id) => $qty)
+            ->keys()
+            ->map(fn ($id) => [
+                'item_id' => (int) $id,
+                'item_name' => (string) ($itemNames[$id] ?? ''),
+            ])
+            ->values();
+
+        $dates = array_keys($matrix);
+        sort($dates);
+
+        $rowsOut = [];
+        foreach ($dates as $date) {
+            $cells = [];
+            $total = 0.0;
+            foreach ($products as $product) {
+                $v = $matrix[$date][$product['item_id']] ?? 0.0;
+                $cells[] = round($v, 2);
+                $total += $v;
+            }
+            $rowsOut[] = [
+                'date' => $date,
+                'cells' => $cells,
+                'total' => round($total, 2),
+            ];
+        }
+
+        $totalsCells = [];
+        $grandTotal = 0.0;
+        foreach ($products as $product) {
+            $v = $itemTotals[$product['item_id']] ?? 0.0;
+            $totalsCells[] = round($v, 2);
+            $grandTotal += $v;
+        }
+
+        return response()->json([
+            'data' => [
+                'customer' => [
+                    'customer_id' => $customerId,
+                    'customer_code' => (string) ($customer->code ?? ''),
+                    'customer_name' => (string) ($customer->name_ar ?? ''),
+                ],
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'unit_id' => $unitId,
+                'unit_name' => $unitName,
+                'products' => $products,
+                'rows' => $rowsOut,
+                'totals' => [
+                    'cells' => $totalsCells,
+                    'total' => round($grandTotal, 2),
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * تفاصيل بطاقتي المدينون / الدائنون في الداش بورد.
+     * GET /api/reports/balances/{type}   type = debtors | creditors
+     * كل سطر: الاسم - مبيعات/مشتريات اليوم - المدين - الدائن - الإجمالي (الرصيد)
+     * الإجمالي مطابق تماماً لحساب بطاقة الداش بورد.
+     */
+    public function counterpartyBalances(Request $request, string $type)
+    {
+        if (!in_array($type, ['debtors', 'creditors'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'نوع التقرير غير صحيح',
+            ], 422);
+        }
+
+        $user = $request->user();
+        $companyId = (int) ($request->header('X-Company-Id') ?? $user?->company_id);
+        $today = Carbon::today()->toDateString();
+
+        $isDebtors = $type === 'debtors';
+        $docTable = $isDebtors ? 'sales_invoices' : 'purchase_invoices';
+        $partyTable = $isDebtors ? 'customers' : 'suppliers';
+        $partyColumn = $isDebtors ? 'customer_id' : 'supplier_id';
+        $nameColumn = $isDebtors ? 'name_ar' : 'supplier_name';
+        $codeColumn = $isDebtors ? 'code' : 'supplier_code';
+
+        $balanceExpr = 'CASE
+                WHEN COALESCE(d.remaining_amount, 0) > (COALESCE(d.net_total, 0) - COALESCE(d.paid_amount, 0))
+                    THEN COALESCE(d.remaining_amount, 0)
+                ELSE (COALESCE(d.net_total, 0) - COALESCE(d.paid_amount, 0))
+            END';
+
+        $rows = DB::table("{$docTable} as d")
+            ->leftJoin("{$partyTable} as p", 'p.id', '=', "d.{$partyColumn}")
+            ->where('d.company_id', $companyId)
+            ->where('d.status', '!=', 'cancelled')
+            ->whereNull('d.deleted_at')
+            ->groupBy('p.id', "p.{$nameColumn}", "p.{$codeColumn}")
+            ->selectRaw("p.id as party_id, p.{$nameColumn} as party_name, p.{$codeColumn} as party_code")
+            ->selectRaw('COALESCE(SUM(COALESCE(d.net_total, 0)), 0) as debit_total')
+            ->selectRaw('COALESCE(SUM(COALESCE(d.paid_amount, 0)), 0) as credit_total')
+            ->selectRaw("COALESCE(SUM(CASE WHEN d.invoice_date = '{$today}' THEN COALESCE(d.net_total, 0) ELSE 0 END), 0) as today_total")
+            ->selectRaw("COALESCE(SUM({$balanceExpr}), 0) as balance")
+            ->havingRaw('balance > 0')
+            ->orderByDesc('balance')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => (int) $row->party_id,
+                'code' => (string) ($row->party_code ?? ''),
+                'name' => (string) ($row->party_name ?? 'غير محدد'),
+                'today' => round((float) $row->today_total, 2),
+                'debit' => round((float) $row->debit_total, 2),
+                'credit' => round((float) $row->credit_total, 2),
+                'total' => round((float) $row->balance, 2),
+            ])
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'type' => $type,
+                'label' => $isDebtors ? 'المدينون' : 'الدائنون',
+                'name_header' => $isDebtors ? 'العميل' : 'المورد',
+                'today_header' => $isDebtors ? 'مبيعات اليوم' : 'مشتريات اليوم',
+                'date' => $today,
+                'rows' => $rows,
+                'summary' => [
+                    'count' => $rows->count(),
+                    'today' => round((float) $rows->sum('today'), 2),
+                    'debit' => round((float) $rows->sum('debit'), 2),
+                    'credit' => round((float) $rows->sum('credit'), 2),
+                    'total' => round((float) $rows->sum('total'), 2),
+                ],
+            ],
+        ]);
+    }
 }
