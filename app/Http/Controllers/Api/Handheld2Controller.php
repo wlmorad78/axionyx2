@@ -2888,7 +2888,7 @@ class Handheld2Controller extends Controller
                     ->orWhere('phone', 'like', "%{$search}%");
             }))
             ->orderBy('name_ar')
-            ->limit(500)
+            ->limit($search !== '' ? 200 : 2000)
             ->get(['id', 'code', 'name_ar', 'name_en', 'mobile', 'phone'])
             ->map(fn ($c) => [
                 'id' => (int) $c->id,
