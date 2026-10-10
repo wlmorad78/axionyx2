@@ -67,7 +67,14 @@ class ProductDiscountRuleController extends Controller
             'name' => [$updating ? 'sometimes' : 'required', 'string', 'max:255'],
             'minimum_quantity' => [$updating ? 'sometimes' : 'required', 'numeric', 'gt:0'],
             'discount_per_carton' => [$updating ? 'sometimes' : 'required', 'numeric', 'gt:0'],
-            'item_ids' => [$updating ? 'sometimes' : 'required', 'array', 'min:1'],
+            'threshold_scope' => ['sometimes', 'string', 'in:per_item,invoice_total'],
+            // الأصناف مطلوبة لقواعد "لكل صنف"، أما قواعد "إجمالي الفاتورة"
+            // فتخصم على كل أصناف الفاتورة فلا تحتاج نطاقاً.
+            'item_ids' => [
+                $updating ? 'sometimes' : 'required_unless:threshold_scope,invoice_total',
+                'array',
+                'min:1',
+            ],
             'item_ids.*' => ['integer', 'distinct', 'exists:items,id'],
             'is_active' => ['sometimes', 'boolean'],
             'starts_at' => ['nullable', 'date'],

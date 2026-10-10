@@ -250,4 +250,109 @@ class ProductQuantityDiscountsApplyTest extends TestCase
         // 2 كرتونة × 100 = 200 لكن قيمة السطر 12
         $this->assertSame(12.0, (float) $lines[0]['discount_amount']);
     }
+
+    // ── نطاق "إجمالي الفاتورة" ────────────────────────────────────────
+
+    public function test_invoice_total_scope_checks_the_sum_of_all_items(): void
+    {
+        $other = $this->makeItem();
+        $rule = $this->makeRule([
+            'minimum_quantity' => 4,
+            'discount_per_carton' => 10,
+            'threshold_scope' => 'invoice_total',
+        ]);
+        $rule->items()->sync([$this->item->id, $other->id]);
+
+        $lines = $this->apply([
+            $this->makeLine(['qty' => 12]), // كرتونة واحدة
+            ['item_id' => $other->id, 'qty' => 36, 'price' => 5, 'discount_amount' => 0], // 3 كراتين
+        ]);
+
+        // المجموع 4 كراتين يحقق العتبة، والخصم يشمل السطرين معاً.
+        $this->assertSame(10.0, (float) $lines[0]['discount_amount']);
+        $this->assertSame(30.0, (float) $lines[1]['discount_amount']);
+    }
+
+    public function test_same_quantities_fail_under_per_item_scope(): void
+    {
+        $other = $this->makeItem();
+        $rule = $this->makeRule([
+            'minimum_quantity' => 4,
+            'discount_per_carton' => 10,
+        ]);
+        $rule->items()->sync([$this->item->id, $other->id]);
+
+        $lines = $this->apply([
+            $this->makeLine(['qty' => 12]), // كرتونة واحدة < 4
+            ['item_id' => $other->id, 'qty' => 36, 'price' => 5, 'discount_amount' => 0], // 3 كراتين < 4
+        ]);
+
+        $this->assertSame(0.0, (float) $lines[0]['discount_amount']);
+        $this->assertSame(0.0, (float) $lines[1]['discount_amount']);
+    }
+
+    public function test_invoice_total_scope_applies_to_every_item_in_the_invoice(): void
+    {
+        $other = $this->makeItem();
+        $rule = $this->makeRule([
+            'minimum_quantity' => 2,
+            'discount_per_carton' => 10,
+            'threshold_scope' => 'invoice_total',
+        ]);
+        // النطاق مربوط بصنف واحد فقط، لكن الخصم يشمل كل أصناف الفاتورة.
+        $rule->items()->sync([$this->item->id]);
+
+        $lines = $this->apply([
+            $this->makeLine(['qty' => 24]), // 2 كرتونة → 20
+            ['item_id' => $other->id, 'qty' => 12, 'price' => 5, 'discount_amount' => 0], // كرتونة → 10
+        ]);
+
+        $this->assertSame(20.0, (float) $lines[0]['discount_amount']);
+        $this->assertSame(10.0, (float) $lines[1]['discount_amount']);
+    }
+
+    public function test_invoice_total_scope_below_threshold_applies_nothing(): void
+    {
+        $other = $this->makeItem();
+        $rule = $this->makeRule([
+            'minimum_quantity' => 10,
+            'discount_per_carton' => 10,
+            'threshold_scope' => 'invoice_total',
+        ]);
+        $rule->items()->sync([$this->item->id, $other->id]);
+
+        $lines = $this->apply([
+            $this->makeLine(['qty' => 24]), // 2 كرتونة
+            ['item_id' => $other->id, 'qty' => 12, 'price' => 5, 'discount_amount' => 0], // كرتونة
+        ]);
+
+        $this->assertSame(0.0, (float) $lines[0]['discount_amount']);
+        $this->assertSame(0.0, (float) $lines[1]['discount_amount']);
+    }
+
+    public function test_invoice_total_and_per_item_rules_do_not_stack(): void
+    {
+        $other = $this->makeItem();
+        $this->makeRule([
+            'name' => 'إجمالي الفاتورة',
+            'minimum_quantity' => 1,
+            'discount_per_carton' => 10,
+            'threshold_scope' => 'invoice_total',
+        ]);
+        $this->makeRule([
+            'name' => 'لكل صنف',
+            'minimum_quantity' => 2,
+            'discount_per_carton' => 50,
+        ]);
+
+        $lines = $this->apply([
+            $this->makeLine(['qty' => 24]), // 2 كرتونة
+            ['item_id' => $other->id, 'qty' => 12, 'price' => 5, 'discount_amount' => 0], // كرتونة
+        ]);
+
+        // للصنف المغطى بالقاعدة اليدوية يفوز الأعلى (100 بدل 20)،
+        // وللصنف الآخر يفوز خصم الإجمالي (10).
+        $this->assertSame(100.0, (float) $lines[0]['discount_amount']);
+        $this->assertSame(10.0, (float) $lines[1]['discount_amount']);
+    }
 }
