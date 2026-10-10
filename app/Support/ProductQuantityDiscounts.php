@@ -98,9 +98,10 @@ class ProductQuantityDiscounts
             $quantity = (float) ($line['qty'] ?? $line['quantity'] ?? 0);
             $cartons = self::cartonQuantity($quantity, $lineFactor, $cartonFactor);
             $gross = (float) ($line['gross_amount'] ?? ($quantity * (float) ($line['price'] ?? $line['unit_price'] ?? 0)));
-            [, , $existingDiscount] = InvoiceDiscounts::line($line, $gross);
             $promotionDiscount = round($cartons * (float) $rule->discount_per_carton, 2);
-            $discount = round(min(max($gross, 0), $existingDiscount + $promotionDiscount), 2);
+            // الاستبدال لا الجمع: خصم القاعدة يحل محل الخصم اليدوي للسطر
+            // (متفق عليه مع الجهاز حتى يخرج الطرفان بنفس الرقم).
+            $discount = round(min(max($gross, 0), $promotionDiscount), 2);
             $line['discount_type'] = InvoiceDiscounts::TYPE_FIXED;
             $line['discount_value'] = $discount;
             $line['discount_amount'] = $discount;
