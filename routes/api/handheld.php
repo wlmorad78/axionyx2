@@ -2980,12 +2980,31 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
             ->first();
     }
 
+    $settlementIssueOrder = $activeIssueOrder;
+    if ($activeIssueOrder) {
+        $loadRequest = DB::table('load_requests')
+            ->where('id', $activeIssueOrder->load_request_id)
+            ->first();
+
+        if ($loadRequest && ($loadRequest->load_type === 'complementary' || $loadRequest->parent_load_request_id)) {
+            $parentIssueOrderId = DB::table('issue_orders')
+                ->where('load_request_id', $loadRequest->parent_load_request_id ?? $loadRequest->id)
+                ->where('employee_id', $employee->id)
+                ->whereNull('deleted_at')
+                ->value('id');
+
+            if ($parentIssueOrderId) {
+                $settlementIssueOrder = \App\Models\IssueOrder::find($parentIssueOrderId);
+            }
+        }
+    }
+
     $existingSettlement = \App\Models\RepDailySettlement::where('sales_rep_id', $employee->id)
         ->whereDate('settlement_date', $today)
         ->where('company_id', $user->company_id)
-        ->where(function ($q) use ($activeIssueOrder) {
-            if ($activeIssueOrder) {
-                $q->where('issue_order_id', $activeIssueOrder->id);
+        ->where(function ($q) use ($settlementIssueOrder) {
+            if ($settlementIssueOrder) {
+                $q->where('issue_order_id', $settlementIssueOrder->id);
             } else {
                 $q->whereNull('issue_order_id');
             }
@@ -2996,14 +3015,11 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         return response()->json(['message' => 'التسوية معتمدة بالفعل'], 422);
     }
 
-    $invoicesQuery = SalesInvoice::where('sales_rep_id', $employee->id)
+    $invoices = SalesInvoice::where('sales_rep_id', $employee->id)
         ->whereDate('invoice_date', $today)
         ->where('company_id', $user->company_id)
-        ->whereNull('deleted_at');
-    if ($activeIssueOrder) {
-        $invoicesQuery->where('issue_order_id', $activeIssueOrder->id);
-    }
-    $invoices = $invoicesQuery->get();
+        ->whereNull('deleted_at')
+        ->get();
 
     $totalSales = (float) $invoices->sum('net_total');
     $totalPaid = (float) $invoices->sum('paid_amount');
@@ -3054,7 +3070,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         'settlement_uuid' => $uuid,
         'settlement_date' => $today,
         'sales_rep_id' => $employee->id,
-        'issue_order_id' => $activeIssueOrder?->id,
+        'issue_order_id' => $settlementIssueOrder?->id,
         'total_sales_value' => round($totalSales, 2),
         'total_collections_value' => round($totalPaid, 2),
         'total_expenses' => round($totalExpenses, 2),
