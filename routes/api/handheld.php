@@ -1189,7 +1189,10 @@ RouteFacade::post('handheld/sync-invoices', function (\Illuminate\Http\Request $
                 })
                 ->first();
             if ($deleted) {
-                $deleted->update(['deleted_at' => now()]);
+                // إلغاء الفاتورة حذف ناعم فقط: تبقى الفاتورة وأصنافها وخصوماتها
+                // محفوظة في قاعدة البيانات مع deleted_at و status=cancelled.
+                $deleted->update(['status' => 'cancelled']);
+                $deleted->delete();
                 SalesInvoiceItem::where('sales_invoice_id', $deleted->id)->update(['deleted_at' => now()]);
                 \App\Models\SalesInvoiceDiscount::where('sales_invoice_id', $deleted->id)->update(['deleted_at' => now()]);
 

@@ -10,8 +10,8 @@ Route::get('handheld2/version', function () {
     return response()->json([
         'success' => true,
         'data' => [
-            'version' => '1.9.6',
-            'build_number' => 7,
+            'version' => '1.9.8',
+            'build_number' => 10,
             'min_required_version' => '1.9.6',
             'force_update' => false,
             'release_notes' => 'تحسينات المزامنة والأوامر التكميلية',
