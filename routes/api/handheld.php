@@ -2933,7 +2933,7 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         'branch_id' => 'nullable|integer',
         'issue_order_id' => 'nullable|integer',
         'items' => 'nullable|array',
-        'items.*.item_id' => 'required_with:items|integer',
+        'items.*.item_id' => 'nullable|integer',
         'items.*.item_code' => 'nullable|string|max:50',
         'items.*.item_name' => 'nullable|string|max:255',
         'items.*.unit_id' => 'nullable|integer',
@@ -3110,6 +3110,12 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
     if (!empty($request->items)) {
         foreach ($request->items as $item) {
             $itemId = $item['item_id'] ?? null;
+            if (!$itemId && !empty($item['item_code'])) {
+                $itemId = DB::table('items')
+                    ->where('code', $item['item_code'])
+                    ->when($user->company_id, fn($q) => $q->where('company_id', $user->company_id))
+                    ->value('id');
+            }
             if (!$itemId) continue;
 
             \App\Models\RepDailySettlementItem::create([
