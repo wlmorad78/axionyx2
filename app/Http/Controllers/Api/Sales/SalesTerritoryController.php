@@ -113,12 +113,17 @@ class SalesTerritoryController extends Controller
      */
     public function nextCode(Request $request)
     {
-        $last = SalesTerritory::withTrashed()->orderBy('id', 'desc')->first();
-        if ($last && preg_match('/ST-(\d+)/', $last->code, $m)) {
-            $next = intval($m[1]) + 1;
-        } else {
-            $next = 1;
-        }
+        $highestCode = SalesTerritory::withTrashed()
+            ->pluck('code')
+            ->reduce(function (int $highest, ?string $code): int {
+                if ($code !== null && preg_match('/^ST-(\d+)$/', $code, $matches)) {
+                    return max($highest, (int) $matches[1]);
+                }
+
+                return $highest;
+            }, 0);
+
+        $next = $highestCode + 1;
         return response()->json(['code' => 'ST-' . str_pad($next, 4, '0', STR_PAD_LEFT)]);
     }
 
