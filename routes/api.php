@@ -33,8 +33,8 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
         ],
         'windows' => [
             'version' => '1.9.5',
-            'build' => 9,
-            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+9.zip',
+            'build' => 10,
+            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+10.zip',
             'force_update' => false,
             'release_notes' => [
                 'لا يمكن إغلاق نافذة التحديث بالضغط خارجها أثناء التنزيل',
