@@ -18,8 +18,8 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
     $releases = [
         'android' => [
             'version' => '1.9.5',
-            'build' => 9,
-            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+9.apk',
+            'build' => 10,
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+10.apk',
             'force_update' => false,
             'release_notes' => [
                 'لا يمكن إغلاق نافذة التحديث بالضغط خارجها أثناء التنزيل',
