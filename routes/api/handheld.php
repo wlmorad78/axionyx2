@@ -222,6 +222,8 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
     $items = $request->input('items', []);
     $notes = $request->input('notes', '');
     $branchId = $request->input('branch_id');
+    $loadRequestIdsInput = $request->input('load_request_ids', []);
+    $issueOrderIdsInput = $request->input('issue_order_ids', []);
 
     if (empty($items)) {
         return response()->json(['message' => 'لا توجد أصناف لإغلاق الإذن'], 422);
@@ -259,6 +261,22 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             if (!$loadRequestId && !empty($item['load_request_id'])) {
                 $loadRequestId = (int) $item['load_request_id'];
             }
+        }
+
+        // جمع كل معرّفات طلبات التحميل (الأذون) من عناصر الإرجاع ومن القائمة
+        // المرسلة صراحة، لإقفالها جميعًا (أساسي + تكميلي) عند الموافقة.
+        $allLoadRequestIds = [];
+        foreach ($items as $item) {
+            if (!empty($item['load_request_id'])) {
+                $allLoadRequestIds[] = (int) $item['load_request_id'];
+            }
+        }
+        foreach ((array) $loadRequestIdsInput as $lrId) {
+            if ($lrId) $allLoadRequestIds[] = (int) $lrId;
+        }
+        $allLoadRequestIds = array_values(array_unique($allLoadRequestIds));
+        if (empty($loadRequestId) && !empty($allLoadRequestIds)) {
+            $loadRequestId = $allLoadRequestIds[0];
         }
 
         $activeIssueOrder = \App\Models\IssueOrder::where('employee_id', $employee->id)
@@ -301,6 +319,7 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
             'branch_id' => $branchId,
             'warehouse_id' => $warehouse->id,
             'load_request_id' => $loadRequestId,
+            'load_request_ids' => !empty($allLoadRequestIds) ? json_encode($allLoadRequestIds) : null,
             'issue_order_id' => $activeIssueOrder?->id,
             'return_no' => $returnNo,
             'return_type' => 'excess',
@@ -2932,6 +2951,8 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         'notes' => 'nullable|string',
         'branch_id' => 'nullable|integer',
         'issue_order_id' => 'nullable|integer',
+        'issue_order_ids' => 'nullable|array',
+        'issue_order_ids.*' => 'integer',
         'items' => 'nullable|array',
         'items.*.item_id' => 'nullable|integer',
         'items.*.item_code' => 'nullable|string|max:50',
@@ -2968,25 +2989,23 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
         $branchId = $request->input('branch_id');
     }
 
-    $requestIssueOrderId = $request->input('issue_order_id');
-    $activeIssueOrder = null;
-    if ($requestIssueOrderId) {
-        $activeIssueOrder = \App\Models\IssueOrder::where('id', $requestIssueOrderId)
-            ->where('employee_id', $employee->id)
-            ->first();
-    }
-    if (!$activeIssueOrder) {
-        $activeIssueOrder = \App\Models\IssueOrder::where('employee_id', $employee->id)
-            ->whereIn('status', ['delivered'])
-            ->where('received_by', $employee->id)
-            ->latest('id')
-            ->first();
+    $requestIssueOrderIds = $request->input('issue_order_ids');
+    if (!is_array($requestIssueOrderIds) || empty($requestIssueOrderIds)) {
+        $single = $request->input('issue_order_id');
+        $requestIssueOrderIds = $single ? [$single] : [];
     }
 
-    $settlementIssueOrder = $activeIssueOrder;
-    if ($activeIssueOrder) {
+    // حلّ كل الأذون (أساسي + تكميلي) مع إعادة توجيه التكميلي إلى أبّه،
+    // وإزالة التكرار. نخزن الأ primary/الأب في issue_order_id (عمود واحد).
+    $resolvedIssueOrders = [];
+    foreach ($requestIssueOrderIds as $rid) {
+        $io = \App\Models\IssueOrder::where('id', $rid)
+            ->where('employee_id', $employee->id)
+            ->first();
+        if (!$io) continue;
+
         $loadRequest = DB::table('load_requests')
-            ->where('id', $activeIssueOrder->load_request_id)
+            ->where('id', $io->load_request_id)
             ->first();
 
         if ($loadRequest && ($loadRequest->load_type === 'complementary' || $loadRequest->parent_load_request_id)) {
@@ -2997,9 +3016,20 @@ RouteFacade::post('handheld/submit-settlement', function (\Illuminate\Http\Reque
                 ->value('id');
 
             if ($parentIssueOrderId) {
-                $settlementIssueOrder = \App\Models\IssueOrder::find($parentIssueOrderId);
+                $io = \App\Models\IssueOrder::find($parentIssueOrderId) ?? $io;
             }
         }
+
+        $resolvedIssueOrders[$io->id] = $io;
+    }
+
+    $settlementIssueOrder = !empty($resolvedIssueOrders) ? reset($resolvedIssueOrders) : null;
+    if (!$settlementIssueOrder) {
+        $settlementIssueOrder = \App\Models\IssueOrder::where('employee_id', $employee->id)
+            ->whereIn('status', ['delivered'])
+            ->where('received_by', $employee->id)
+            ->latest('id')
+            ->first();
     }
 
     $existingSettlement = \App\Models\RepDailySettlement::where('sales_rep_id', $employee->id)

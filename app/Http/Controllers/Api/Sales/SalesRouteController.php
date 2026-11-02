@@ -27,7 +27,12 @@ class SalesRouteController extends Controller
     public function index(Request $request)
     {
         $with = $request->with ? explode(',', $request->with) : [];
-        $query = SalesRoute::with($with);
+        $query = SalesRoute::with($with)
+            ->withCount(['schedules' => function ($q) {
+                $q->whereNull('deleted_at');
+            }, 'customers' => function ($q) {
+                $q->whereNull('deleted_at');
+            }]);
 
         if ($request->company_id) {
             $query->where('company_id', $request->company_id);

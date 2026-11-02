@@ -14,6 +14,7 @@ class ReturnOrder extends Model
         'branch_id',
         'warehouse_id',
         'load_request_id',
+        'load_request_ids',
         'issue_order_id',
         'return_no',
         'return_type',

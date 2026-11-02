@@ -42,9 +42,17 @@ class ReturnOrderService
                 'notes'       => $notes ?? 'تمت الموافقة من أمين المخزن',
             ]);
 
-            // Close load request
-            if ($returnOrder->load_request_id) {
-                $this->closeLoadRequest($returnOrder->load_request_id);
+            // Close load request(s) — أساسي + تكميلي (كل الأذون)
+            $loadRequestIds = [];
+            if ($returnOrder->load_request_ids) {
+                $decoded = json_decode($returnOrder->load_request_ids, true);
+                if (is_array($decoded)) $loadRequestIds = $decoded;
+            }
+            if (empty($loadRequestIds) && $returnOrder->load_request_id) {
+                $loadRequestIds = [$returnOrder->load_request_id];
+            }
+            foreach (array_unique($loadRequestIds) as $lrId) {
+                if ($lrId) $this->closeLoadRequest((int) $lrId);
             }
 
             // Create inventory transaction

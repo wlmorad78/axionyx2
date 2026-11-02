@@ -443,4 +443,96 @@ Route::middleware('auth:sanctum')->group(function () {
 
         return response()->json(['routes' => $routes]);
     });
+
+    // ==================== ربط المندوبين بخطوط السير ====================
+
+    // قائمة المندوبين (المستخدمين) المربوطين بخط سير معين
+    Route::get('handheld2/salesmen-for-route', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        $routeId = $request->input('route_id');
+        if (!$routeId) {
+            return response()->json(['message' => 'route_id مطلوب'], 422);
+        }
+        $rows = DB::table('route_schedules as rs')
+            ->leftJoin('users as u', 'u.id', '=', 'rs.user_id')
+            ->leftJoin('employees as e', 'e.user_id', '=', 'rs.user_id')
+            ->where('rs.route_id', $routeId)
+            ->whereNull('rs.deleted_at')
+            ->groupBy('rs.user_id', 'u.name', 'e.code', 'e.phone', 'e.mobile')
+            ->orderBy('u.name')
+            ->select(
+                'rs.user_id as id',
+                'u.name as name_ar',
+                DB::raw("COALESCE(e.code, '') as code"),
+                DB::raw("COALESCE(e.phone, '') as phone"),
+                DB::raw("COALESCE(e.mobile, '') as mobile"),
+                DB::raw("GROUP_CONCAT(rs.day_of_week) as days")
+            )
+            ->get()
+            ->map(function ($row) {
+                $row->schedule_days = $row->days ? explode(',', $row->days) : [];
+                unset($row->days);
+                return (array) $row;
+            })
+            ->toArray();
+        return response()->json(['data' => $rows]);
+    });
+
+    // ربط مندوب بخط سير بيوم زيارة
+    Route::post('handheld2/link-salesman-to-route', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'route_id' => 'required|integer|exists:routes,id',
+            'salesman_id' => 'required|integer|exists:users,id',
+            'day_of_week' => 'required|integer|min:1|max:7',
+        ]);
+        $exists = DB::table('route_schedules')
+            ->where('route_id', $validated['route_id'])
+            ->where('user_id', $validated['salesman_id'])
+            ->whereNull('deleted_at')
+            ->exists();
+        if (!$exists) {
+            DB::table('route_schedules')->insert([
+                'route_id' => $validated['route_id'],
+                'user_id' => $validated['salesman_id'],
+                'day_of_week' => (string) $validated['day_of_week'],
+                'visit_order' => 0,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } else {
+            DB::table('route_schedules')
+                ->where('route_id', $validated['route_id'])
+                ->where('user_id', $validated['salesman_id'])
+                ->whereNull('deleted_at')
+                ->update([
+                    'day_of_week' => (string) $validated['day_of_week'],
+                    'is_active' => true,
+                    'updated_at' => now(),
+                ]);
+        }
+        return response()->json(['message' => 'تم ربط المندوب بخط السير بنجاح']);
+    });
+
+    // إلغاء ربط مجموعة مندوبين من خط سير
+    Route::post('handheld2/bulk-unlink-salesmen-from-route', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'route_id' => 'required|integer|exists:routes,id',
+            'salesman_ids' => 'required|array|min:1',
+            'salesman_ids.*' => 'integer|exists:users,id',
+        ]);
+        $deleted = DB::table('route_schedules')
+            ->where('route_id', $validated['route_id'])
+            ->whereIn('user_id', $validated['salesman_ids'])
+            ->whereNull('deleted_at')
+            ->update([
+                'deleted_at' => now(),
+                'updated_at' => now(),
+            ]);
+        return response()->json([
+            'message' => "تم إلغاء ربط {$deleted} مندوب من خط السير",
+            'deleted_count' => $deleted,
+        ]);
+    });
+
 });

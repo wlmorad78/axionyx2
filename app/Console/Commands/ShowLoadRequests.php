@@ -30,7 +30,7 @@ class ShowLoadRequests extends Command
                 'load_requests.total_quantity',
                 'load_requests.total_amount',
                 'load_requests.parent_load_request_id',
-                'users.name as user_name',
+                'employees.employee_code as employee_code',
                 DB::raw('(SELECT return_no FROM return_orders WHERE load_request_id = load_requests.id ORDER BY id DESC LIMIT 1) as return_no'),
                 DB::raw('(SELECT status_id FROM return_orders WHERE load_request_id = load_requests.id ORDER BY id DESC LIMIT 1) as return_status')
             )
@@ -61,7 +61,7 @@ class ShowLoadRequests extends Command
             $o->load_type ?? '-',
             $o->request_date ?? '-',
             $o->created_at ? substr($o->created_at, 11, 8) : '-',
-            $o->user_name ?? '-',
+            $o->employee_code ?? '-',
             $o->total_items_count ?? 0,
             number_format($o->total_quantity ?? 0, 2),
             number_format($o->total_amount ?? 0, 2),
@@ -71,7 +71,7 @@ class ShowLoadRequests extends Command
         ])->toArray();
 
         $this->table(
-            ['ID', 'Request No', 'Status', 'Type', 'Date', 'Time', 'Employee', 'Items', 'Qty', 'Amount', 'Parent', 'Return No', 'Return Status'],
+            ['ID', 'Request No', 'Status', 'Type', 'Date', 'Time', 'Employee Code', 'Items', 'Qty', 'Amount', 'Parent', 'Return No', 'Return Status'],
             $rows
         );
 

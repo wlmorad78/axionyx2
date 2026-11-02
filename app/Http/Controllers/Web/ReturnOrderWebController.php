@@ -129,6 +129,19 @@ class ReturnOrderWebController extends Controller
                     ->update(['status' => 'closed']);
             }
 
+            $loadRequestIds = [];
+            if ($returnOrder->load_request_ids) {
+                $decoded = json_decode($returnOrder->load_request_ids, true);
+                if (is_array($decoded)) $loadRequestIds = $decoded;
+            }
+            foreach (array_unique($loadRequestIds) as $lrId) {
+                if (!$lrId || $lrId == $returnOrder->load_request_id) continue;
+                \App\Models\LoadRequest::where('id', $lrId)->update(['status' => 'closed']);
+                \App\Models\LoadRequest::where('parent_load_request_id', $lrId)
+                    ->where('status', '!=', 'closed')
+                    ->update(['status' => 'closed']);
+            }
+
             $type = \App\Models\InventoryTransactionType::firstOrCreate(
                 ['code' => 'RETURN'],
                 ['name' => 'Return Order', 'effect' => 'addition', 'is_active' => true]

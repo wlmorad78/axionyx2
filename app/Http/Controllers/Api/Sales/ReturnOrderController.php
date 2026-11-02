@@ -128,13 +128,22 @@ class ReturnOrderController extends Controller
                 'notes' => $request->notes ?? 'تمت الموافقة من أمين المخزن',
             ]);
 
-            if ($returnOrder->load_request_id) {
-                $loadRequest = \App\Models\LoadRequest::find($returnOrder->load_request_id);
+            $loadRequestIds = [];
+            if ($returnOrder->load_request_ids) {
+                $decoded = json_decode($returnOrder->load_request_ids, true);
+                if (is_array($decoded)) $loadRequestIds = $decoded;
+            }
+            if (empty($loadRequestIds) && $returnOrder->load_request_id) {
+                $loadRequestIds = [$returnOrder->load_request_id];
+            }
+            foreach (array_unique($loadRequestIds) as $lrId) {
+                if (!$lrId) continue;
+                $loadRequest = \App\Models\LoadRequest::find($lrId);
 
-                \App\Models\LoadRequest::where('id', $returnOrder->load_request_id)
+                \App\Models\LoadRequest::where('id', $lrId)
                     ->update(['status' => 'closed']);
 
-                \App\Models\LoadRequest::where('parent_load_request_id', $returnOrder->load_request_id)
+                \App\Models\LoadRequest::where('parent_load_request_id', $lrId)
                     ->where('status', '!=', 'closed')
                     ->update(['status' => 'closed']);
 
