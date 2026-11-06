@@ -58,3 +58,9 @@ database/review_*.php
 *.sqlite-shm
 *.sqlite-wal
 *.sqlite-journal
+
+# Untracked 2026-11-06: secrets, DB backups, temp scripts
+.env*
+.env.before_*
+database.sqlite.bak_*
+temp_cost_update.php
