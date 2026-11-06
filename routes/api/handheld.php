@@ -243,7 +243,15 @@ RouteFacade::post('handheld/close-permit', function (\Illuminate\Http\Request $r
         return response()->json(['message' => 'لا يوجد مخزن نشط'], 422);
     }
 
-    $result = DB::transaction(function () use ($user, $items, $notes, $branchId, $employee, $warehouse) {
+    $result = DB::transaction(function () use (
+        $user,
+        $items,
+        $notes,
+        $branchId,
+        $employee,
+        $warehouse,
+        $loadRequestIdsInput
+    ) {
         $totalItemsCount = 0;
         $totalQuantity = 0;
         $totalAmount = 0;
