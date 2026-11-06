@@ -19,7 +19,7 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
         'android' => [
             'version' => '1.9.5',
             'build' => 11,
-            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+10.apk',
+            'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+11.apk',
             'force_update' => false,
             'release_notes' => [
                 'لا يمكن إغلاق نافذة التحديث بالضغط خارجها أثناء التنزيل',
@@ -34,7 +34,7 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
         'windows' => [
             'version' => '1.9.5',
             'build' => 11,
-            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+10.zip',
+            'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+11.zip',
             'force_update' => false,
             'release_notes' => [
                 'لا يمكن إغلاق نافذة التحديث بالضغط خارجها أثناء التنزيل',
