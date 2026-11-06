@@ -11,7 +11,7 @@ Route::get('handheld2/version', function () {
         'success' => true,
         'data' => [
             'version' => '1.9.8',
-            'build_number' => 10,
+            'build_number' => 11,
             'min_required_version' => '1.9.8',
             'force_update' => false,
             'release_notes' => 'تحسينات المزامنة والأوامر التكميلية',

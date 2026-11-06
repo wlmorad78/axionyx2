@@ -18,7 +18,7 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
     $releases = [
         'android' => [
             'version' => '1.9.5',
-            'build' => 10,
+            'build' => 11,
             'download_url' => 'http://207.231.110.79/apps/hh/android/releases/axionyx_m_v1.9.5+10.apk',
             'force_update' => false,
             'release_notes' => [
@@ -33,7 +33,7 @@ Route::get('app/version', function (Illuminate\Http\Request $request) {
         ],
         'windows' => [
             'version' => '1.9.5',
-            'build' => 10,
+            'build' => 11,
             'download_url' => 'http://207.231.110.79/apps/hh/windows/releases/axionyx_desktop_v1.9.5+10.zip',
             'force_update' => false,
             'release_notes' => [
