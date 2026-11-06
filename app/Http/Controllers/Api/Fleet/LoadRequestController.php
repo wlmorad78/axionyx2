@@ -164,67 +164,246 @@ class LoadRequestController extends Controller
     public function update(Request $request, LoadRequest $loadRequest)
     {
         $data = $request->validate(ValidationRules::for('load_request', 'update', $loadRequest));
-
-        if ($loadRequest->status !== 'pending') {
-            return response()->json(['message' => 'لا يمكن تعديل طلب تحميل بحالة مختلفة عن قيد المراجعة'], 422);
+        if (array_key_exists('status', $data)) {
+            return response()->json(['message' => 'استخدم مسار تحديث الحالة لتغيير حالة الأمر'], 422);
         }
 
-        $loadRequest->update($data);
+        if (in_array($loadRequest->status, ['closed', 'cancelled', 'rejected'], true)) {
+            return response()->json(['message' => 'لا يمكن تعديل أمر تحميل مغلق أو ملغي أو مرفوض'], 422);
+        }
 
-        if ($request->has('items') && is_array($request->items)) {
+        $items = null;
+        if ($request->has('items')) {
+            $validatedItems = $request->validate([
+                'items' => ['required', 'array', 'min:1'],
+                'items.*.item_id' => ['required', 'integer', 'distinct', 'exists:items,id'],
+                'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+                'items.*.unit_id' => ['nullable', 'exists:units,id'],
+                'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+            ]);
+            $items = $validatedItems['items'];
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($request, $loadRequest, $data, $items) {
+            $loadRequest->newQuery()->whereKey($loadRequest->id)->lockForUpdate()->firstOrFail();
+            $loadRequest->refresh();
+            if (in_array($loadRequest->status, ['closed', 'cancelled', 'rejected'], true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'status' => ['لا يمكن تعديل أمر تحميل مغلق أو ملغي أو مرفوض.'],
+                ]);
+            }
+            $loadRequest->load('items');
+            $issueOrder = $loadRequest->issueOrder()->lockForUpdate()->first();
+            $issuedItems = $issueOrder?->items()->lockForUpdate()->get()->keyBy('item_id') ?? collect();
+            $requestItems = $loadRequest->items->keyBy('item_id');
             $unitService = app(\App\Services\UnitConversionService::class);
+            $stockChanges = [];
 
-            $existingItemIds = $loadRequest->items->pluck('id')->toArray();
-            $submittedItemIds = collect($request->items)->pluck('item_id')->toArray();
-
-            $idsToDelete = array_diff($existingItemIds, array_map(function ($item) use ($loadRequest) {
-                $existing = $loadRequest->items->firstWhere('item_id', $item['item_id'] ?? null);
-                return $existing?->id;
-            }, $request->items));
-
-            \App\Models\LoadRequestItem::whereIn('id', $idsToDelete)->delete();
-
-            foreach ($request->items as $itemData) {
-                $existingItem = $loadRequest->items->firstWhere('item_id', $itemData['item_id']);
-
-                $qty = (float) ($itemData['quantity'] ?? 1);
-                $unitId = $itemData['unit_id'] ?? $existingItem?->unit_id;
-                $unitPrice = (float) ($itemData['unit_price'] ?? $existingItem?->unit_price ?? 0);
-                $baseQty = $unitId ? $unitService->toBase($itemData['item_id'], $unitId, $qty) : $qty;
-
-                if ($existingItem) {
-                    $existingItem->update([
-                        'quantity' => $qty,
-                        'base_quantity' => $baseQty,
-                        'unit_id' => $unitId,
-                        'unit_price' => $unitPrice,
-                        'total_price' => $qty * $unitPrice,
-                    ]);
-                } else {
-                    \App\Models\LoadRequestItem::create([
-                        'load_request_id' => $loadRequest->id,
-                        'item_id' => $itemData['item_id'],
-                        'unit_id' => $unitId,
-                        'quantity' => $qty,
-                        'base_quantity' => $baseQty,
-                        'unit_price' => $unitPrice,
-                        'total_price' => $qty * $unitPrice,
+            if ($items !== null && $issueOrder) {
+                $existingIds = $requestItems->keys()->map(fn ($id) => (int) $id)->sort()->values();
+                $submittedIds = collect($items)->pluck('item_id')->map(fn ($id) => (int) $id)->sort()->values();
+                if ($existingIds->all() !== $submittedIds->all()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'items' => ['بعد صرف الأمر لا يمكن إضافة أو حذف أصناف؛ يمكن تعديل كمياتها فقط.'],
                     ]);
                 }
             }
 
+            if ($items !== null) {
+                foreach ($items as $itemData) {
+                    $itemId = (int) $itemData['item_id'];
+                    $existingItem = $requestItems->get($itemId);
+                    $unitId = $itemData['unit_id'] ?? $existingItem?->unit_id;
+                    $quantity = (float) $itemData['quantity'];
+                    $unitPrice = (float) ($itemData['unit_price'] ?? $existingItem?->unit_price ?? 0);
+                    $resolved = $unitService->resolveUnit($itemId, $unitId !== null ? (int) $unitId : null);
+                    $unitId = $resolved?->unit_id ?? $unitId;
+                    $conversionFactor = (float) ($resolved?->conversion_factor ?? $existingItem?->conversion_factor ?? 1);
+                    $baseQuantity = $unitId
+                        ? $unitService->toBase($itemId, (int) $unitId, $quantity)
+                        : $quantity;
+
+                    if ($issueOrder) {
+                        $issueItem = $issuedItems->get($itemId);
+                        if (!$existingItem || !$issueItem) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'items' => ["لا يوجد صنف مطابق في إذن الصرف للصنف رقم {$itemId}."],
+                            ]);
+                        }
+
+                        $distributions = \App\Models\RepItemDistribution::where('issue_order_id', $issueOrder->id)
+                            ->where('item_id', $itemId)
+                            ->lockForUpdate()
+                            ->get();
+                        if ($distributions->isEmpty()) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'items' => ["تعذر تعديل مخزون المندوب للصنف رقم {$itemId} لعدم وجود سجل توزيع."],
+                            ]);
+                        }
+
+                        $oldBaseQuantity = (float) ($existingItem->base_quantity ?: $issueItem->base_quantity);
+                        $delta = $baseQuantity - $oldBaseQuantity;
+                        $soldAndReturned = (float) $distributions->sum('sold_qty')
+                            + (float) $distributions->sum('returned_qty');
+                        if ($baseQuantity + 0.0001 < $soldAndReturned) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'items' => ["لا يمكن تقليل كمية الصنف رقم {$itemId} عن الكمية المباعة أو المرتجعة."],
+                            ]);
+                        }
+
+                        if ($delta > 0) {
+                            $available = $this->getWarehouseStock((int) $loadRequest->warehouse_id, $itemId);
+                            if ($available + 0.0001 < $delta) {
+                                $itemName = \App\Models\Item::find($itemId)?->name_ar ?? "صنف #{$itemId}";
+                                throw \Illuminate\Validation\ValidationException::withMessages([
+                                    'items' => ["{$itemName}: المتاح في المخزن {$available}، والكمية الإضافية المطلوبة {$delta}."],
+                                ]);
+                            }
+                        }
+
+                        if (abs($delta) > 0.0001) {
+                            $stockChanges[] = [
+                                'item_id' => $itemId,
+                                'delta' => $delta,
+                                'unit_id' => $unitService->getBaseUnitId($itemId) ?? $unitId,
+                                'unit_price' => $unitPrice,
+                            ];
+                            $firstDistribution = $distributions->first();
+                            $firstDistribution->update([
+                                'loaded_qty' => (float) $firstDistribution->loaded_qty + $delta,
+                                'remaining_qty' => max(
+                                    0,
+                                    (float) $firstDistribution->remaining_qty + $delta
+                                ),
+                            ]);
+                        }
+
+                        $existingItem->update([
+                            'quantity' => $quantity,
+                            'base_quantity' => $baseQuantity,
+                            'unit_id' => $unitId,
+                            'conversion_factor' => $conversionFactor,
+                            'unit_price' => $unitPrice,
+                            'total_price' => $quantity * $unitPrice,
+                        ]);
+                        $issueItem->update([
+                            'requested_quantity' => $quantity,
+                            'issued_quantity' => $quantity,
+                            'base_quantity' => $baseQuantity,
+                            'unit_id' => $unitId,
+                            'conversion_factor' => $conversionFactor,
+                            'total_amount' => $quantity * $unitPrice,
+                        ]);
+                    } elseif ($existingItem) {
+                        $existingItem->update([
+                            'quantity' => $quantity,
+                            'base_quantity' => $baseQuantity,
+                            'unit_id' => $unitId,
+                            'conversion_factor' => $conversionFactor,
+                            'unit_price' => $unitPrice,
+                            'total_price' => $quantity * $unitPrice,
+                        ]);
+                    } else {
+                        \App\Models\LoadRequestItem::create([
+                            'load_request_id' => $loadRequest->id,
+                            'item_id' => $itemId,
+                            'unit_id' => $unitId,
+                            'quantity' => $quantity,
+                            'base_quantity' => $baseQuantity,
+                            'conversion_factor' => $conversionFactor,
+                            'unit_price' => $unitPrice,
+                            'total_price' => $quantity * $unitPrice,
+                        ]);
+                    }
+                }
+
+                if (!$issueOrder) {
+                    $submittedIds = collect($items)->pluck('item_id')->map(fn ($id) => (int) $id)->all();
+                    $loadRequest->items()->whereNotIn('item_id', $submittedIds)->delete();
+                }
+            }
+
+            $loadRequest->update($data);
             $loadRequest->refresh()->load('items');
             $totalQty = (float) $loadRequest->items->sum('quantity');
             $totalAmount = (float) $loadRequest->items->sum('total_price');
-            $totalItems = $loadRequest->items->count();
             $loadRequest->update([
                 'total_quantity' => $totalQty,
                 'total_amount' => $totalAmount,
-                'total_items_count' => $totalItems,
+                'total_items_count' => $loadRequest->items->count(),
             ]);
-        }
+
+            if ($issueOrder) {
+                $issueOrder->update([
+                    'total_quantity' => $totalQty,
+                    'total_amount' => $totalAmount,
+                    'total_items_count' => $loadRequest->items->count(),
+                ]);
+                $this->recordLoadOrderStockChanges($request, $loadRequest, $issueOrder, $stockChanges);
+            }
+        });
 
         return response()->json($loadRequest->load(['items.item', 'employee', 'warehouse']));
+    }
+
+    private function recordLoadOrderStockChanges(
+        Request $request,
+        LoadRequest $loadRequest,
+        \App\Models\IssueOrder $issueOrder,
+        array $changes
+    ): void {
+        foreach ([
+            'out' => array_filter($changes, fn ($change) => $change['delta'] > 0),
+            'in' => array_filter($changes, fn ($change) => $change['delta'] < 0),
+        ] as $direction => $items) {
+            if (empty($items)) {
+                continue;
+            }
+
+            $isStockOut = $direction === 'out';
+            $code = $isStockOut ? 'ISSUE_ORDER' : 'LOAD_ORDER_ADJUSTMENT_IN';
+            $type = \App\Models\InventoryTransactionType::firstOrCreate(
+                ['code' => $code],
+                [
+                    'name' => $isStockOut ? 'أمر صرف' : 'تعديل أمر تحميل - وارد',
+                    'effect' => $isStockOut ? 'subtraction' : 'addition',
+                    'is_active' => true,
+                ]
+            );
+            $transaction = \App\Models\InventoryTransaction::create([
+                'company_id' => $loadRequest->company_id,
+                'branch_id' => $loadRequest->branch_id,
+                'transaction_type_id' => $type->id,
+                'warehouse_id' => $loadRequest->warehouse_id,
+                'transaction_no' => \App\Models\InventoryTransaction::nextTransactionNo($loadRequest->company_id),
+                'transaction_date' => now()->toDateString(),
+                'transaction_time' => now()->format('H:i:s'),
+                'reference_type' => \App\Models\IssueOrder::class,
+                'reference_id' => $issueOrder->id,
+                'notes' => "تعديل كمية أمر التحميل {$loadRequest->request_no}",
+                'status' => 'posted',
+                'created_by' => $request->user()?->id,
+            ]);
+
+            foreach ($items as $change) {
+                $delta = (float) $change['delta'];
+                $qty = abs($delta);
+                $price = (float) $change['unit_price'];
+                \App\Models\InventoryTransactionItem::create([
+                    'inventory_transaction_id' => $transaction->id,
+                    'item_id' => $change['item_id'],
+                    'unit_id' => $change['unit_id'],
+                    'conversion_factor' => 1,
+                    'qty' => $isStockOut ? -$qty : $qty,
+                    'unit_cost' => $price,
+                    'total_cost' => $qty * $price,
+                    'from_location_type' => $isStockOut ? 'warehouse' : 'rep',
+                    'from_location_id' => $isStockOut ? $loadRequest->warehouse_id : $loadRequest->user_id,
+                    'to_location_type' => $isStockOut ? 'rep' : 'warehouse',
+                    'to_location_id' => $isStockOut ? $loadRequest->user_id : $loadRequest->warehouse_id,
+                ]);
+            }
+        }
     }
 
     /**

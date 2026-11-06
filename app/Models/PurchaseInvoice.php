@@ -86,6 +86,18 @@ class PurchaseInvoice extends Document
         $this->syncStock($items);
     }
 
+    public function cancel(): static
+    {
+        if ($this->status !== 'partial') {
+            return parent::cancel();
+        }
+
+        $this->onCancel();
+        $this->update(['status' => static::STATUS_CANCELLED]);
+
+        return $this;
+    }
+
     // ─── Stock Sync ─────────────────────────────────────────
 
     private function syncStock(array $items): void
@@ -175,6 +187,10 @@ class PurchaseInvoice extends Document
 
     public function receiveQuantities(array $received): void
     {
+        if ($this->isCancelled()) {
+            throw new \DomainException('لا يمكن استلام فاتورة مشتريات ملغاة');
+        }
+
         $this->load('items');
 
         foreach ($this->items as $item) {

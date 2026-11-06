@@ -44,7 +44,11 @@ class TreasuryTransactionController extends Controller
             });
         }
 
-        $transactions = $query->latest('transaction_date')->paginate($request->get('per_page', 15));
+        // ترتيب: الأحدث أولاً حسب التاريخ ثم وقت الإنشاء (لضبط الترتيب داخل نفس اليوم)
+        $transactions = $query->latest('transaction_date')
+            ->latest('created_at')
+            ->latest('id')
+            ->paginate($request->get('per_page', 15));
 
         // إضافة اسم المندوب ورقم المرجع للمعاملات المرتبطة بتسوية يومية
         $transactions->getCollection()->transform(function ($txn) {

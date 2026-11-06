@@ -1688,6 +1688,119 @@ class ReportController extends Controller
     }
 
     /**
+     * GET /api/reports/daily-stock-value
+     * قيمة المخزون اليومية (قيمة نهاية كل يوم) = مجموع (صافي كمية الصنف × تكلفته)
+     * - الكمية تُجمع من حركات المخزون المرحلة بإشارتها (مثل الداشبورد) حتى تاريخ اليوم
+     * - الكمية السالبة (إن وُجدت) لا تُخصم من القيمة حتى لا تكون القيمة بالسالب
+     * - يعيد: قيمة المخزون قبل date_from + قيمة كل يوم داخل النطاق
+     */
+    public function dailyStockValue(Request $request)
+    {
+        $request->validate([
+            'date_from' => 'required|date',
+            'date_to'   => 'required|date|after_or_equal:date_from',
+        ]);
+
+        $companyId = $request->user()->company_id;
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        // تكلفة الصنف: سعر الشراء الافتراضي ثم آخر تكلفة مسجلة (نفس منطق الداشبورد)
+        $purchasePrices = DB::table('item_units')
+            ->where('is_default', true)
+            ->whereNull('deleted_at')
+            ->where('purchase_price', '>', 0)
+            ->groupBy('item_id')
+            ->pluck('purchase_price', 'item_id');
+
+        $fallbackCosts = DB::table('inventory_transaction_items as iti')
+            ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
+            ->where('it.company_id', $companyId)
+            ->where('it.status', 'posted')
+            ->where('iti.unit_cost', '>', 0)
+            ->groupBy('iti.item_id')
+            ->select(DB::raw('MAX(iti.unit_cost) as cost'), 'iti.item_id')
+            ->pluck('cost', 'iti.item_id');
+
+        $costOf = function ($itemId) use ($purchasePrices, $fallbackCosts) {
+            return (float) ($purchasePrices[$itemId] ?? $fallbackCosts[$itemId] ?? 0);
+        };
+
+        // صافي كمية كل صنف قبل بداية الفترة
+        $qtyMap = [];
+        $priorRows = DB::table('inventory_transaction_items as iti')
+            ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
+            ->where('it.company_id', $companyId)
+            ->where('it.status', 'posted')
+            ->whereDate('it.transaction_date', '<', $dateFrom)
+            ->groupBy('iti.item_id')
+            ->select('iti.item_id', DB::raw('SUM(COALESCE(iti.qty, 0)) as qty'))
+            ->get();
+        foreach ($priorRows as $row) {
+            $qtyMap[$row->item_id] = (float) $row->qty;
+        }
+
+        $valueOfMap = function (array $map) use ($costOf) {
+            $value = 0.0;
+            foreach ($map as $itemId => $qty) {
+                if ($qty > 0) {
+                    $value += $qty * $costOf($itemId);
+                }
+            }
+            return $value;
+        };
+
+        $openingValue = $valueOfMap($qtyMap);
+
+        // حركات الفترة مجمعة يوميًا (صافي إشارة كل صنف في كل يوم)
+        $dailyRows = DB::table('inventory_transaction_items as iti')
+            ->join('inventory_transactions as it', 'it.id', '=', 'iti.inventory_transaction_id')
+            ->where('it.company_id', $companyId)
+            ->where('it.status', 'posted')
+            ->whereDate('it.transaction_date', '>=', $dateFrom)
+            ->whereDate('it.transaction_date', '<=', $dateTo)
+            ->groupBy('iti.item_id', DB::raw('DATE(it.transaction_date)'))
+            ->select(
+                'iti.item_id',
+                DB::raw('DATE(it.transaction_date) as day'),
+                DB::raw('SUM(COALESCE(iti.qty, 0)) as qty')
+            )
+            ->get();
+
+        $byDay = [];
+        foreach ($dailyRows as $row) {
+            $byDay[$row->day][$row->item_id] = (float) $row->qty;
+        }
+
+        // التقدم يومًا بيوم وحساب القيمة (بدون إعادة بناء عكسية → لا قيم سالبة)
+        $days = [];
+        $value = $openingValue;
+        $current = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
+        $end = Carbon::createFromFormat('Y-m-d', $dateTo)->startOfDay();
+        while ($current->lte($end)) {
+            $dayStr = $current->toDateString();
+            foreach ($byDay[$dayStr] ?? [] as $itemId => $delta) {
+                $oldQty = $qtyMap[$itemId] ?? 0.0;
+                $newQty = $oldQty + $delta;
+                $qtyMap[$itemId] = $newQty;
+                $cost = $costOf($itemId);
+                if ($cost > 0) {
+                    $value += (max($newQty, 0) - max($oldQty, 0)) * $cost;
+                }
+            }
+            $days[] = ['date' => $dayStr, 'value' => round($value, 2)];
+            $current->addDay();
+        }
+
+        return response()->json([
+            'data' => [
+                'opening_value' => round($openingValue, 2),
+                'days'          => $days,
+            ],
+        ]);
+    }
+
+    /**
      * GET /api/reports/daily-product-sales
      * تقرير مبيعات يومية بالصنف (كل يوم صف وكل صنف عمود)
      */

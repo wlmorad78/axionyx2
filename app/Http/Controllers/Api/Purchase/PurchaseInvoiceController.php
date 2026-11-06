@@ -135,17 +135,35 @@ class PurchaseInvoiceController extends Controller
      */
     public function update(Request $request, PurchaseInvoice $purchaseInvoice)
     {
+        if ($purchaseInvoice->status === 'cancelled') {
+            return response()->json(['message' => 'لا يمكن تعديل فاتورة ملغاة'], 422);
+        }
+
         $validated = $request->validate(ValidationRules::for('purchase_invoice', 'update', $purchaseInvoice));
         $items = $request->input('items');
 
-        DB::transaction(function () use ($purchaseInvoice, $validated, $items) {
-            if ($purchaseInvoice->isPosted()) {
-                $purchaseInvoice->reverseStock();
-            }
+        if (is_array($items) && count($items) === 0) {
+            return response()->json(['message' => 'يجب إرسال صنف واحد على الأقل'], 422);
+        }
 
+        if (is_array($items)) {
+            foreach ($items as $item) {
+                if (empty($item['item_id'])) {
+                    return response()->json(['message' => 'الصنف مطلوب في كل سطر'], 422);
+                }
+                if ((float) ($item['qty'] ?? 0) < 0) {
+                    return response()->json(['message' => 'الكمية غير الصحيحة'], 422);
+                }
+            }
+        }
+
+        DB::transaction(function () use ($purchaseInvoice, $validated, $items) {
             $purchaseInvoice->update($validated);
 
             if (is_array($items)) {
+                // Revert every stock movement tied to this invoice (posting + receiving)
+                // so it can be rebuilt from the new received quantities.
+                $purchaseInvoice->reverseStock();
                 $purchaseInvoice->items()->delete();
                 $unitService = app(\App\Services\UnitConversionService::class);
 
@@ -154,26 +172,33 @@ class PurchaseInvoiceController extends Controller
                     $enteredUnitId = $item['unit_id'] ?? null;
                     $enteredQty = (float) ($item['qty'] ?? 0);
 
-                    $resolved = $unitService->resolveUnit($itemId, $enteredUnitId);
+                    $resolved = $unitService->resolveUnit((int) $itemId, $enteredUnitId !== null ? (int) $enteredUnitId : null);
                     $unitId = $resolved?->unit_id ?? $enteredUnitId;
                     $conversionFactor = $resolved?->conversion_factor ?? 1;
-                    $qtyInBase = $unitService->toBase($itemId, $unitId, $enteredQty);
+                    $qtyInBase = $unitId !== null
+                        ? $unitService->toBase((int) $itemId, (int) $unitId, $enteredQty)
+                        : $enteredQty;
 
                     PurchaseInvoiceItem::create([
                         'purchase_invoice_id' => $purchaseInvoice->id,
                         'item_id' => $itemId,
                         'unit_id' => $unitId,
-                        'qty' => $item['qty'] ?? 0,
+                        'qty' => $enteredQty,
+                        // Keep (or apply) the received quantities so editing the
+                        // invoice does not wipe the receipt already registered.
+                        'received_qty' => max(0, (float) ($item['received_qty'] ?? 0)),
                         'conversion_factor' => $conversionFactor,
                         'base_quantity' => $qtyInBase,
                         'price' => $item['price'] ?? 0,
                         'discount_amount' => $item['discount_amount'] ?? 0,
                         'tax_amount' => $item['tax_amount'] ?? 0,
-                        'net_amount' => $item['net_amount'] ?? 0,
+                        'net_amount' => $item['net_amount'] ?? ($enteredQty * (float) ($item['price'] ?? 0)),
                     ]);
                 }
 
-                self::syncStock($purchaseInvoice, $items);
+                $purchaseInvoice->load('items');
+                self::syncReceivedStock($purchaseInvoice);
+                self::refreshStatus($purchaseInvoice);
             }
         });
 
