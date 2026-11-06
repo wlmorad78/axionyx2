@@ -163,6 +163,11 @@ class PurchaseInvoiceController extends Controller
             if (is_array($items)) {
                 // Revert every stock movement tied to this invoice (posting + receiving)
                 // so it can be rebuilt from the new received quantities.
+                $previousReceived = $purchaseInvoice->items()->get()
+                    ->keyBy('item_id')
+                    ->map(fn (PurchaseInvoiceItem $row) => (float) $row->received_qty);
+                $previousStock = $purchaseInvoice->stockQtyByItem();
+
                 $purchaseInvoice->reverseStock();
                 $purchaseInvoice->items()->delete();
                 $unitService = app(\App\Services\UnitConversionService::class);
@@ -179,6 +184,13 @@ class PurchaseInvoiceController extends Controller
                         ? $unitService->toBase((int) $itemId, (int) $unitId, $enteredQty)
                         : $enteredQty;
 
+                    // Keep the receipt already registered when the client does not send it,
+                    // and never keep more than the new quantity (the stock follows it).
+                    $receivedQty = array_key_exists('received_qty', $item)
+                        ? (float) $item['received_qty']
+                        : (float) ($previousReceived[$itemId] ?? 0);
+                    $receivedQty = min(max(0, $receivedQty), $enteredQty);
+
                     PurchaseInvoiceItem::create([
                         'purchase_invoice_id' => $purchaseInvoice->id,
                         'item_id' => $itemId,
@@ -186,7 +198,7 @@ class PurchaseInvoiceController extends Controller
                         'qty' => $enteredQty,
                         // Keep (or apply) the received quantities so editing the
                         // invoice does not wipe the receipt already registered.
-                        'received_qty' => max(0, (float) ($item['received_qty'] ?? 0)),
+                        'received_qty' => $receivedQty,
                         'conversion_factor' => $conversionFactor,
                         'base_quantity' => $qtyInBase,
                         'price' => $item['price'] ?? 0,
@@ -197,8 +209,8 @@ class PurchaseInvoiceController extends Controller
                 }
 
                 $purchaseInvoice->load('items');
-                self::syncReceivedStock($purchaseInvoice);
-                self::refreshStatus($purchaseInvoice);
+                $purchaseInvoice->rebuildStockFromReceived($previousStock);
+                $purchaseInvoice->refreshStatusFromItems();
             }
         });
 

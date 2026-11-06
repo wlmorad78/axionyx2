@@ -183,6 +183,159 @@ class PurchaseInvoice extends Document
         }
     }
 
+    /**
+     * مجموع كمية المخزون المسجّلة على الفاتورة لكل صنف قبل ربط حركاتها.
+     * تُستخدم عند التعديل حتى لا يضيع مخزون فاتورة لا تملك استلامًا مسجّلًا.
+     *
+     * @return array<int, float>
+     */
+    public function stockQtyByItem(): array
+    {
+        $txns = InventoryTransaction::where('reference_type', PurchaseInvoice::class)
+            ->where('reference_id', $this->id)
+            ->whereNull('deleted_at')
+            ->pluck('id');
+
+        if ($txns->isEmpty()) {
+            return [];
+        }
+
+        return InventoryTransactionItem::whereIn('inventory_transaction_id', $txns)
+            ->get()
+            ->groupBy('item_id')
+            ->mapWithKeys(fn ($rows, $itemId) => [(int) $itemId => (float) $rows->sum('qty')])
+            ->all();
+    }
+
+    /**
+     * إعادة بناء حركات المخزون للفاتورة بعد تعديلها من الكميات المستلمة.
+     * يجب استدعاؤها بعد reverseStock() وداخل نفس المعاملة.
+     *
+     * @param array<int, float> $previousStock مخزون كل صنف قبل التعديل، يُستخدم حين لا يوجد استلام مسجّل
+     */
+    public function rebuildStockFromReceived(array $previousStock = []): void
+    {
+        $this->load('items');
+
+        if ($this->isCancelled() || !$this->warehouse_id || $this->items->isEmpty()) {
+            return;
+        }
+
+        $type = InventoryTransactionType::firstWhere('code', 'PURCHASE_RECEIPT') ?? null;
+        if (!$type) {
+            $type = InventoryTransactionType::firstOrCreate(
+                ['code' => 'PURCHASE_RECEIPT'],
+                ['name' => 'Purchase Receipt', 'effect' => 'addition', 'is_active' => true]
+            );
+        }
+
+        $unitService = app(UnitConversionService::class);
+        $lines = [];
+
+        foreach ($this->items as $item) {
+            $received = (float) $item->received_qty;
+            $enteredUnitId = $item->unit_id ?? null;
+
+            if ($received > 0) {
+                $resolved = $unitService->resolveUnit(
+                    (int) $item->item_id,
+                    $enteredUnitId !== null ? (int) $enteredUnitId : null
+                );
+                $unitId = $resolved?->unit_id ?? $enteredUnitId;
+                $conversionFactor = $resolved?->conversion_factor ?? 1;
+                $qtyInBase = $unitId !== null
+                    ? $unitService->toBase((int) $item->item_id, (int) $unitId, $received)
+                    : $received;
+            } else {
+                // فاتورة بلا استلام مسجّل: نحافظ على المخزون القائم بدل حذفه
+                $unitId = $enteredUnitId;
+                $conversionFactor = (float) ($item->conversion_factor ?: 1);
+                $qtyInBase = (float) ($previousStock[$item->item_id] ?? 0);
+            }
+
+            if ($qtyInBase <= 0) {
+                continue;
+            }
+
+            $lines[] = [
+                'item_id'          => $item->item_id,
+                'unit_id'          => $unitId,
+                'conversion_factor' => $conversionFactor,
+                'qty'              => $qtyInBase,
+                'unit_cost'        => (float) $item->price,
+            ];
+        }
+
+        if (empty($lines)) {
+            return;
+        }
+
+        Log::info('PurchaseInvoice rebuildStockFromReceived', [
+            'invoice_id' => $this->id,
+            'invoice_no' => $this->invoice_no,
+            'lines'      => count($lines),
+        ]);
+
+        $txn = InventoryTransaction::create([
+            'company_id' => $this->company_id,
+            'branch_id' => $this->branch_id,
+            'transaction_type_id' => $type->id,
+            'warehouse_id' => $this->warehouse_id,
+            'transaction_no' => InventoryTransaction::nextTransactionNo($this->company_id),
+            'transaction_date' => $this->invoice_date,
+            'transaction_time' => now()->format('H:i:s'),
+            'reference_type' => PurchaseInvoice::class,
+            'reference_id' => $this->id,
+            'notes' => "فاتورة مشتريات رقم {$this->invoice_no}",
+            'status' => 'posted',
+            'created_by' => $this->created_by,
+        ]);
+
+        foreach ($lines as $line) {
+            InventoryTransactionItem::create([
+                'inventory_transaction_id' => $txn->id,
+                'item_id' => $line['item_id'],
+                'unit_id' => $line['unit_id'],
+                'conversion_factor' => $line['conversion_factor'],
+                'qty' => $line['qty'],
+                'unit_cost' => $line['unit_cost'],
+                'total_cost' => round($line['qty'] * $line['unit_cost'], 2),
+                'from_location_type' => 'supplier',
+                'from_location_id'   => $this->supplier_id,
+                'to_location_type'   => 'warehouse',
+                'to_location_id'     => $this->warehouse_id,
+            ]);
+        }
+    }
+
+    /**
+     * إعادة حساب حالة الفاتورة من الكميات المستلمة بعد تعديلها.
+     * فاتورة بلا استلام مسجّل تُبقي حالتها الحالية حتى لا تُخفَّض بلا سبب.
+     */
+    public function refreshStatusFromItems(): void
+    {
+        if ($this->isCancelled()) {
+            return;
+        }
+
+        $this->load('items');
+
+        if ($this->items->isEmpty()) {
+            return;
+        }
+
+        $allReceived = $this->items->every(
+            fn ($item) => (float) $item->qty > 0 && (float) $item->received_qty >= (float) $item->qty
+        );
+        $anyReceived = $this->items->contains(fn ($item) => (float) $item->received_qty > 0);
+
+        $status = $allReceived ? 'posted' : ($anyReceived ? 'partial' : null);
+
+        if ($status !== null && $this->status !== $status) {
+            $this->update(['status' => $status]);
+        }
+    }
+
     // ─── Receive Quantities ────────────────────────────────
 
     public function receiveQuantities(array $received): void
