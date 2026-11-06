@@ -199,16 +199,6 @@ class LoadRequestController extends Controller
             $unitService = app(\App\Services\UnitConversionService::class);
             $stockChanges = [];
 
-            if ($items !== null && $issueOrder) {
-                $existingIds = $requestItems->keys()->map(fn ($id) => (int) $id)->sort()->values();
-                $submittedIds = collect($items)->pluck('item_id')->map(fn ($id) => (int) $id)->sort()->values();
-                if ($existingIds->all() !== $submittedIds->all()) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'items' => ['بعد صرف الأمر لا يمكن إضافة أو حذف أصناف؛ يمكن تعديل كمياتها فقط.'],
-                    ]);
-                }
-            }
-
             if ($items !== null) {
                 foreach ($items as $itemData) {
                     $itemId = (int) $itemData['item_id'];
@@ -225,7 +215,7 @@ class LoadRequestController extends Controller
 
                     if ($issueOrder) {
                         $issueItem = $issuedItems->get($itemId);
-                        if (!$existingItem || !$issueItem) {
+                        if ($existingItem && !$issueItem) {
                             throw \Illuminate\Validation\ValidationException::withMessages([
                                 'items' => ["لا يوجد صنف مطابق في إذن الصرف للصنف رقم {$itemId}."],
                             ]);
@@ -235,10 +225,70 @@ class LoadRequestController extends Controller
                             ->where('item_id', $itemId)
                             ->lockForUpdate()
                             ->get();
-                        if ($distributions->isEmpty()) {
+                        if ($existingItem && $distributions->isEmpty()) {
                             throw \Illuminate\Validation\ValidationException::withMessages([
                                 'items' => ["تعذر تعديل مخزون المندوب للصنف رقم {$itemId} لعدم وجود سجل توزيع."],
                             ]);
+                        }
+
+                        if (!$existingItem) {
+                            if ($issueItem) {
+                                throw \Illuminate\Validation\ValidationException::withMessages([
+                                    'items' => ["يوجد سجل مخزون سابق للصنف رقم {$itemId}؛ تعذر إضافته مرة أخرى."],
+                                ]);
+                            }
+                            $available = $this->getWarehouseStock((int) $loadRequest->warehouse_id, $itemId);
+                            if ($available + 0.0001 < $baseQuantity) {
+                                $itemName = \App\Models\Item::find($itemId)?->name_ar ?? "صنف #{$itemId}";
+                                throw \Illuminate\Validation\ValidationException::withMessages([
+                                    'items' => ["{$itemName}: المتاح في المخزن {$available}، والكمية المطلوبة {$baseQuantity}."],
+                                ]);
+                            }
+
+                            $existingItem = \App\Models\LoadRequestItem::create([
+                                'load_request_id' => $loadRequest->id,
+                                'item_id' => $itemId,
+                                'unit_id' => $unitId,
+                                'quantity' => $quantity,
+                                'base_quantity' => $baseQuantity,
+                                'conversion_factor' => $conversionFactor,
+                                'unit_price' => $unitPrice,
+                                'total_price' => $quantity * $unitPrice,
+                            ]);
+                            $issueItem = \App\Models\IssueOrderItem::create([
+                                'issue_order_id' => $issueOrder->id,
+                                'item_id' => $itemId,
+                                'unit_id' => $unitId,
+                                'conversion_factor' => $conversionFactor,
+                                'base_quantity' => $baseQuantity,
+                                'requested_quantity' => $quantity,
+                                'issued_quantity' => $quantity,
+                                'purchase_price' => $unitPrice,
+                                'sales_price' => $unitPrice,
+                                'total_amount' => $quantity * $unitPrice,
+                            ]);
+                            \App\Models\RepItemDistribution::create([
+                                'company_id' => $loadRequest->company_id,
+                                'employee_id' => $loadRequest->employee_id,
+                                'user_id' => $loadRequest->user_id,
+                                'item_id' => $itemId,
+                                'issue_order_id' => $issueOrder->id,
+                                'loaded_qty' => $baseQuantity,
+                                'sold_qty' => 0,
+                                'returned_qty' => 0,
+                                'remaining_qty' => $baseQuantity,
+                                'unit_price' => $unitPrice,
+                                'status' => 'active',
+                            ]);
+                            $stockChanges[] = [
+                                'item_id' => $itemId,
+                                'delta' => $baseQuantity,
+                                'unit_id' => $unitService->getBaseUnitId($itemId) ?? $unitId,
+                                'unit_price' => $unitPrice,
+                            ];
+                            $requestItems->put($itemId, $existingItem);
+                            $issuedItems->put($itemId, $issueItem);
+                            continue;
                         }
 
                         $oldBaseQuantity = (float) ($existingItem->base_quantity ?: $issueItem->base_quantity);
@@ -317,8 +367,55 @@ class LoadRequestController extends Controller
                     }
                 }
 
-                if (!$issueOrder) {
-                    $submittedIds = collect($items)->pluck('item_id')->map(fn ($id) => (int) $id)->all();
+                $submittedIds = collect($items)->pluck('item_id')->map(fn ($id) => (int) $id)->all();
+                if ($issueOrder) {
+                    $removedItems = $requestItems->reject(
+                        fn ($item, $itemId) => in_array((int) $itemId, $submittedIds, true)
+                    );
+                    foreach ($removedItems as $itemId => $removedItem) {
+                        $issueItem = $issuedItems->get($itemId);
+                        $distributions = \App\Models\RepItemDistribution::where('issue_order_id', $issueOrder->id)
+                            ->where('item_id', $itemId)
+                            ->lockForUpdate()
+                            ->get();
+                        if ($distributions->isEmpty()) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'items' => ["تعذر حذف الصنف رقم {$itemId} لعدم اكتمال سجلات الصرف والتوزيع."],
+                            ]);
+                        }
+                        $remainingQuantity = (float) $distributions->sum('remaining_qty');
+                        if ($distributions->contains(
+                            fn ($distribution) =>
+                                (float) $distribution->remaining_qty >
+                                (float) $distribution->loaded_qty + 0.0001
+                        )) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'items' => ["تعذر حذف الصنف رقم {$itemId} لوجود اختلاف في رصيد التوزيع."],
+                            ]);
+                        }
+
+                        if ($remainingQuantity > 0.0001) {
+                            $stockChanges[] = [
+                                'item_id' => $itemId,
+                                'delta' => -$remainingQuantity,
+                                'unit_id' => $unitService->getBaseUnitId($itemId) ?? $removedItem->unit_id,
+                                'unit_price' => (float) $removedItem->unit_price,
+                            ];
+                        }
+                        foreach ($distributions as $distribution) {
+                            $distribution->update([
+                                'loaded_qty' => max(
+                                    0,
+                                    (float) $distribution->loaded_qty
+                                        - (float) $distribution->remaining_qty
+                                ),
+                                'remaining_qty' => 0,
+                            ]);
+                        }
+                        $issueItem?->delete();
+                        $removedItem->delete();
+                    }
+                } else {
                     $loadRequest->items()->whereNotIn('item_id', $submittedIds)->delete();
                 }
             }

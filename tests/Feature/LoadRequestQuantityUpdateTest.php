@@ -215,7 +215,116 @@ class LoadRequestQuantityUpdateTest extends TestCase
         $this->assertSame(8.0, (float) DB::table('issue_order_items')->where('issue_order_id', $issueOrderId)->value('issued_quantity'));
         $this->assertSame(8.0, (float) DB::table('rep_item_distributions')->where('issue_order_id', $issueOrderId)->value('loaded_qty'));
         $this->assertSame(4.0, (float) DB::table('rep_item_distributions')->where('issue_order_id', $issueOrderId)->value('remaining_qty'));
-        $this->assertSame(42.0, (float) DB::table('inventory_transaction_items')->sum('qty'));
+        $this->assertSame(42.0, (float) DB::table('inventory_transaction_items')
+            ->where('item_id', $itemId)
+            ->sum('qty'));
+
+        $addedItemId = DB::table('items')->insertGetId([
+            'company_id' => $companyId,
+            'code' => 'IA' . uniqid(),
+            'name_ar' => 'صنف إضافي للاختبار',
+            'base_unit_id' => $unitId,
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $openingTransactionId = DB::table('inventory_transactions')->insertGetId([
+            'company_id' => $companyId,
+            'branch_id' => $branchId,
+            'transaction_type_id' => $additionTypeId,
+            'warehouse_id' => $warehouseId,
+            'transaction_no' => 'T' . uniqid(),
+            'transaction_date' => $now->toDateString(),
+            'transaction_time' => $now->format('H:i:s'),
+            'status' => 'posted',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('inventory_transaction_items')->insert([
+            'inventory_transaction_id' => $openingTransactionId,
+            'item_id' => $addedItemId,
+            'unit_id' => $unitId,
+            'conversion_factor' => 1,
+            'qty' => 20,
+            'unit_cost' => 2,
+            'total_cost' => 40,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $addItemResponse = app(LoadRequestController::class)->update(
+            Request::create('/api/load-requests/' . $loadRequestId, 'PATCH', [
+                'items' => [
+                    [
+                        'item_id' => $itemId,
+                        'quantity' => 8,
+                        'unit_id' => $unitId,
+                        'unit_price' => 2,
+                    ],
+                    [
+                        'item_id' => $addedItemId,
+                        'quantity' => 5,
+                        'unit_id' => $unitId,
+                        'unit_price' => 2,
+                    ],
+                ],
+            ]),
+            LoadRequest::findOrFail($loadRequestId)
+        );
+        $this->assertSame(200, $addItemResponse->getStatusCode());
+        $this->assertDatabaseHas('load_request_items', [
+            'load_request_id' => $loadRequestId,
+            'item_id' => $addedItemId,
+            'quantity' => 5,
+            'deleted_at' => null,
+        ]);
+        $this->assertDatabaseHas('issue_order_items', [
+            'issue_order_id' => $issueOrderId,
+            'item_id' => $addedItemId,
+            'issued_quantity' => 5,
+            'deleted_at' => null,
+        ]);
+        $this->assertDatabaseHas('rep_item_distributions', [
+            'issue_order_id' => $issueOrderId,
+            'item_id' => $addedItemId,
+            'loaded_qty' => 5,
+            'remaining_qty' => 5,
+            'deleted_at' => null,
+        ]);
+        $this->assertSame(15.0, (float) DB::table('inventory_transaction_items')
+            ->where('item_id', $addedItemId)
+            ->sum('qty'));
+
+        $removeItemResponse = app(LoadRequestController::class)->update(
+            Request::create('/api/load-requests/' . $loadRequestId, 'PATCH', [
+                'items' => [[
+                    'item_id' => $itemId,
+                    'quantity' => 8,
+                    'unit_id' => $unitId,
+                    'unit_price' => 2,
+                ]],
+            ]),
+            LoadRequest::findOrFail($loadRequestId)
+        );
+        $this->assertSame(200, $removeItemResponse->getStatusCode());
+        $this->assertSoftDeleted('load_request_items', [
+            'load_request_id' => $loadRequestId,
+            'item_id' => $addedItemId,
+        ]);
+        $this->assertSoftDeleted('issue_order_items', [
+            'issue_order_id' => $issueOrderId,
+            'item_id' => $addedItemId,
+        ]);
+        $this->assertDatabaseHas('rep_item_distributions', [
+            'issue_order_id' => $issueOrderId,
+            'item_id' => $addedItemId,
+            'loaded_qty' => 0,
+            'remaining_qty' => 0,
+            'deleted_at' => null,
+        ]);
+        $this->assertSame(20.0, (float) DB::table('inventory_transaction_items')
+            ->where('item_id', $addedItemId)
+            ->sum('qty'));
 
         try {
             app(LoadRequestController::class)->update(
@@ -234,7 +343,34 @@ class LoadRequestQuantityUpdateTest extends TestCase
             $this->assertArrayHasKey('items', $error->errors());
         }
 
-        $this->assertSame(8.0, (float) DB::table('load_request_items')->where('id', $loadItemId)->value('quantity'));
-        $this->assertSame(42.0, (float) DB::table('inventory_transaction_items')->sum('qty'));
+        $removeUsedItemResponse = app(LoadRequestController::class)->update(
+            Request::create('/api/load-requests/' . $loadRequestId, 'PATCH', [
+                'items' => [[
+                    'item_id' => $addedItemId,
+                    'quantity' => 5,
+                    'unit_id' => $unitId,
+                    'unit_price' => 2,
+                ]],
+            ]),
+            LoadRequest::findOrFail($loadRequestId)
+        );
+        $this->assertSame(200, $removeUsedItemResponse->getStatusCode());
+        $this->assertSoftDeleted('load_request_items', ['id' => $loadItemId]);
+        $this->assertSoftDeleted('issue_order_items', [
+            'issue_order_id' => $issueOrderId,
+            'item_id' => $itemId,
+        ]);
+        $this->assertDatabaseHas('rep_item_distributions', [
+            'issue_order_id' => $issueOrderId,
+            'item_id' => $itemId,
+            'loaded_qty' => 4,
+            'sold_qty' => 3,
+            'returned_qty' => 1,
+            'remaining_qty' => 0,
+            'deleted_at' => null,
+        ]);
+        $this->assertSame(46.0, (float) DB::table('inventory_transaction_items')
+            ->where('item_id', $itemId)
+            ->sum('qty'));
     }
 }
